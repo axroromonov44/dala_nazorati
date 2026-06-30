@@ -1,0 +1,58 @@
+{
+  "@@locale": "en",
+  "appTitle": "Field Monitor",
+  "loginTitle": "Sign In",
+  "loginSubtitle": "Enter your credentials to continue",
+  "phoneLabel": "Phone number",
+  "passwordLabel": "Password",
+  "loginButton": "Sign In",
+  "phoneRequired": "Please enter your phone number",
+  "passwordMinLength": "Minimum 6 characters required",
+  "locationLoading": "Detecting location...",
+  "retry": "Try again",
+  "locationError": "Could not determine location",
+  "accuracy": "Accuracy: {meters} m",
+  "@accuracy": {
+    "placeholders": {
+      "meters": { "type": "String" }
+    }
+  },
+  "fakeGpsTitle": "Fake GPS Detected!",
+  "fakeGpsDescription": "The app detected a fake location provider. Please disable it to continue.",
+  "fakeGpsStep1": "Open your phone Settings",
+  "fakeGpsStep2": "Developer options → Disable mock location",
+  "fakeGpsStep3": "Return to the app and try again",
+  "fakeGpsRetry": "Check again",
+
+  "mapTitle": "Map",
+  "noInternet": "No internet connection",
+  "languageLabel": "Language",
+  "darkMode": "Dark mode",
+  "lightMode": "Light mode",
+
+  "drawField": "Draw field",
+  "drawHint": "Tap on map to add point  •  {count} points",
+  "@drawHint": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "minPointsRequired": "Add at least 3 points",
+  "cancel": "Cancel",
+  "done": "Done",
+  "deleteLabel": "Delete",
+  "redraw": "Redraw",
+  "coordinates": "Coordinates",
+  "coordinatesCopied": "Coordinates copied",
+  "copyLabel": "Copy",
+  "deleteField": "Delete field",
+  "close": "Close",
+  "fieldCorners": "Field corners ({count} points)",
+  "@fieldCorners": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "latitude": "Latitude",
+  "longitude": "Longitude"
+}

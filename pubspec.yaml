@@ -1,0 +1,82 @@
+name: dala_nazorati
+description: "Dala nazorati - field monitoring application"
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.11.4
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  intl: any
+
+  # DI
+  get_it: ^8.0.3
+  injectable: ^2.5.0
+
+  # State management
+  flutter_bloc: ^9.1.1
+  bloc: ^9.0.0
+  equatable: ^2.0.5
+
+  # Network
+  dio: ^5.8.0+1
+  pretty_dio_logger: ^1.4.0
+
+  # Navigation
+  go_router: ^14.6.3
+
+  # Secure token storage
+  flutter_secure_storage: ^9.2.4
+
+  # Offline storage
+  hive_flutter: ^1.1.0
+
+  # Connectivity
+  connectivity_plus: ^6.1.4
+
+  # Firebase
+  firebase_core: ^3.13.1
+  firebase_auth: ^5.5.4
+  cloud_firestore: ^5.6.9
+
+  # Free map - OpenStreetMap (no API key needed)
+  flutter_map: ^7.0.2
+  latlong2: ^0.9.1
+
+  # Location / GPS
+  geolocator: ^13.0.2
+
+  # Code generation annotations
+  json_annotation: ^4.9.0
+
+  # OTA updates (no store release needed)
+  shorebird_code_push: ^2.0.6
+
+  cupertino_icons: ^1.0.8
+  flutter_map_cache: ^1.5.2
+  dio_cache_interceptor: ^3.5.1
+  dio_cache_interceptor_hive_store: ^4.0.0
+  path_provider: ^2.1.6
+  flutter_native_splash: ^2.4.7
+  easy_localization: ^3.0.8
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+  build_runner: ^2.4.15
+  injectable_generator: ^2.7.0
+  json_serializable: ^6.9.5
+
+flutter:
+  generate: false
+  uses-material-design: true
+  assets:
+    - assets/images/
+    - assets/translations/
+    - shorebird.yaml
