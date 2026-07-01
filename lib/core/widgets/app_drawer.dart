@@ -19,15 +19,13 @@ class AppDrawer extends StatelessWidget {
     final isDark = themeMode == ThemeMode.dark;
     final colorScheme = Theme.of(context).colorScheme;
     final hPad = context.spaceLg;
-    final avatarRadius = context.rs(32.0, 44.0);
-    final avatarIconSize = context.rs(36.0, 50.0);
+    final avatarIconSize = context.rs(66.0, 66.0);
 
     return Drawer(
       width: context.rs(304.0, 360.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // ── Header ──────────────────────────────────────────────
           Container(
             color: kGreen,
             padding: EdgeInsets.fromLTRB(
@@ -39,19 +37,15 @@ class AppDrawer extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                CircleAvatar(
-                  radius: avatarRadius,
-                  backgroundColor: kWhite,
-                  child: Image.asset(
-                    'assets/images/main_logo.png',
-                    width: avatarIconSize,
-                    height: avatarIconSize,
-                    fit: BoxFit.contain,
-                    errorBuilder: (ctx, e, s) => Icon(
-                      Icons.grass_rounded,
-                      color: kGreen,
-                      size: avatarIconSize,
-                    ),
+                Image.asset(
+                  'assets/images/main_logo.png',
+                  width: avatarIconSize,
+                  height: avatarIconSize,
+                  fit: BoxFit.cover,
+                  errorBuilder: (ctx, e, s) => Icon(
+                    Icons.grass_rounded,
+                    color: kGreen,
+                    size: avatarIconSize,
                   ),
                 ),
                 SizedBox(height: context.spaceSm),
@@ -68,8 +62,6 @@ class AppDrawer extends StatelessWidget {
           ),
 
           SizedBox(height: context.spaceMd),
-
-          // ── Til ─────────────────────────────────────────────────
           Padding(
             padding: EdgeInsets.symmetric(horizontal: hPad),
             child: _SectionLabel('languageLabel'.tr()),
@@ -83,8 +75,6 @@ class AppDrawer extends StatelessWidget {
           SizedBox(height: context.spaceLg),
           Divider(indent: hPad, endIndent: hPad, color: colorScheme.outlineVariant),
           SizedBox(height: context.spaceSm),
-
-          // ── Ilova rejimi ─────────────────────────────────────────
           Padding(
             padding: EdgeInsets.symmetric(horizontal: hPad),
             child: _SectionLabel('appMode'.tr()),
@@ -94,16 +84,11 @@ class AppDrawer extends StatelessWidget {
             padding: EdgeInsets.symmetric(horizontal: hPad),
             child: _ThemeSwitchTile(isDark: isDark),
           ),
-
           const Spacer(),
-
-          // ── Logout ───────────────────────────────────────────────
           Padding(
             padding: EdgeInsets.fromLTRB(hPad, 0, hPad, context.spaceSm),
-            child: const _LogoutButton(),
+            child: _LogoutButton(),
           ),
-
-          // ── Version ──────────────────────────────────────────────
           Padding(
             padding: EdgeInsets.only(bottom: context.spaceMd),
             child: Text(
@@ -121,10 +106,6 @@ class AppDrawer extends StatelessWidget {
   }
 }
 
-// ──────────────────────────────────────────────────────────────────────────────
-// Section label
-// ──────────────────────────────────────────────────────────────────────────────
-
 class _SectionLabel extends StatelessWidget {
   const _SectionLabel(this.text);
   final String text;
@@ -140,10 +121,6 @@ class _SectionLabel extends StatelessWidget {
         ),
       );
 }
-
-// ──────────────────────────────────────────────────────────────────────────────
-// Language dropdown
-// ──────────────────────────────────────────────────────────────────────────────
 
 class _LanguageDropdown extends StatelessWidget {
   const _LanguageDropdown();
@@ -209,10 +186,6 @@ class _LanguageDropdown extends StatelessWidget {
     );
   }
 }
-
-// ──────────────────────────────────────────────────────────────────────────────
-// Theme switch tile
-// ──────────────────────────────────────────────────────────────────────────────
 
 class _ThemeSwitchTile extends StatelessWidget {
   const _ThemeSwitchTile({required this.isDark});
@@ -307,10 +280,6 @@ class _MiniSwitch extends StatelessWidget {
     );
   }
 }
-
-// ──────────────────────────────────────────────────────────────────────────────
-// Logout button
-// ──────────────────────────────────────────────────────────────────────────────
 
 class _LogoutButton extends StatelessWidget {
   const _LogoutButton();

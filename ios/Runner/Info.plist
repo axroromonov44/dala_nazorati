@@ -2,10 +2,25 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 	<dict>
+		<!-- Location -->
 		<key>NSLocationWhenInUseUsageDescription</key>
 		<string>Ilovamiz sizning joylashuvingizni xaritada ko'rsatish uchun foydalanadi</string>
 		<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 		<string>Ilovamiz sizning joylashuvingizni kuzatib borish uchun foydalanadi</string>
+
+		<!-- Camera -->
+		<key>NSCameraUsageDescription</key>
+		<string>Monitoring davomida maydon rasmlarini olish uchun kameraga ruxsat kerak</string>
+
+		<!-- Photo Library -->
+		<key>NSPhotoLibraryUsageDescription</key>
+		<string>Monitoring uchun galereyadan mavjud rasmlarni tanlash uchun ruxsat kerak</string>
+		<key>NSPhotoLibraryAddUsageDescription</key>
+		<string>Olingan maydon rasmlarini foto kutubxonangizga saqlash uchun ruxsat kerak</string>
+
+		<!-- Microphone (video recording) -->
+		<key>NSMicrophoneUsageDescription</key>
+		<string>Maydon videosini yozib olish uchun mikrofondan foydalanish kerak</string>
 		<key>CADisableMinimumFrameDurationOnPhone</key>
 		<true/>
 		<key>CFBundleDevelopmentRegion</key>

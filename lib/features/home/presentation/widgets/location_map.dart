@@ -1,6 +1,5 @@
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/connectivity/connectivity_cubit.dart';
 import '../../../../core/map/tile_cache_service.dart';
@@ -12,11 +11,17 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_spacings.dart';
 import '../../domain/entities/location_point.dart';
 import '../bloc/map_bloc.dart';
+import 'field_form_sheet.dart';
 
 class LocationMap extends StatefulWidget {
-  const LocationMap({super.key, required this.location});
+  const LocationMap({
+    super.key,
+    required this.location,
+    required this.drawingNotifier,
+  });
 
   final LocationPoint location;
+  final ValueNotifier<bool> drawingNotifier;
 
   @override
   State<LocationMap> createState() => _LocationMapState();
@@ -34,7 +39,8 @@ class _LocationMapState extends State<LocationMap>
 
   bool _mapReady = false;
   bool _isDrawing = false;
-  final List<LatLng> _drawnPoints = [];
+  final List<List<LatLng>> _polygons = [];
+  final List<LatLng> _currentPoints = [];
 
   @override
   void initState() {
@@ -87,32 +93,85 @@ class _LocationMapState extends State<LocationMap>
     super.dispose();
   }
 
+  static const _maxRadiusMeters = 300.0;
+  static const _distanceCalc = Distance();
+
   void _onMapTap(TapPosition tapPos, LatLng point) {
-    if (!_isDrawing) return;
-    setState(() => _drawnPoints.add(point));
+    if (_isDrawing) {
+      final userLatLng =
+          LatLng(widget.location.latitude, widget.location.longitude);
+      final meters = _distanceCalc.as(LengthUnit.Meter, userLatLng, point);
+      if (meters > _maxRadiusMeters) {
+        final km = (meters / 1000).toStringAsFixed(1);
+        ScaffoldMessenger.of(context)
+          ..clearSnackBars()
+          ..showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  const Icon(Icons.location_off_rounded, color: Colors.white, size: 18),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text('pointTooFar'.tr(namedArgs: {'km': km}))),
+                ],
+              ),
+              backgroundColor: kError,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        return;
+      }
+      setState(() => _currentPoints.add(point));
+      return;
+    }
+    for (int i = 0; i < _polygons.length; i++) {
+      if (_polygons[i].length >= 3 && _isPointInPolygon(point, _polygons[i])) {
+        _showFieldFormSheet(i);
+        return;
+      }
+    }
+  }
+
+  bool _isPointInPolygon(LatLng point, List<LatLng> polygon) {
+    bool inside = false;
+    final px = point.longitude;
+    final py = point.latitude;
+    final n = polygon.length;
+    for (int i = 0, j = n - 1; i < n; j = i++) {
+      final xi = polygon[i].longitude;
+      final yi = polygon[i].latitude;
+      final xj = polygon[j].longitude;
+      final yj = polygon[j].latitude;
+      if (((yi > py) != (yj > py)) &&
+          px < (xj - xi) * (py - yi) / (yj - yi) + xi) {
+        inside = !inside;
+      }
+    }
+    return inside;
   }
 
   void _startDrawing() {
     setState(() {
       _isDrawing = true;
-      _drawnPoints.clear();
+      _currentPoints.clear();
     });
+    widget.drawingNotifier.value = true;
   }
 
   void _cancelDrawing() {
     setState(() {
       _isDrawing = false;
-      _drawnPoints.clear();
+      _currentPoints.clear();
     });
+    widget.drawingNotifier.value = false;
   }
 
   void _removeLastPoint() {
-    if (_drawnPoints.isEmpty) return;
-    setState(() => _drawnPoints.removeLast());
+    if (_currentPoints.isEmpty) return;
+    setState(() => _currentPoints.removeLast());
   }
 
   void _finishDrawing() {
-    if (_drawnPoints.length < 3) {
+    if (_currentPoints.length < 3) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('minPointsRequired'.tr()),
@@ -121,26 +180,31 @@ class _LocationMapState extends State<LocationMap>
       );
       return;
     }
-    setState(() => _isDrawing = false);
-    _showCornersSheet();
+    final completed = List<LatLng>.from(_currentPoints);
+    setState(() {
+      _polygons.add(completed);
+      _currentPoints.clear();
+      _isDrawing = false;
+    });
+    widget.drawingNotifier.value = false;
   }
 
-  void _showCornersSheet() {
+  void _showFieldFormSheet(int index) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      // Planshetda keng ekranda narrow sheet
       constraints: context.isTablet
           ? BoxConstraints(maxWidth: context.sheetMaxWidth)
           : null,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (_) => _CornersSheet(
-        points: List.unmodifiable(_drawnPoints),
-        onClear: () {
-          Navigator.pop(context);
-          setState(() => _drawnPoints.clear());
+      builder: (_) => FieldFormSheet(
+        points: List.unmodifiable(_polygons[index]),
+        onDelete: () => setState(() => _polygons.removeAt(index)),
+        onRedraw: () {
+          setState(() => _polygons.removeAt(index));
+          _startDrawing();
         },
       ),
     );
@@ -152,8 +216,6 @@ class _LocationMapState extends State<LocationMap>
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final isOnline = context.watch<ConnectivityCubit>().state;
 
-    // {r} → Retina ekranda @2x tile yuklaydi (matnlar 2x aniqroq)
-    // Light: Voyager | Dark: Dark All
     final tileUrl = isDark
         ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
         : 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
@@ -182,9 +244,7 @@ class _LocationMapState extends State<LocationMap>
               keepBuffer: 5,
               retinaMode: RetinaMode.isHighDensity(context),
               tileDisplay: const TileDisplay.fadeIn(),
-              // Oflaynda keshdan darhol qaytaradi, onlaynda yangilaydi
               tileProvider: TileCacheService.build(isOnline: isOnline),
-              // Dark mode da obektlar (yo'llar, binolar) aniqroq ko'rinsin
               tileBuilder: isDark
                   ? (ctx, tile, _) => ColorFiltered(
                       colorFilter: const ColorFilter.matrix([
@@ -213,35 +273,54 @@ class _LocationMapState extends State<LocationMap>
                     )
                   : null,
             ),
-
-            // Chizilgan polygon
-            if (_drawnPoints.length >= 2)
+            if (_isDrawing)
+              CircleLayer(
+                circles: [
+                  CircleMarker(
+                    point: latLng,
+                    radius: _maxRadiusMeters,
+                    useRadiusInMeter: true,
+                    color: kGreen.withAlpha(18),
+                    borderColor: kGreen.withAlpha(160),
+                    borderStrokeWidth: 2,
+                  ),
+                ],
+              ),
+            for (final poly in _polygons)
+              if (poly.length >= 2)
+                PolygonLayer(
+                  polygons: [
+                    Polygon(
+                      points: poly,
+                      color: polygonFill,
+                      borderColor: polygonBorder,
+                      borderStrokeWidth: 2.5,
+                    ),
+                  ],
+                ),
+            if (_currentPoints.length >= 2)
               PolygonLayer(
                 polygons: [
                   Polygon(
-                    points: _drawnPoints,
-                    color: polygonFill,
-                    borderColor: polygonBorder,
+                    points: _currentPoints,
+                    color: kGreen.withAlpha(30),
+                    borderColor: kGreen,
                     borderStrokeWidth: 2.5,
                   ),
                 ],
               ),
-
-            // Chizilgan nuqtalar (raqamli markerlar)
-            if (_drawnPoints.isNotEmpty)
+            if (_currentPoints.isNotEmpty)
               MarkerLayer(
                 markers: [
-                  for (var i = 0; i < _drawnPoints.length; i++)
+                  for (var i = 0; i < _currentPoints.length; i++)
                     Marker(
-                      point: _drawnPoints[i],
+                      point: _currentPoints[i],
                       width: 28,
                       height: 28,
                       child: _CornerMarker(index: i + 1),
                     ),
                 ],
               ),
-
-            // Foydalanuvchi lokatsiyasi
             MarkerLayer(
               markers: [
                 Marker(
@@ -254,46 +333,42 @@ class _LocationMapState extends State<LocationMap>
             ),
           ],
         ),
-
-        // Zoom + my_location + draw buttons (o'ng tomon)
-        Positioned(
-          bottom: (_isDrawing || (_drawnPoints.length >= 3 && !_isDrawing))
-              ? context.rs(120.0, 160.0)
-              : context.rs(32.0, 48.0),
-          right: context.rs(16.0, 24.0),
-          child: Column(
-            children: [
-              _MapButton(
-                heroTag: 'zoom_in',
-                icon: Icons.add,
-                onPressed: hTap(
-                  () => _flyTo(
-                    _mapController.camera.center,
-                    zoom: _mapController.camera.zoom + 1,
-                  ),
-                )!,
-              ),
-              kVerticalSpace8,
-              _MapButton(
-                heroTag: 'zoom_out',
-                icon: Icons.remove,
-                onPressed: hTap(
-                  () => _flyTo(
-                    _mapController.camera.center,
-                    zoom: _mapController.camera.zoom - 1,
-                  ),
-                )!,
-              ),
-              kVerticalSpace8,
-              _MapButton(
-                heroTag: 'my_location',
-                icon: Icons.my_location,
-                onPressed: hTap(() {
-                  _flyTo(latLng, zoom: 15.5);
-                  context.read<MapBloc>().add(const MapLocationStarted());
-                })!,
-              ),
-              if (!_isDrawing && _drawnPoints.isEmpty) ...[
+        if (!_isDrawing)
+          Positioned(
+            bottom: context.rs(32.0, 48.0),
+            right: context.rs(16.0, 24.0),
+            child: Column(
+              children: [
+                _MapButton(
+                  heroTag: 'zoom_in',
+                  icon: Icons.add,
+                  onPressed: hTap(
+                    () => _flyTo(
+                      _mapController.camera.center,
+                      zoom: _mapController.camera.zoom + 1,
+                    ),
+                  )!,
+                ),
+                kVerticalSpace8,
+                _MapButton(
+                  heroTag: 'zoom_out',
+                  icon: Icons.remove,
+                  onPressed: hTap(
+                    () => _flyTo(
+                      _mapController.camera.center,
+                      zoom: _mapController.camera.zoom - 1,
+                    ),
+                  )!,
+                ),
+                kVerticalSpace8,
+                _MapButton(
+                  heroTag: 'my_location',
+                  icon: Icons.my_location,
+                  onPressed: hTap(() {
+                    _flyTo(latLng, zoom: 15.5);
+                    context.read<MapBloc>().add(const MapLocationStarted());
+                  })!,
+                ),
                 kVerticalSpace8,
                 _MapButton(
                   heroTag: 'draw_field',
@@ -301,379 +376,228 @@ class _LocationMapState extends State<LocationMap>
                   onPressed: hTap(_startDrawing)!,
                 ),
               ],
-            ],
+            ),
           ),
-        ),
-
-        // Pastki panel — faqat chizish rejimida yoki polygon tayyor bo'lganda
-        if (_isDrawing || (_drawnPoints.length >= 3 && !_isDrawing))
+        if (_isDrawing) ...[
+          Positioned(
+            top: MediaQuery.of(context).padding.top + context.spaceSm,
+            left: context.rs(12.0, 18.0),
+            child: _DrawingTopButton(
+              heroTag: 'undo_draw',
+              icon: Icons.undo_rounded,
+              label: 'undo'.tr(),
+              enabled: _currentPoints.isNotEmpty,
+              isDark: isDark,
+              onPressed: hTap(_currentPoints.isNotEmpty ? _removeLastPoint : null),
+            ),
+          ),
+          Positioned(
+            top: MediaQuery.of(context).padding.top + context.spaceSm,
+            right: context.rs(12.0, 18.0),
+            child: _DrawingDoneButton(
+              enabled: _currentPoints.length >= 3,
+              onPressed: hTapMedium(_currentPoints.length >= 3 ? _finishDrawing : null),
+            ),
+          ),
           Positioned(
             bottom: 0,
             left: 0,
             right: 0,
-            child: _DrawingPanel(
-              isDrawing: _isDrawing,
-              pointCount: _drawnPoints.length,
-              hasPolygon: _drawnPoints.length >= 3 && !_isDrawing,
-              onStartDraw: _startDrawing,
-              onFinish: _finishDrawing,
-              onUndo: _removeLastPoint,
+            child: _DrawingBottomBar(
+              pointCount: _currentPoints.length,
               onCancel: _cancelDrawing,
-              onShowResult: _showCornersSheet,
-              onClear: () => setState(() => _drawnPoints.clear()),
             ),
           ),
+        ],
       ],
     );
   }
 }
 
-// ---------------------------------------------------------------------------
-// Drawing bottom panel
-// ---------------------------------------------------------------------------
-
-class _DrawingPanel extends StatelessWidget {
-  const _DrawingPanel({
-    required this.isDrawing,
-    required this.pointCount,
-    required this.hasPolygon,
-    required this.onStartDraw,
-    required this.onFinish,
-    required this.onUndo,
-    required this.onCancel,
-    required this.onShowResult,
-    required this.onClear,
+class _DrawingTopButton extends StatelessWidget {
+  const _DrawingTopButton({
+    required this.heroTag,
+    required this.icon,
+    required this.label,
+    required this.enabled,
+    required this.isDark,
+    required this.onPressed,
   });
 
-  final bool isDrawing;
-  final int pointCount;
-  final bool hasPolygon;
-  final VoidCallback onStartDraw;
-  final VoidCallback onFinish;
-  final VoidCallback onUndo;
-  final VoidCallback onCancel;
-  final VoidCallback onShowResult;
-  final VoidCallback onClear;
+  final String heroTag;
+  final IconData icon;
+  final String label;
+  final bool enabled;
+  final bool isDark;
+  final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) {
-    final surface = Theme.of(context).colorScheme.surface;
-    final h = context.spaceMd;
-    return Container(
-      padding: EdgeInsets.fromLTRB(
-        h,
-        context.spaceSm,
-        h,
-        MediaQuery.of(context).padding.bottom + context.spaceSm,
+    final bg = isDark ? const Color(0xFF2A2A2A) : kWhite;
+    final fg = enabled
+        ? (isDark ? kGreenLight : kGreen)
+        : (isDark ? Colors.white24 : Colors.black26);
+
+    return GestureDetector(
+      onTap: enabled ? onPressed : null,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(context.fabRadius),
+          border: Border.all(color: fg, width: 1.5),
+          boxShadow: const [
+            BoxShadow(color: Colors.black26, blurRadius: 6, offset: Offset(0, 2)),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 18, color: fg),
+            const SizedBox(width: 5),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: fg,
+              ),
+            ),
+          ],
+        ),
       ),
+    );
+  }
+}
+
+class _DrawingDoneButton extends StatelessWidget {
+  const _DrawingDoneButton({
+    required this.enabled,
+    required this.onPressed,
+  });
+
+  final bool enabled;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onPressed,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          gradient: enabled
+              ? const LinearGradient(
+                  colors: [kGreen, kGreenLight],
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                )
+              : null,
+          color: enabled ? null : Colors.grey.withAlpha(80),
+          borderRadius: BorderRadius.circular(context.fabRadius),
+          boxShadow: enabled
+              ? [BoxShadow(color: kGreen.withAlpha(80), blurRadius: 8, offset: const Offset(0, 3))]
+              : null,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.check_rounded, size: 18,
+                color: enabled ? Colors.white : Colors.white54),
+            const SizedBox(width: 5),
+            Text(
+              'done'.tr(),
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: enabled ? Colors.white : Colors.white54,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DrawingBottomBar extends StatelessWidget {
+  const _DrawingBottomBar({
+    required this.pointCount,
+    required this.onCancel,
+  });
+
+  final int pointCount;
+  final VoidCallback onCancel;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final bottom = MediaQuery.of(context).padding.bottom;
+
+    return Container(
+      padding: EdgeInsets.fromLTRB(16, 10, 16, bottom + 12),
       decoration: BoxDecoration(
-        color: surface,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+        color: colorScheme.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         boxShadow: const [
-          BoxShadow(
-            color: Colors.black26,
-            blurRadius: 8,
-            offset: Offset(0, -2),
+          BoxShadow(color: Colors.black26, blurRadius: 10, offset: Offset(0, -3)),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+            decoration: BoxDecoration(
+              color: kGreen.withAlpha(18),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: kGreen.withAlpha(60)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.touch_app_rounded, color: kGreen, size: 15),
+                const SizedBox(width: 6),
+                Text(
+                  pointCount == 0
+                      ? 'drawingPrompt'.tr()
+                      : 'drawingPointsAdded'.tr(namedArgs: {'count': pointCount.toString()}),
+                  style: const TextStyle(
+                    color: kGreen,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: hTapHeavy(onCancel),
+              icon: const Icon(Icons.close_rounded, size: 18),
+              label: Text(
+                'cancelAction'.tr(),
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: kError,
+                side: const BorderSide(color: kError, width: 1.5),
+                padding: const EdgeInsets.symmetric(vertical: 13),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
           ),
         ],
       ),
-      child: isDrawing
-          ? _DrawingControls(
-              pointCount: pointCount,
-              onFinish: onFinish,
-              onUndo: onUndo,
-              onCancel: onCancel,
-            )
-          : _PolygonDoneControls(
-              onShowResult: onShowResult,
-              onClear: onClear,
-              onRedraw: onStartDraw,
-            ),
     );
   }
 }
-
-class _DrawingControls extends StatelessWidget {
-  const _DrawingControls({
-    required this.pointCount,
-    required this.onFinish,
-    required this.onUndo,
-    required this.onCancel,
-  });
-
-  final int pointCount;
-  final VoidCallback onFinish;
-  final VoidCallback onUndo;
-  final VoidCallback onCancel;
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Row(
-          children: [
-            Icon(Icons.touch_app_rounded, color: kGreen, size: context.iconSm),
-            SizedBox(width: context.spaceSm),
-            Text(
-              'drawHint'.tr(namedArgs: {'count': pointCount.toString()}),
-              style: TextStyle(
-                color: kGreen,
-                fontWeight: FontWeight.w600,
-                fontSize: context.rs(13.0, 16.0),
-              ),
-            ),
-          ],
-        ),
-        SizedBox(height: context.spaceSm),
-        Row(
-          children: [
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: hTapHeavy(onCancel),
-                icon: const Icon(Icons.close, size: 18),
-                label: Text('cancel'.tr()),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: kError,
-                  side: const BorderSide(color: kError),
-                ),
-              ),
-            ),
-            kHorizontalSpace8,
-            OutlinedButton(
-              onPressed: hTap(pointCount > 0 ? onUndo : null),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: kTextSecondary,
-                side: const BorderSide(color: kTextSecondary),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 12,
-                ),
-              ),
-              child: const Icon(Icons.undo_rounded, size: 20),
-            ),
-            kHorizontalSpace8,
-            Expanded(
-              child: ElevatedButton.icon(
-                onPressed: hTapMedium(pointCount >= 3 ? onFinish : null),
-                icon: const Icon(Icons.check_rounded, size: 18),
-                label: Text('done'.tr()),
-              ),
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
-class _PolygonDoneControls extends StatelessWidget {
-  const _PolygonDoneControls({
-    required this.onShowResult,
-    required this.onClear,
-    required this.onRedraw,
-  });
-
-  final VoidCallback onShowResult;
-  final VoidCallback onClear;
-  final VoidCallback onRedraw;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: OutlinedButton.icon(
-            onPressed: hTapHeavy(onClear),
-            icon: const Icon(Icons.delete_outline_rounded, size: 18),
-            label: Text('deleteLabel'.tr()),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: kError,
-              side: const BorderSide(color: kError),
-            ),
-          ),
-        ),
-        kHorizontalSpace8,
-        Expanded(
-          child: OutlinedButton.icon(
-            onPressed: hTap(onRedraw),
-            icon: const Icon(Icons.draw_rounded, size: 18),
-            label: Text('redraw'.tr()),
-          ),
-        ),
-        kHorizontalSpace8,
-        Expanded(
-          child: ElevatedButton.icon(
-            onPressed: hTap(onShowResult),
-            icon: const Icon(Icons.list_alt_rounded, size: 18),
-            label: Text('coordinates'.tr()),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Corners result bottom sheet
-// ---------------------------------------------------------------------------
-
-class _CornersSheet extends StatelessWidget {
-  const _CornersSheet({required this.points, required this.onClear});
-
-  final List<LatLng> points;
-  final VoidCallback onClear;
-
-  @override
-  Widget build(BuildContext context) {
-    return DraggableScrollableSheet(
-      expand: false,
-      initialChildSize: 0.5,
-      maxChildSize: 0.85,
-      builder: (sheetCtx, controller) {
-        return Column(
-          children: [
-            // Handle
-            Padding(
-              padding: const EdgeInsets.only(top: 12, bottom: 8),
-              child: Container(
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-            ),
-            Padding(
-              padding: kPaddingH16,
-              child: Row(
-                children: [
-                  const Icon(Icons.crop_free_rounded, color: kGreen),
-                  kHorizontalSpace8,
-                  Text(
-                    'fieldCorners'.tr(
-                      namedArgs: {'count': points.length.toString()},
-                    ),
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    onPressed: () {
-                      HapticFeedback.mediumImpact();
-                      final text = points
-                          .asMap()
-                          .entries
-                          .map(
-                            (e) =>
-                                '${e.key + 1}. ${e.value.latitude.toStringAsFixed(7)}, '
-                                '${e.value.longitude.toStringAsFixed(7)}',
-                          )
-                          .join('\n');
-                      Clipboard.setData(ClipboardData(text: text));
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('coordinatesCopied'.tr())),
-                      );
-                    },
-                    icon: const Icon(Icons.copy_rounded, color: kGreen),
-                    tooltip: 'copyLabel'.tr(),
-                  ),
-                ],
-              ),
-            ),
-            const Divider(height: 1),
-            Expanded(
-              child: ListView.separated(
-                controller: controller,
-                padding: kPaddingAll16,
-                itemCount: points.length,
-                separatorBuilder: (context, index) => const Divider(height: 1),
-                itemBuilder: (_, i) {
-                  final p = points[i];
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 28,
-                          height: 28,
-                          alignment: Alignment.center,
-                          decoration: const BoxDecoration(
-                            color: kGreen,
-                            shape: BoxShape.circle,
-                          ),
-                          child: Text(
-                            '${i + 1}',
-                            style: const TextStyle(
-                              color: kWhite,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 12,
-                            ),
-                          ),
-                        ),
-                        kHorizontalSpace12,
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              '${'latitude'.tr()}:  ${p.latitude.toStringAsFixed(7)}',
-                              style: const TextStyle(fontSize: 13),
-                            ),
-                            Text(
-                              '${'longitude'.tr()}:  ${p.longitude.toStringAsFixed(7)}',
-                              style: const TextStyle(fontSize: 13),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              ),
-            ),
-            Padding(
-              padding: EdgeInsets.fromLTRB(
-                16,
-                8,
-                16,
-                MediaQuery.of(context).padding.bottom + 12,
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: hTapHeavy(onClear),
-                      icon: const Icon(Icons.delete_outline_rounded, size: 18),
-                      label: Text('deleteField'.tr()),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: kError,
-                        side: const BorderSide(color: kError),
-                      ),
-                    ),
-                  ),
-                  kHorizontalSpace8,
-                  Expanded(
-                    child: ElevatedButton(
-                      onPressed: hTap(() => Navigator.pop(context)),
-                      child: Text('close'.tr()),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        );
-      },
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Corner number marker
-// ---------------------------------------------------------------------------
 
 class _CornerMarker extends StatelessWidget {
   const _CornerMarker({required this.index});
@@ -699,10 +623,6 @@ class _CornerMarker extends StatelessWidget {
     ),
   );
 }
-
-// ---------------------------------------------------------------------------
-// Pulsing location marker
-// ---------------------------------------------------------------------------
 
 class _PulsingMarker extends StatefulWidget {
   const _PulsingMarker();
@@ -779,10 +699,6 @@ class _PulsingMarkerState extends State<_PulsingMarker>
     ],
   );
 }
-
-// ---------------------------------------------------------------------------
-// Map control button
-// ---------------------------------------------------------------------------
 
 class _MapButton extends StatelessWidget {
   const _MapButton({

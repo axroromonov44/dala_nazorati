@@ -25,7 +25,6 @@ class _LoginView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // ThemeCubit'ni watch qilib butun page dark/light modega javob bersin
     final isDark = context.watch<ThemeCubit>().state == ThemeMode.dark;
     final colorScheme = Theme.of(context).colorScheme;
 
@@ -67,22 +66,9 @@ class _LoginView extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      SizedBox(height: context.spaceXl),
-                      // Logo
-                      AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 400),
-                        transitionBuilder: (child, anim) => ScaleTransition(
-                          scale: anim,
-                          child: FadeTransition(opacity: anim, child: child),
-                        ),
-                        child: Icon(
-                          isDark
-                              ? Icons.nightlight_round
-                              : Icons.wb_sunny_rounded,
-                          key: ValueKey(isDark),
-                          size: context.iconXl,
-                          color: kGreen,
-                        ),
+                      Image.asset(
+                        'assets/images/main_logo.png',
+                        height: context.iconXl * 3,
                       ),
                       SizedBox(height: context.spaceMd),
                       AnimatedDefaultTextStyle(
@@ -99,21 +85,7 @@ class _LoginView extends StatelessWidget {
                           textAlign: TextAlign.center,
                         ),
                       ),
-                      SizedBox(height: context.spaceSm),
-                      AnimatedDefaultTextStyle(
-                        duration: const Duration(milliseconds: 300),
-                        style:
-                            (Theme.of(context).textTheme.bodyMedium ??
-                                    const TextStyle())
-                                .copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                        ),
-                        child: Text(
-                          'loginSubtitle'.tr(),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                      SizedBox(height: context.spaceXl * 1.5),
+                      SizedBox(height: context.spaceMd),
                       const LoginForm(),
                     ],
                   ),
@@ -126,10 +98,6 @@ class _LoginView extends StatelessWidget {
     );
   }
 }
-
-// ──────────────────────────────────────────────────────────────────────────────
-// Animated theme toggle pill
-// ──────────────────────────────────────────────────────────────────────────────
 
 class _ThemeToggle extends StatelessWidget {
   const _ThemeToggle({required this.isDark});
@@ -156,7 +124,6 @@ class _ThemeToggle extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Quyosh
             AnimatedContainer(
               duration: const Duration(milliseconds: 300),
               curve: Curves.easeInOut,
@@ -178,7 +145,6 @@ class _ThemeToggle extends StatelessWidget {
                 ),
               ),
             ),
-            // Oy
             AnimatedContainer(
               duration: const Duration(milliseconds: 300),
               curve: Curves.easeInOut,

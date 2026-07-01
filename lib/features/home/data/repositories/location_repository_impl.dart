@@ -11,6 +11,9 @@ class LocationRepositoryImpl implements LocationRepository {
       locationSettings: const LocationSettings(
         accuracy: LocationAccuracy.high,
       ),
+    ).timeout(
+      const Duration(seconds: 15),
+      onTimeout: () => throw Exception('Joylashuv aniqlanmadi (timeout)'),
     );
     return _fromPosition(position);
   }
@@ -27,16 +30,17 @@ class LocationRepositoryImpl implements LocationRepository {
   }
 
   Future<void> _ensurePermission() async {
+    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      throw Exception('Joylashuv xizmati o\'chiq');
+    }
     var permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
     }
-    if (permission == LocationPermission.deniedForever) {
+    if (permission == LocationPermission.denied ||
+        permission == LocationPermission.deniedForever) {
       throw Exception('Joylashuv ruxsati rad etilgan');
-    }
-    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      throw Exception('Joylashuv xizmati o\'chiq');
     }
   }
 

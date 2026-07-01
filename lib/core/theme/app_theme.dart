@@ -8,7 +8,6 @@ class AppTheme {
 
   static ThemeData _build(Brightness brightness) {
     final isDark = brightness == Brightness.dark;
-    final fillColor = isDark ? const Color(0xFF1E1E1E) : kWhite;
     final bgColor = isDark ? const Color(0xFF121212) : kBackground;
     final appBarBg = isDark ? const Color(0xFF1A1A1A) : kBackground;
     final fgColor = isDark ? kWhite : kBlack;
@@ -31,18 +30,22 @@ class AppTheme {
       labelSmall:     kMedium11.copyWith(color: textSecColor, letterSpacing: 0.3),
     );
 
-    final border = OutlineInputBorder(
-      borderRadius: BorderRadius.circular(12),
-      borderSide: const BorderSide(color: kGreen),
+    final softBorderColor = isDark
+        ? const Color(0xFFFFFFFF).withAlpha(22)
+        : const Color(0xFF2E7D32).withAlpha(45);
+    final enabledBorder = OutlineInputBorder(
+      borderRadius: BorderRadius.circular(14),
+      borderSide: BorderSide(color: softBorderColor, width: 1.4),
     );
     final focusedBorder = OutlineInputBorder(
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(14),
       borderSide: const BorderSide(color: kGreen, width: 2),
     );
     final errorBorder = OutlineInputBorder(
-      borderRadius: BorderRadius.circular(12),
-      borderSide: const BorderSide(color: kError),
+      borderRadius: BorderRadius.circular(14),
+      borderSide: const BorderSide(color: kError, width: 1.4),
     );
+    final inputFill = isDark ? const Color(0xFF1A211A) : const Color(0xFFF5F8F5);
 
     return ThemeData(
       useMaterial3: true,
@@ -55,18 +58,23 @@ class AppTheme {
       textTheme: textTheme,
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: fillColor,
-        border: border,
-        enabledBorder: border,
+        fillColor: inputFill,
+        border: enabledBorder,
+        enabledBorder: enabledBorder,
         focusedBorder: focusedBorder,
         errorBorder: errorBorder,
         focusedErrorBorder: errorBorder.copyWith(
           borderSide: const BorderSide(color: kError, width: 2),
         ),
-        labelStyle: const TextStyle(color: kGreen),
-        floatingLabelStyle: const TextStyle(color: kGreen),
-        prefixIconColor: kGreen,
-        suffixIconColor: kGreen,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
+        labelStyle: TextStyle(color: isDark ? kGreenLight : kGreen, fontSize: 14),
+        floatingLabelStyle: TextStyle(
+          color: isDark ? kGreenLight : kGreen,
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+        ),
+        prefixIconColor: isDark ? kGreenLight : kGreen,
+        suffixIconColor: isDark ? kGreenLight : kGreen,
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(

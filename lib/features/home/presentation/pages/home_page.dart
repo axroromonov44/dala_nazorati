@@ -20,8 +20,21 @@ class HomePage extends StatelessWidget {
       );
 }
 
-class _HomeView extends StatelessWidget {
+class _HomeView extends StatefulWidget {
   const _HomeView();
+
+  @override
+  State<_HomeView> createState() => _HomeViewState();
+}
+
+class _HomeViewState extends State<_HomeView> {
+  final _drawingNotifier = ValueNotifier<bool>(false);
+
+  @override
+  void dispose() {
+    _drawingNotifier.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -29,71 +42,79 @@ class _HomeView extends StatelessWidget {
       drawer: const AppDrawer(),
       body: Stack(
         children: [
-          // To'liq ekran kontent
           BlocBuilder<MapBloc, MapState>(
             builder: (context, state) => switch (state) {
               MapInitial() => const SizedBox.expand(),
               MapLocationLoading() => const _LoadingView(),
-              MapLocationLoaded(:final location) =>
-                LocationMap(location: location),
+              MapLocationLoaded(:final location) => LocationMap(
+                  location: location,
+                  drawingNotifier: _drawingNotifier,
+                ),
               MapFakeGpsDetected() => const FakeGpsPage(),
               MapLocationFailure(:final message) => _ErrorView(message: message),
             },
           ),
 
-          // "Xarita" title — yuqori markazda, transparentlik bilan
           Positioned(
             top: MediaQuery.of(context).padding.top + context.spaceSm,
             left: 0,
             right: 0,
-            child: Center(
-              child: Builder(
-                builder: (context) {
-                  final isDark =
-                      Theme.of(context).brightness == Brightness.dark;
-                  return Text(
-                    'Xarita',
-                    style: TextStyle(
-                      color: isDark ? Colors.white : kGreen,
-                      fontSize: context.rs(18.0, 22.0),
-                      fontWeight: FontWeight.w700,
-                      shadows: [
-                        Shadow(
-                          blurRadius: 8,
-                          color: isDark
-                              ? Colors.black54
-                              : Colors.white.withAlpha(200),
-                          offset: const Offset(0, 1),
+            child: ValueListenableBuilder<bool>(
+              valueListenable: _drawingNotifier,
+              builder: (context, isDrawing, child) => AnimatedOpacity(
+                opacity: isDrawing ? 0.0 : 1.0,
+                duration: const Duration(milliseconds: 200),
+                child: Center(
+                  child: Builder(
+                    builder: (context) {
+                      final isDark =
+                          Theme.of(context).brightness == Brightness.dark;
+                      return Text(
+                        'mapTitle'.tr(),
+                        style: TextStyle(
+                          color: isDark ? Colors.white : kGreen,
+                          fontSize: context.rs(18.0, 22.0),
+                          fontWeight: FontWeight.w700,
+                          shadows: [
+                            Shadow(
+                              blurRadius: 8,
+                              color: isDark
+                                  ? Colors.black54
+                                  : Colors.white.withAlpha(200),
+                              offset: const Offset(0, 1),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
-                  );
-                },
+                      );
+                    },
+                  ),
+                ),
               ),
             ),
           ),
 
-          // Floating drawer button — yuqori chap
-          Positioned(
-            top: MediaQuery.of(context).padding.top + context.spaceSm,
-            left: context.rs(12.0, 18.0),
-            child: Builder(
-              builder: (ctx) => _FloatingButton(
-                heroTag: 'menu',
-                icon: Icons.menu_rounded,
-                onPressed: hTap(() => Scaffold.of(ctx).openDrawer())!,
-              ),
-            ),
+          ValueListenableBuilder<bool>(
+            valueListenable: _drawingNotifier,
+            builder: (ctx, isDrawing, child) {
+              if (isDrawing) return const SizedBox.shrink();
+              return Positioned(
+                top: MediaQuery.of(context).padding.top + context.spaceSm,
+                left: context.rs(12.0, 18.0),
+                child: Builder(
+                  builder: (ctx) => _FloatingButton(
+                    heroTag: 'menu',
+                    icon: Icons.menu_rounded,
+                    onPressed: hTap(() => Scaffold.of(ctx).openDrawer())!,
+                  ),
+                ),
+              );
+            },
           ),
         ],
       ),
     );
   }
 }
-
-// ---------------------------------------------------------------------------
-// Loading
-// ---------------------------------------------------------------------------
 
 class _LoadingView extends StatelessWidget {
   const _LoadingView();
@@ -103,10 +124,6 @@ class _LoadingView extends StatelessWidget {
         child: CircularProgressIndicator(color: kGreen),
       );
 }
-
-// ---------------------------------------------------------------------------
-// Error
-// ---------------------------------------------------------------------------
 
 class _ErrorView extends StatelessWidget {
   const _ErrorView({required this.message});
@@ -135,10 +152,6 @@ class _ErrorView extends StatelessWidget {
         ),
       );
 }
-
-// ---------------------------------------------------------------------------
-// Floating icon button (map ustidagi tugmalar bilan bir xil stil)
-// ---------------------------------------------------------------------------
 
 class _FloatingButton extends StatelessWidget {
   const _FloatingButton({
