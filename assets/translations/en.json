@@ -112,5 +112,22 @@
   "oneIdRedirectMsg": "Redirecting to ONE ID",
   "redirectInSec": "You'll be redirected in {count} sec.",
   "karantinRedirectDesc": "State plant quarantine control system",
-  "oneIdRedirectDesc": "Unified national identification system"
+  "oneIdRedirectDesc": "Unified national identification system",
+  "appTagline": "Field Monitoring",
+  "errorTimeout": "Request timed out. Check your internet connection.",
+  "errorConnection": "Could not connect to the internet. Check your connection.",
+  "errorBadCertificate": "Could not establish a secure connection.",
+  "errorCancelled": "Request was cancelled.",
+  "errorUnknown": "An unknown error occurred. Please try again.",
+  "errorBadRequest": "The request was invalid.",
+  "errorUnauthorized": "Incorrect username or password.",
+  "errorForbidden": "You don't have permission for this action.",
+  "errorNotFound": "Data not found.",
+  "errorValidation": "The submitted data is invalid.",
+  "errorServer": "A server error occurred. Please try again shortly.",
+  "errorGeneric": "An unexpected error occurred.",
+  "errorUnexpected": "An unexpected error occurred. Please try again.",
+  "locationTimeoutError": "Could not determine location (timed out)",
+  "locationServiceDisabledError": "Location service is disabled",
+  "locationPermissionDeniedError": "Location permission denied"
 }

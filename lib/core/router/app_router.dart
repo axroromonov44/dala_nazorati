@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:go_router/go_router.dart';
@@ -5,6 +6,7 @@ import '../../features/auth/presentation/pages/login_page.dart';
 import '../../features/home/presentation/pages/home_page.dart';
 import '../constants/app_colors.dart';
 import '../storage/secure_storage_service.dart';
+import 'navigation_service.dart';
 
 class AppRouter {
   AppRouter(this._storageService);
@@ -12,6 +14,7 @@ class AppRouter {
   final SecureStorageService _storageService;
 
   late final GoRouter router = GoRouter(
+    navigatorKey: NavigationService.navigatorKey,
     initialLocation: '/splash',
     redirect: _redirect,
     routes: [
@@ -32,12 +35,10 @@ class AppRouter {
 
   Future<String?> _redirect(BuildContext context, GoRouterState state) async {
     if (state.matchedLocation == '/splash') {
-      // Animatsiya to'liq ko'rinsin uchun minimum 1.5s kutamiz
       final results = await Future.wait([
         _storageService.hasValidToken(),
         Future<void>.delayed(const Duration(milliseconds: 1500)),
       ]);
-      // Native splash'ni yopamiz
       FlutterNativeSplash.remove();
       final hasToken = results[0] as bool;
       return hasToken ? '/home' : '/login';
@@ -110,7 +111,7 @@ class _SplashPageState extends State<_SplashPage>
                 ),
                 const SizedBox(height: 28),
                 Text(
-                  'Dala Nazorati',
+                  'appTitle'.tr(),
                   style: TextStyle(
                     color: textColor,
                     fontSize: 28,
@@ -120,7 +121,7 @@ class _SplashPageState extends State<_SplashPage>
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'Field Monitoring',
+                  'appTagline'.tr(),
                   style: TextStyle(
                     color: subColor,
                     fontSize: 14,

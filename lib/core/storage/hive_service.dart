@@ -1,5 +1,5 @@
 import 'package:hive_flutter/hive_flutter.dart';
-import '../constants/app_constants.dart';
+import '../constants/storage_keys.dart';
 
 class HiveService {
   late Box<dynamic> offlineQueueBox;
@@ -8,8 +8,8 @@ class HiveService {
   static Future<HiveService> create() async {
     await Hive.initFlutter();
     final service = HiveService();
-    service.offlineQueueBox = await Hive.openBox(AppConstants.offlineQueueBox);
-    service.userBox = await Hive.openBox(AppConstants.userBox);
+    service.offlineQueueBox = await Hive.openBox(StorageKeys.offlineQueueBox);
+    service.userBox = await Hive.openBox(StorageKeys.userBox);
     return service;
   }
 }

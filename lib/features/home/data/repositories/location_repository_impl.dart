@@ -1,7 +1,17 @@
 import 'dart:io';
+import 'package:easy_localization/easy_localization.dart';
 import 'package:geolocator/geolocator.dart';
 import '../../domain/entities/location_point.dart';
 import '../../domain/repositories/location_repository.dart';
+
+class LocationException implements Exception {
+  const LocationException(this.message);
+
+  final String message;
+
+  @override
+  String toString() => message;
+}
 
 class LocationRepositoryImpl implements LocationRepository {
   @override
@@ -13,7 +23,7 @@ class LocationRepositoryImpl implements LocationRepository {
       ),
     ).timeout(
       const Duration(seconds: 15),
-      onTimeout: () => throw Exception('Joylashuv aniqlanmadi (timeout)'),
+      onTimeout: () => throw LocationException('locationTimeoutError'.tr()),
     );
     return _fromPosition(position);
   }
@@ -32,7 +42,7 @@ class LocationRepositoryImpl implements LocationRepository {
   Future<void> _ensurePermission() async {
     final serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
-      throw Exception('Joylashuv xizmati o\'chiq');
+      throw LocationException('locationServiceDisabledError'.tr());
     }
     var permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
@@ -40,7 +50,7 @@ class LocationRepositoryImpl implements LocationRepository {
     }
     if (permission == LocationPermission.denied ||
         permission == LocationPermission.deniedForever) {
-      throw Exception('Joylashuv ruxsati rad etilgan');
+      throw LocationException('locationPermissionDeniedError'.tr());
     }
   }
 

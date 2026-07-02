@@ -1,30 +1,57 @@
 import '../../../../core/storage/secure_storage_service.dart';
 import '../../domain/entities/user.dart';
 import '../../domain/repositories/auth_repository.dart';
+import '../datasources/auth_remote_datasource.dart';
+import '../models/user_model.dart';
 
 class AuthRepositoryImpl implements AuthRepository {
-  const AuthRepositoryImpl(this._storageService);
+  const AuthRepositoryImpl(this._remoteDataSource, this._storageService);
 
+  final AuthRemoteDataSource _remoteDataSource;
   final SecureStorageService _storageService;
 
   @override
   Future<({User user, String accessToken, String refreshToken})> login({
-    required String phone,
+    required String username,
     required String password,
   }) async {
-    // TODO: real API qo'shilganda shu yerga Dio call keladi
-    await Future.delayed(const Duration(milliseconds: 600));
-    const mockToken = 'mock_access_token';
-    const mockRefresh = 'mock_refresh_token';
-    final user = User(id: '1', name: 'Foydalanuvchi', email: '', phone: phone);
-    await _storageService.saveAccessToken(mockToken);
-    await _storageService.saveRefreshToken(mockRefresh);
-    return (user: user, accessToken: mockToken, refreshToken: mockRefresh);
+    final data = await _remoteDataSource.login(
+      username: username,
+      password: password,
+    );
+    return _completeLogin(data);
+  }
+
+  @override
+  Future<({User user, String accessToken, String refreshToken})>
+      loginWithGovCode({required String code}) async {
+    final data = await _remoteDataSource.loginGov(code: code);
+    return _completeLogin(data);
+  }
+
+  Future<({User user, String accessToken, String refreshToken})>
+      _completeLogin(Map<String, dynamic> data) async {
+    final accessToken = data['access'] as String;
+    final refreshToken = data['refresh'] as String;
+    final user = UserModel.fromAccessToken(accessToken);
+
+    await _storageService.saveAccessToken(accessToken);
+    await _storageService.saveRefreshToken(refreshToken);
+
+    return (user: user, accessToken: accessToken, refreshToken: refreshToken);
   }
 
   @override
   Future<void> logout() => _storageService.clearTokens();
 
   @override
-  Future<User?> getCurrentUser() async => null;
+  Future<User?> getCurrentUser() async {
+    final token = await _storageService.getAccessToken();
+    if (token == null) return null;
+    try {
+      return UserModel.fromAccessToken(token);
+    } catch (_) {
+      return null;
+    }
+  }
 }

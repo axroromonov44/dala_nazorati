@@ -8,8 +8,8 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_spacings.dart';
 import '../../../../core/utils/haptic.dart';
 import '../bloc/auth_bloc.dart';
+import '../pages/oneid_webview_page.dart';
 
-const _kOneIdUrl = 'https://sso.egov.uz';
 const _kKarantinIdUrl = 'https://id.karantin.uz/sign-in?name=DALA+NAZORAT';
 
 class LoginForm extends StatefulWidget {
@@ -21,13 +21,13 @@ class LoginForm extends StatefulWidget {
 
 class _LoginFormState extends State<LoginForm> {
   final _formKey = GlobalKey<FormState>();
-  final _phoneController = TextEditingController();
+  final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
 
   @override
   void dispose() {
-    _phoneController.dispose();
+    _usernameController.dispose();
     _passwordController.dispose();
     super.dispose();
   }
@@ -35,11 +35,11 @@ class _LoginFormState extends State<LoginForm> {
   void _submit() {
     if (_formKey.currentState?.validate() ?? false) {
       context.read<AuthBloc>().add(
-            AuthLoginRequested(
-              phone: _phoneController.text.trim(),
-              password: _passwordController.text,
-            ),
-          );
+        AuthLoginRequested(
+          username: _usernameController.text.trim(),
+          password: _passwordController.text,
+        ),
+      );
     }
   }
 
@@ -52,6 +52,17 @@ class _LoginFormState extends State<LoginForm> {
     );
   }
 
+  Future<void> _startOneIdLogin() async {
+    hapticMedium();
+    final authBloc = context.read<AuthBloc>();
+    final code = await Navigator.of(context, rootNavigator: true).push<String?>(
+      MaterialPageRoute(builder: (_) => const OneIdWebViewPage()),
+    );
+    if (code != null && code.isNotEmpty) {
+      authBloc.add(AuthGovLoginRequested(code: code));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final isLoading = context.watch<AuthBloc>().state is AuthLoading;
@@ -61,8 +72,9 @@ class _LoginFormState extends State<LoginForm> {
       child: Column(
         children: [
           TextFormField(
-            controller: _phoneController,
-            keyboardType: TextInputType.phone,
+            controller: _usernameController,
+            keyboardType: TextInputType.text,
+            autocorrect: false,
             decoration: InputDecoration(
               labelText: 'phoneLabel'.tr(),
               prefixIcon: const Icon(Icons.person_outline_rounded),
@@ -108,7 +120,7 @@ class _LoginFormState extends State<LoginForm> {
           kVerticalSpace16,
           const _OrDivider(),
           kVerticalSpace16,
-          _OneIdButton(onTap: () => _openWithCountdown(_kOneIdUrl)),
+          _OneIdButton(onTap: _startOneIdLogin),
           const SizedBox(height: 10),
           _KarantinButton(onTap: () => _openWithCountdown(_kKarantinIdUrl)),
         ],
@@ -145,6 +157,7 @@ class _OrDivider extends StatelessWidget {
 
 class _OneIdButton extends StatelessWidget {
   const _OneIdButton({required this.onTap});
+
   final VoidCallback onTap;
 
   @override
@@ -161,7 +174,11 @@ class _OneIdButton extends StatelessWidget {
         ),
         borderRadius: BorderRadius.circular(14),
         boxShadow: [
-          BoxShadow(color: color.withAlpha(70), blurRadius: 12, offset: const Offset(0, 4)),
+          BoxShadow(
+            color: color.withAlpha(70),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
         ],
       ),
       child: Material(
@@ -200,6 +217,7 @@ class _OneIdButton extends StatelessWidget {
 
 class _KarantinButton extends StatelessWidget {
   const _KarantinButton({required this.onTap});
+
   final VoidCallback onTap;
 
   @override
@@ -214,7 +232,11 @@ class _KarantinButton extends StatelessWidget {
         ),
         borderRadius: BorderRadius.circular(14),
         boxShadow: [
-          BoxShadow(color: kGreen.withAlpha(70), blurRadius: 12, offset: const Offset(0, 4)),
+          BoxShadow(
+            color: kGreen.withAlpha(70),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
         ],
       ),
       child: Material(
@@ -258,6 +280,7 @@ class _KarantinButton extends StatelessWidget {
 
 class _RedirectDialog extends StatefulWidget {
   const _RedirectDialog({required this.url});
+
   final String url;
 
   @override
@@ -297,9 +320,8 @@ class _RedirectDialogState extends State<_RedirectDialog> {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final isOneId = widget.url.contains('egov.uz');
-    final accentColor = isOneId ? const Color(0xFF2D159A) : kGreen;
-    final accentLight = isOneId ? const Color(0xFF4B30C5) : kGreenLight;
+    const accentColor = kGreen;
+    const accentLight = kGreenLight;
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
@@ -310,10 +332,13 @@ class _RedirectDialogState extends State<_RedirectDialog> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (isOneId) _OneIdDialogHeader(accentColor: accentColor) else _KarantinDialogHeader(accentColor: accentColor, accentLight: accentLight),
+            const _KarantinDialogHeader(
+              accentColor: accentColor,
+              accentLight: accentLight,
+            ),
             const SizedBox(height: 20),
             Text(
-              isOneId ? 'oneIdRedirectMsg'.tr() : 'karantinRedirectMsg'.tr(),
+              'karantinRedirectMsg'.tr(),
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w800,
@@ -325,8 +350,12 @@ class _RedirectDialogState extends State<_RedirectDialog> {
             ),
             const SizedBox(height: 6),
             Text(
-              isOneId ? 'oneIdRedirectDesc'.tr() : 'karantinRedirectDesc'.tr(),
-              style: TextStyle(fontSize: 12.5, color: colorScheme.onSurfaceVariant, height: 1.4),
+              'karantinRedirectDesc'.tr(),
+              style: TextStyle(
+                fontSize: 12.5,
+                color: colorScheme.onSurfaceVariant,
+                height: 1.4,
+              ),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 28),
@@ -348,31 +377,12 @@ class _RedirectDialogState extends State<_RedirectDialog> {
   }
 }
 
-class _OneIdDialogHeader extends StatelessWidget {
-  const _OneIdDialogHeader({required this.accentColor});
-  final Color accentColor;
-
-  @override
-  Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF2D159A).withAlpha(18) : const Color(0xFF2D159A).withAlpha(10),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: const Color(0xFF2D159A).withAlpha(40)),
-      ),
-      child: Image.asset(
-        'assets/images/one-id.png',
-        height: 64,
-        filterQuality: FilterQuality.high,
-      ),
-    );
-  }
-}
-
 class _KarantinDialogHeader extends StatelessWidget {
-  const _KarantinDialogHeader({required this.accentColor, required this.accentLight});
+  const _KarantinDialogHeader({
+    required this.accentColor,
+    required this.accentLight,
+  });
+
   final Color accentColor;
   final Color accentLight;
 
@@ -384,7 +394,10 @@ class _KarantinDialogHeader extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 20),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [accentColor.withAlpha(isDark ? 35 : 18), accentLight.withAlpha(isDark ? 25 : 12)],
+          colors: [
+            accentColor.withAlpha(isDark ? 35 : 18),
+            accentLight.withAlpha(isDark ? 25 : 12),
+          ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -406,9 +419,19 @@ class _KarantinDialogHeader extends StatelessWidget {
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
-                  boxShadow: [BoxShadow(color: accentColor.withAlpha(100), blurRadius: 18, offset: const Offset(0, 4))],
+                  boxShadow: [
+                    BoxShadow(
+                      color: accentColor.withAlpha(100),
+                      blurRadius: 18,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
                 ),
-                child: const Icon(Icons.verified_user_rounded, color: Colors.white, size: 34),
+                child: const Icon(
+                  Icons.verified_user_rounded,
+                  color: Colors.white,
+                  size: 34,
+                ),
               ),
               Positioned(
                 right: 0,
@@ -419,7 +442,12 @@ class _KarantinDialogHeader extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: Colors.white,
                     shape: BoxShape.circle,
-                    boxShadow: [BoxShadow(color: Colors.black.withAlpha(25), blurRadius: 6)],
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withAlpha(25),
+                        blurRadius: 6,
+                      ),
+                    ],
                   ),
                   child: const Icon(Icons.eco_rounded, color: kGreen, size: 15),
                 ),
@@ -459,6 +487,7 @@ class _KarantinDialogHeader extends StatelessWidget {
 
 class _SegmentedCountdown extends StatefulWidget {
   const _SegmentedCountdown({required this.count, required this.color});
+
   final int count;
   final Color color;
 
@@ -514,15 +543,23 @@ class _SegmentedCountdownState extends State<_SegmentedCountdown>
               final sweep = prevSweep + (targetSweep - prevSweep) * _anim.value;
               return CustomPaint(
                 size: const Size(100, 100),
-                painter: _CircleProgressPainter(sweep: sweep, color: widget.color),
+                painter: _CircleProgressPainter(
+                  sweep: sweep,
+                  color: widget.color,
+                ),
               );
             },
           ),
           AnimatedSwitcher(
             duration: const Duration(milliseconds: 250),
             transitionBuilder: (child, animation) => SlideTransition(
-              position: Tween<Offset>(begin: const Offset(0, 0.4), end: Offset.zero)
-                  .animate(CurvedAnimation(parent: animation, curve: Curves.easeOut)),
+              position:
+                  Tween<Offset>(
+                    begin: const Offset(0, 0.4),
+                    end: Offset.zero,
+                  ).animate(
+                    CurvedAnimation(parent: animation, curve: Curves.easeOut),
+                  ),
               child: FadeTransition(opacity: animation, child: child),
             ),
             child: Text(
@@ -544,6 +581,7 @@ class _SegmentedCountdownState extends State<_SegmentedCountdown>
 
 class _CircleProgressPainter extends CustomPainter {
   const _CircleProgressPainter({required this.sweep, required this.color});
+
   final double sweep;
   final Color color;
 

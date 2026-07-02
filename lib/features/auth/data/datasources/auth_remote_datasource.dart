@@ -1,3 +1,4 @@
+import '../../../../core/constants/api_endpoints.dart';
 import '../../../../core/network/dio_service.dart';
 
 class AuthRemoteDataSource {
@@ -6,12 +7,20 @@ class AuthRemoteDataSource {
   final DioService _dioService;
 
   Future<Map<String, dynamic>> login({
-    required String phone,
+    required String username,
     required String password,
   }) async {
     final response = await _dioService.post<Map<String, dynamic>>(
-      '/auth/login',
-      data: {'phone': phone, 'password': password},
+      ApiEndpoints.login,
+      data: {'username': username, 'password': password},
+    );
+    return response.data!;
+  }
+
+  Future<Map<String, dynamic>> loginGov({required String code}) async {
+    final response = await _dioService.post<Map<String, dynamic>>(
+      ApiEndpoints.govLogin,
+      queryParameters: {'code': code},
     );
     return response.data!;
   }

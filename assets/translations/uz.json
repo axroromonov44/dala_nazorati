@@ -112,5 +112,22 @@
   "oneIdRedirectMsg": "ONE ID tizimiga yo'naltirilmoqdasiz",
   "redirectInSec": "{count} sekunddan keyin yo'naltirilasiz",
   "karantinRedirectDesc": "Davlat karantin nazorati tizimiga o'tasiz",
-  "oneIdRedirectDesc": "Yagona identifikatsiya tizimiga o'tasiz"
+  "oneIdRedirectDesc": "Yagona identifikatsiya tizimiga o'tasiz",
+  "appTagline": "Dala monitoringi",
+  "errorTimeout": "So'rov vaqti tugadi. Internet aloqasini tekshiring.",
+  "errorConnection": "Internetga ulanib bo'lmadi. Aloqani tekshiring.",
+  "errorBadCertificate": "Xavfsiz aloqa o'rnatib bo'lmadi.",
+  "errorCancelled": "So'rov bekor qilindi.",
+  "errorUnknown": "Noma'lum xatolik yuz berdi. Qayta urinib ko'ring.",
+  "errorBadRequest": "Noto'g'ri so'rov yuborildi.",
+  "errorUnauthorized": "Login yoki parol xato kiritildi.",
+  "errorForbidden": "Ushbu amal uchun ruxsatingiz yo'q.",
+  "errorNotFound": "Ma'lumot topilmadi.",
+  "errorValidation": "Kiritilgan ma'lumotlar noto'g'ri.",
+  "errorServer": "Serverda xatolik yuz berdi. Birozdan so'ng urinib ko'ring.",
+  "errorGeneric": "Kutilmagan xatolik yuz berdi.",
+  "errorUnexpected": "Kutilmagan xatolik yuz berdi. Qayta urinib ko'ring.",
+  "locationTimeoutError": "Joylashuv aniqlanmadi (vaqt tugadi)",
+  "locationServiceDisabledError": "Joylashuv xizmati o'chiq",
+  "locationPermissionDeniedError": "Joylashuv ruxsati rad etilgan"
 }

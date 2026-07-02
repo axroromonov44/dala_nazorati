@@ -66,6 +66,9 @@ dependencies:
   url_launcher: ^6.3.1
   image_picker: ^1.1.2
 
+  # In-app browser for OneID/SSO OAuth flow (needed to capture the redirect code)
+  webview_flutter: ^4.10.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

@@ -5,6 +5,7 @@ import 'package:get_it/get_it.dart';
 import '../../features/auth/data/datasources/auth_remote_datasource.dart';
 import '../../features/auth/data/repositories/auth_repository_impl.dart';
 import '../../features/auth/domain/repositories/auth_repository.dart';
+import '../../features/auth/domain/usecases/gov_login_usecase.dart';
 import '../../features/auth/domain/usecases/login_usecase.dart';
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
 import '../../features/home/data/repositories/location_repository_impl.dart';
@@ -68,10 +69,11 @@ Future<void> configureDependencies() async {
     () => AuthRemoteDataSource(getIt()),
   );
   getIt.registerLazySingleton<AuthRepository>(
-    () => AuthRepositoryImpl(getIt()),
+    () => AuthRepositoryImpl(getIt(), getIt()),
   );
   getIt.registerLazySingleton<LoginUseCase>(() => LoginUseCase(getIt()));
-  getIt.registerFactory<AuthBloc>(() => AuthBloc(getIt()));
+  getIt.registerLazySingleton<GovLoginUseCase>(() => GovLoginUseCase(getIt()));
+  getIt.registerFactory<AuthBloc>(() => AuthBloc(getIt(), getIt()));
 
   // Home / Location
   getIt.registerLazySingleton<LocationRepository>(
