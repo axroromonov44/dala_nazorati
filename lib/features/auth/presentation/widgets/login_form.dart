@@ -48,12 +48,39 @@ class _LoginFormState extends State<LoginForm> {
     showDialog(
       context: context,
       barrierDismissible: true,
-      builder: (_) => _RedirectDialog(url: url),
+      builder: (_) => _RedirectDialog(
+        messageKey: 'karantinRedirectMsg',
+        descKey: 'karantinRedirectDesc',
+        badgeText: 'id.karantin.uz',
+        accentColor: kGreen,
+        accentLight: kGreenLight,
+        badgeIcon: Icons.eco_rounded,
+        onComplete: () => launchUrl(
+          Uri.parse(url),
+          mode: LaunchMode.inAppBrowserView,
+        ),
+      ),
     );
   }
 
-  Future<void> _startOneIdLogin() async {
+  void _startOneIdLogin() {
     hapticMedium();
+    showDialog(
+      context: context,
+      barrierDismissible: true,
+      builder: (_) => _RedirectDialog(
+        messageKey: 'oneIdRedirectMsg',
+        descKey: 'oneIdRedirectDesc',
+        badgeText: 'id.egov.uz',
+        accentColor: const Color(0xFF2D159A),
+        accentLight: const Color(0xFF4B30C5),
+        badgeIcon: Icons.fingerprint_rounded,
+        onComplete: _openOneIdWebView,
+      ),
+    );
+  }
+
+  Future<void> _openOneIdWebView() async {
     final authBloc = context.read<AuthBloc>();
     final code = await Navigator.of(context, rootNavigator: true).push<String?>(
       MaterialPageRoute(builder: (_) => const OneIdWebViewPage()),
@@ -279,9 +306,23 @@ class _KarantinButton extends StatelessWidget {
 }
 
 class _RedirectDialog extends StatefulWidget {
-  const _RedirectDialog({required this.url});
+  const _RedirectDialog({
+    required this.messageKey,
+    required this.descKey,
+    required this.badgeText,
+    required this.accentColor,
+    required this.accentLight,
+    required this.badgeIcon,
+    required this.onComplete,
+  });
 
-  final String url;
+  final String messageKey;
+  final String descKey;
+  final String badgeText;
+  final Color accentColor;
+  final Color accentLight;
+  final IconData badgeIcon;
+  final VoidCallback onComplete;
 
   @override
   State<_RedirectDialog> createState() => _RedirectDialogState();
@@ -297,7 +338,7 @@ class _RedirectDialogState extends State<_RedirectDialog> {
     _timer = Timer.periodic(const Duration(seconds: 1), (t) {
       if (_countdown == 0) {
         t.cancel();
-        _launch();
+        _complete();
       } else {
         setState(() => _countdown--);
       }
@@ -310,18 +351,17 @@ class _RedirectDialogState extends State<_RedirectDialog> {
     super.dispose();
   }
 
-  Future<void> _launch() async {
-    final uri = Uri.parse(widget.url);
+  void _complete() {
     if (mounted) Navigator.pop(context);
-    await launchUrl(uri, mode: LaunchMode.inAppBrowserView);
+    widget.onComplete();
   }
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    const accentColor = kGreen;
-    const accentLight = kGreenLight;
+    final accentColor = widget.accentColor;
+    final accentLight = widget.accentLight;
 
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
@@ -332,13 +372,15 @@ class _RedirectDialogState extends State<_RedirectDialog> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const _KarantinDialogHeader(
+            _RedirectDialogHeader(
               accentColor: accentColor,
               accentLight: accentLight,
+              badgeText: widget.badgeText,
+              badgeIcon: widget.badgeIcon,
             ),
             const SizedBox(height: 20),
             Text(
-              'karantinRedirectMsg'.tr(),
+              widget.messageKey.tr(),
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w800,
@@ -350,7 +392,7 @@ class _RedirectDialogState extends State<_RedirectDialog> {
             ),
             const SizedBox(height: 6),
             Text(
-              'karantinRedirectDesc'.tr(),
+              widget.descKey.tr(),
               style: TextStyle(
                 fontSize: 12.5,
                 color: colorScheme.onSurfaceVariant,
@@ -377,14 +419,18 @@ class _RedirectDialogState extends State<_RedirectDialog> {
   }
 }
 
-class _KarantinDialogHeader extends StatelessWidget {
-  const _KarantinDialogHeader({
+class _RedirectDialogHeader extends StatelessWidget {
+  const _RedirectDialogHeader({
     required this.accentColor,
     required this.accentLight,
+    required this.badgeText,
+    required this.badgeIcon,
   });
 
   final Color accentColor;
   final Color accentLight;
+  final String badgeText;
+  final IconData badgeIcon;
 
   @override
   Widget build(BuildContext context) {
@@ -449,7 +495,7 @@ class _KarantinDialogHeader extends StatelessWidget {
                       ),
                     ],
                   ),
-                  child: const Icon(Icons.eco_rounded, color: kGreen, size: 15),
+                  child: Icon(badgeIcon, color: accentColor, size: 15),
                 ),
               ),
             ],
@@ -468,7 +514,7 @@ class _KarantinDialogHeader extends StatelessWidget {
                 Icon(Icons.lock_rounded, size: 11, color: accentColor),
                 const SizedBox(width: 5),
                 Text(
-                  'id.karantin.uz',
+                  badgeText,
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w700,

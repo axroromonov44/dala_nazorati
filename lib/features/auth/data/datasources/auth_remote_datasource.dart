@@ -18,7 +18,7 @@ class AuthRemoteDataSource {
   }
 
   Future<Map<String, dynamic>> loginGov({required String code}) async {
-    final response = await _dioService.post<Map<String, dynamic>>(
+    final response = await _dioService.get<Map<String, dynamic>>(
       ApiEndpoints.govLogin,
       queryParameters: {'code': code},
     );
