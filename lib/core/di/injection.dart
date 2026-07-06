@@ -6,6 +6,7 @@ import '../../features/auth/data/datasources/auth_remote_datasource.dart';
 import '../../features/auth/data/repositories/auth_repository_impl.dart';
 import '../../features/auth/domain/repositories/auth_repository.dart';
 import '../../features/auth/domain/usecases/gov_login_usecase.dart';
+import '../../features/auth/domain/usecases/karantin_login_usecase.dart';
 import '../../features/auth/domain/usecases/login_usecase.dart';
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
 import '../../features/home/data/repositories/location_repository_impl.dart';
@@ -73,7 +74,12 @@ Future<void> configureDependencies() async {
   );
   getIt.registerLazySingleton<LoginUseCase>(() => LoginUseCase(getIt()));
   getIt.registerLazySingleton<GovLoginUseCase>(() => GovLoginUseCase(getIt()));
-  getIt.registerFactory<AuthBloc>(() => AuthBloc(getIt(), getIt()));
+  getIt.registerLazySingleton<KarantinLoginUseCase>(
+    () => KarantinLoginUseCase(getIt()),
+  );
+  getIt.registerFactory<AuthBloc>(
+    () => AuthBloc(getIt(), getIt(), getIt()),
+  );
 
   // Home / Location
   getIt.registerLazySingleton<LocationRepository>(

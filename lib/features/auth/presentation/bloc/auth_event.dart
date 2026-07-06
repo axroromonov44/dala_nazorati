@@ -23,6 +23,15 @@ final class AuthGovLoginRequested extends AuthEvent {
   List<Object> get props => [code];
 }
 
+final class AuthKarantinLoginRequested extends AuthEvent {
+  const AuthKarantinLoginRequested({required this.code});
+
+  final String code;
+
+  @override
+  List<Object> get props => [code];
+}
+
 final class AuthLogoutRequested extends AuthEvent {
   const AuthLogoutRequested();
 

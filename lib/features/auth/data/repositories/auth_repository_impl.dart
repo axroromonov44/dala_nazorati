@@ -29,6 +29,13 @@ class AuthRepositoryImpl implements AuthRepository {
     return _completeLogin(data);
   }
 
+  @override
+  Future<({User user, String accessToken, String refreshToken})>
+      loginWithKarantinCode({required String code}) async {
+    final data = await _remoteDataSource.loginKarantin(code: code);
+    return _completeLogin(data);
+  }
+
   Future<({User user, String accessToken, String refreshToken})>
       _completeLogin(Map<String, dynamic> data) async {
     final accessToken = data['access'] as String;

@@ -150,6 +150,7 @@ class _AuthInterceptor extends Interceptor {
   bool _isAuthEndpoint(String path) =>
       path.contains(ApiEndpoints.login) ||
       path.contains(ApiEndpoints.govLogin) ||
+      path.contains(ApiEndpoints.karantinLogin) ||
       path.contains(ApiEndpoints.refreshToken);
 
   @override

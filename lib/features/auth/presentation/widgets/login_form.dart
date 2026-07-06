@@ -3,14 +3,12 @@ import 'dart:math' as math;
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_spacings.dart';
 import '../../../../core/utils/haptic.dart';
 import '../bloc/auth_bloc.dart';
+import '../pages/karantin_webview_page.dart';
 import '../pages/oneid_webview_page.dart';
-
-const _kKarantinIdUrl = 'https://id.karantin.uz/sign-in?name=DALA+NAZORAT';
 
 class LoginForm extends StatefulWidget {
   const LoginForm({super.key});
@@ -43,7 +41,7 @@ class _LoginFormState extends State<LoginForm> {
     }
   }
 
-  void _openWithCountdown(String url) {
+  void _startKarantinLogin() {
     hapticMedium();
     showDialog(
       context: context,
@@ -55,12 +53,23 @@ class _LoginFormState extends State<LoginForm> {
         accentColor: kGreen,
         accentLight: kGreenLight,
         badgeIcon: Icons.eco_rounded,
-        onComplete: () => launchUrl(
-          Uri.parse(url),
-          mode: LaunchMode.inAppBrowserView,
-        ),
+        onComplete: _openKarantinWebView,
       ),
     );
+  }
+
+  Future<void> _openKarantinWebView() async {
+    final authBloc = context.read<AuthBloc>();
+    final code = await Navigator.of(context, rootNavigator: true)
+        .push<String?>(
+      MaterialPageRoute(builder: (_) => const KarantinWebViewPage()),
+    );
+    debugPrint('[KarantinID] webview returned code=$code');
+    if (code != null && code.isNotEmpty) {
+      authBloc.add(AuthKarantinLoginRequested(code: code));
+    } else {
+      debugPrint('[KarantinID] no code received, login flow aborted');
+    }
   }
 
   void _startOneIdLogin() {
@@ -149,7 +158,7 @@ class _LoginFormState extends State<LoginForm> {
           kVerticalSpace16,
           _OneIdButton(onTap: _startOneIdLogin),
           const SizedBox(height: 10),
-          _KarantinButton(onTap: () => _openWithCountdown(_kKarantinIdUrl)),
+          _KarantinButton(onTap: _startKarantinLogin),
         ],
       ),
     );

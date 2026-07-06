@@ -24,4 +24,12 @@ class AuthRemoteDataSource {
     );
     return response.data!;
   }
+
+  Future<Map<String, dynamic>> loginKarantin({required String code}) async {
+    final response = await _dioService.get<Map<String, dynamic>>(
+      ApiEndpoints.karantinLogin,
+      queryParameters: {'code': code},
+    );
+    return response.data!;
+  }
 }
