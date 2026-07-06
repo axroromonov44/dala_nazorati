@@ -55,6 +55,7 @@
   "fieldName": "Field Name",
   "fieldNameHint": "E.g.: North Field",
   "fieldArea": "Area (hectares)",
+  "invalidNumber": "Invalid number",
   "ownershipType": "Ownership Type",
   "ownerPrivate": "Private",
   "ownerRented": "Rented",

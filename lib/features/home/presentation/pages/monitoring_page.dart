@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:latlong2/latlong.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/utils/decimal_input_formatter.dart';
 import '../../../../core/utils/haptic.dart';
 import '../../../../core/utils/responsive.dart';
 
@@ -29,6 +30,7 @@ class _MonitoringPageState extends State<MonitoringPage>
   String? _fieldStatus;
   String? _cropType;
   String? _irrigationType;
+  String? _areaError;
   final List<XFile> _images = [];
   final _picker = ImagePicker();
 
@@ -36,11 +38,19 @@ class _MonitoringPageState extends State<MonitoringPage>
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
+    _areaCtrl.addListener(_validateArea);
+  }
+
+  void _validateArea() {
+    final isValid = isValidDecimal(_areaCtrl.text.trim());
+    final error = isValid ? null : 'invalidNumber'.tr();
+    if (error != _areaError) setState(() => _areaError = error);
   }
 
   @override
   void dispose() {
     _tabController.dispose();
+    _areaCtrl.removeListener(_validateArea);
     _nameCtrl.dispose();
     _areaCtrl.dispose();
     _varietyCtrl.dispose();
@@ -67,6 +77,16 @@ class _MonitoringPageState extends State<MonitoringPage>
     if (_nameCtrl.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text('fieldNameRequired'.tr()),
+        backgroundColor: kError,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ));
+      _tabController.animateTo(0);
+      return;
+    }
+    if (_areaError != null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(_areaError!),
         backgroundColor: kError,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -110,6 +130,7 @@ class _MonitoringPageState extends State<MonitoringPage>
                 _BasicTab(
                   nameCtrl: _nameCtrl,
                   areaCtrl: _areaCtrl,
+                  areaError: _areaError,
                   notesCtrl: _notesCtrl,
                   ownershipType: _ownershipType,
                   fieldStatus: _fieldStatus,
@@ -330,6 +351,7 @@ class _BasicTab extends StatelessWidget {
   const _BasicTab({
     required this.nameCtrl,
     required this.areaCtrl,
+    required this.areaError,
     required this.notesCtrl,
     required this.ownershipType,
     required this.fieldStatus,
@@ -341,6 +363,7 @@ class _BasicTab extends StatelessWidget {
 
   final TextEditingController nameCtrl;
   final TextEditingController areaCtrl;
+  final String? areaError;
   final TextEditingController notesCtrl;
   final String? ownershipType;
   final String? fieldStatus;
@@ -360,7 +383,16 @@ class _BasicTab extends StatelessWidget {
           colorScheme: colorScheme,
           children: [
             _Input(controller: nameCtrl, label: 'fieldName'.tr(), hint: 'fieldNameHint'.tr(), isDark: isDark, colorScheme: colorScheme),
-            _Input(controller: areaCtrl, label: 'fieldArea'.tr(), hint: '0.00', isDark: isDark, colorScheme: colorScheme, keyboardType: const TextInputType.numberWithOptions(decimal: true)),
+            _Input(
+              controller: areaCtrl,
+              label: 'fieldArea'.tr(),
+              hint: '0.00',
+              errorText: areaError,
+              isDark: isDark,
+              colorScheme: colorScheme,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              inputFormatters: [DecimalInputFormatter(maxDecimals: 3)],
+            ),
           ],
         ),
         const SizedBox(height: 14),
@@ -688,7 +720,17 @@ class _SubmitBar extends StatelessWidget {
 }
 
 class _Input extends StatelessWidget {
-  const _Input({required this.controller, required this.label, required this.hint, required this.isDark, required this.colorScheme, this.keyboardType, this.maxLines = 1});
+  const _Input({
+    required this.controller,
+    required this.label,
+    required this.hint,
+    required this.isDark,
+    required this.colorScheme,
+    this.keyboardType,
+    this.maxLines = 1,
+    this.errorText,
+    this.inputFormatters,
+  });
   final TextEditingController controller;
   final String label;
   final String hint;
@@ -696,6 +738,8 @@ class _Input extends StatelessWidget {
   final ColorScheme colorScheme;
   final TextInputType? keyboardType;
   final int maxLines;
+  final String? errorText;
+  final List<TextInputFormatter>? inputFormatters;
 
   @override
   Widget build(BuildContext context) {
@@ -704,16 +748,20 @@ class _Input extends StatelessWidget {
       controller: controller,
       keyboardType: keyboardType,
       maxLines: maxLines,
+      inputFormatters: inputFormatters,
       style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: colorScheme.onSurface),
       decoration: InputDecoration(
         labelText: label,
         hintText: hint,
+        errorText: errorText,
         filled: true,
         fillColor: fill,
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(13), borderSide: BorderSide.none),
         enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(13), borderSide: BorderSide(color: colorScheme.outlineVariant.withAlpha(60))),
         focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(13), borderSide: const BorderSide(color: kGreen, width: 1.8)),
+        errorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(13), borderSide: const BorderSide(color: kError, width: 1.4)),
+        focusedErrorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(13), borderSide: const BorderSide(color: kError, width: 1.8)),
         labelStyle: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 14),
         floatingLabelStyle: TextStyle(color: isDark ? kGreenLight : kGreen, fontSize: 13, fontWeight: FontWeight.w600),
         hintStyle: TextStyle(color: colorScheme.onSurfaceVariant.withAlpha(100), fontSize: 13),

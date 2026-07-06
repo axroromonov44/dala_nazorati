@@ -55,6 +55,7 @@
   "fieldName": "Название поля",
   "fieldNameHint": "Например: Северное поле",
   "fieldArea": "Площадь (га)",
+  "invalidNumber": "Неверное число",
   "ownershipType": "Тип владения",
   "ownerPrivate": "Частное",
   "ownerRented": "Арендованное",
