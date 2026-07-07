@@ -12,36 +12,44 @@ class NoInternetBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Column(
-        children: [
-          BlocBuilder<ConnectivityCubit, bool>(
-            builder: (context, isOnline) => AnimatedContainer(
-              duration: const Duration(milliseconds: 300),
-              height: isOnline ? 0 : 36,
-              color: const Color(0xFFD32F2F),
-              child: isOnline
-                  ? const SizedBox.shrink()
-                  : Row(
+    children: [
+      BlocBuilder<ConnectivityCubit, bool>(
+        builder: (context, isOnline) => AnimatedSize(
+          duration: const Duration(milliseconds: 300),
+          alignment: Alignment.topCenter,
+          child: isOnline
+              ? const SizedBox(width: double.infinity)
+              : Material(
+                  child: Container(
+                    width: double.infinity,
+                    color: const Color(0xFFD32F2F),
+                    padding: EdgeInsets.only(
+                      top: MediaQuery.of(context).padding.top,
+                      bottom: 5,
+                    ),
+                    child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         const Icon(
                           Icons.wifi_off,
-                          color: kWhite,
-                          size: 16,
+                          color: Colors.white,
+                          size: 18,
                         ),
                         kHorizontalSpace8,
                         Text(
                           'noInternet'.tr(),
                           style: const TextStyle(
-                            color: kWhite,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500,
+                            color: Colors.white,
+                            fontSize: 16,
                           ),
                         ),
                       ],
                     ),
-            ),
-          ),
-          Expanded(child: child),
-        ],
-      );
+                  ),
+                ),
+        ),
+      ),
+      Expanded(child: child),
+    ],
+  );
 }

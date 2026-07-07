@@ -35,7 +35,6 @@ class _KarantinWebViewPageState extends State<KarantinWebViewPage> {
           },
           onWebResourceError: (error) {
             debugPrint(
-              '[KarantinID] web resource error: '
               'code=${error.errorCode} desc=${error.description} '
               'url=${error.url} isMainFrame=${error.isForMainFrame}',
             );
