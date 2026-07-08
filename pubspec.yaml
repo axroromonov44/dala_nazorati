@@ -1,7 +1,7 @@
 name: dala_nazorati
 description: "Dala nazorati - field monitoring application"
 publish_to: 'none'
-version: 1.0.0+3
+version: 1.0.0+6
 
 environment:
   sdk: ^3.11.4
@@ -68,6 +68,10 @@ dependencies:
 
   # In-app browser for OneID/SSO OAuth flow (needed to capture the redirect code)
   webview_flutter: ^4.10.0
+  # Platform-specific webview APIs (camera inline playback on iOS, permission grants on Android)
+  webview_flutter_android: ^4.12.0
+  webview_flutter_wkwebview: ^3.25.0
+  permission_handler: ^12.0.1
 
 dev_dependencies:
   flutter_test:

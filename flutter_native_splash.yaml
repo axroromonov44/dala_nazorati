@@ -7,14 +7,15 @@ flutter_native_splash:
   color_dark: "#0D1F0D"
   image_dark: assets/images/main_logo.png
 
-  # Android 12+ (monoxtom icon talab qiladi)
+  # Android 12+ (monoxtom icon talab qiladi, kvadrat rasm bo'lishi shart —
+  # aks holda tizim uni kvadrat konteynerga siqib chiqaradi)
   android_12:
     color: "#2E7D32"
     icon_background_color: "#2E7D32"
-    image: assets/images/main_logo.png
+    image: assets/images/main_logo_square.png
     color_dark: "#0D1F0D"
     icon_background_color_dark: "#0D1F0D"
-    image_dark: assets/images/main_logo.png
+    image_dark: assets/images/main_logo_square.png
 
   web: false
   ios: true

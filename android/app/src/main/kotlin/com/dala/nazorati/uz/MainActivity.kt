@@ -1,4 +1,4 @@
-package com.example.dala_nazorati
+package com.dala.nazorati.uz
 
 import io.flutter.embedding.android.FlutterActivity
 

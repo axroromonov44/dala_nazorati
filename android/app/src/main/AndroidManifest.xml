@@ -12,6 +12,9 @@
     <uses-feature android:name="android.hardware.camera" android:required="false"/>
     <uses-feature android:name="android.hardware.camera.autofocus" android:required="false"/>
 
+    <!-- Microphone (Karantin ID webview face-scan may request audio+video together) -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+
     <!-- Media (Android 13+ / API 33+) -->
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
     <uses-permission android:name="android.permission.READ_MEDIA_VIDEO"/>

@@ -1385,6 +1385,8 @@ PODS:
     - nanopb/encode (= 3.30910.0)
   - nanopb/decode (3.30910.0)
   - nanopb/encode (3.30910.0)
+  - permission_handler_apple (9.4.8):
+    - Flutter
   - RecaptchaInterop (101.0.0)
   - shared_preferences_foundation (0.0.1):
     - Flutter
@@ -1405,6 +1407,7 @@ DEPENDENCIES:
   - flutter_secure_storage (from `.symlinks/plugins/flutter_secure_storage/ios`)
   - geolocator_apple (from `.symlinks/plugins/geolocator_apple/darwin`)
   - image_picker_ios (from `.symlinks/plugins/image_picker_ios/ios`)
+  - permission_handler_apple (from `.symlinks/plugins/permission_handler_apple/ios`)
   - shared_preferences_foundation (from `.symlinks/plugins/shared_preferences_foundation/darwin`)
   - url_launcher_ios (from `.symlinks/plugins/url_launcher_ios/ios`)
   - webview_flutter_wkwebview (from `.symlinks/plugins/webview_flutter_wkwebview/darwin`)
@@ -1450,6 +1453,8 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/geolocator_apple/darwin"
   image_picker_ios:
     :path: ".symlinks/plugins/image_picker_ios/ios"
+  permission_handler_apple:
+    :path: ".symlinks/plugins/permission_handler_apple/ios"
   shared_preferences_foundation:
     :path: ".symlinks/plugins/shared_preferences_foundation/darwin"
   url_launcher_ios:
@@ -1485,6 +1490,7 @@ SPEC CHECKSUMS:
   image_picker_ios: e0ece4aa2a75771a7de3fa735d26d90817041326
   leveldb-library: cc8b8f8e013647a295ad3f8cd2ddf49a6f19be19
   nanopb: fad817b59e0457d11a5dfbde799381cd727c1275
+  permission_handler_apple: 92d754bbaa7361d436db2d6c3c1c2a0fdcec462e
   RecaptchaInterop: 11e0b637842dfb48308d242afc3f448062325aba
   shared_preferences_foundation: 7036424c3d8ec98dfe75ff1667cb0cd531ec82bb
   url_launcher_ios: 7a95fa5b60cc718a708b8f2966718e93db0cef1b
@@ -1492,4 +1498,4 @@ SPEC CHECKSUMS:
 
 PODFILE CHECKSUM: 35a2496d953b78d5fb37339ae9ffb08c120bebdc
 
-COCOAPODS: 1.16.2
+COCOAPODS: 1.17.0
