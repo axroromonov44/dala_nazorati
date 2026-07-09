@@ -130,5 +130,9 @@
   "errorUnexpected": "An unexpected error occurred. Please try again.",
   "locationTimeoutError": "Could not determine location (timed out)",
   "locationServiceDisabledError": "Location service is disabled",
-  "locationPermissionDeniedError": "Location permission denied"
+  "locationPermissionDeniedError": "Location permission denied",
+  "karantinIdPageTitle": "Karantin ID",
+  "cameraPermissionTitle": "Camera permission required",
+  "cameraPermissionBody": "Camera access is required for face scanning. Please grant permission in Settings.",
+  "openSettings": "Go to Settings"
 }

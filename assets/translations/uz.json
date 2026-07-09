@@ -130,5 +130,9 @@
   "errorUnexpected": "Kutilmagan xatolik yuz berdi. Qayta urinib ko'ring.",
   "locationTimeoutError": "Joylashuv aniqlanmadi (vaqt tugadi)",
   "locationServiceDisabledError": "Joylashuv xizmati o'chiq",
-  "locationPermissionDeniedError": "Joylashuv ruxsati rad etilgan"
+  "locationPermissionDeniedError": "Joylashuv ruxsati rad etilgan",
+  "karantinIdPageTitle": "Karantin ID",
+  "cameraPermissionTitle": "Kameraga ruxsat kerak",
+  "cameraPermissionBody": "Yuz skanerlash uchun kameradan foydalanish ruxsati talab qilinadi. Sozlamalar orqali ruxsat bering.",
+  "openSettings": "Sozlamalarga o'tish"
 }

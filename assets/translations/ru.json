@@ -130,5 +130,9 @@
   "errorUnexpected": "Произошла непредвиденная ошибка. Попробуйте ещё раз.",
   "locationTimeoutError": "Не удалось определить местоположение (истекло время ожидания)",
   "locationServiceDisabledError": "Служба геолокации отключена",
-  "locationPermissionDeniedError": "Доступ к геолокации отклонён"
+  "locationPermissionDeniedError": "Доступ к геолокации отклонён",
+  "karantinIdPageTitle": "Karantin ID",
+  "cameraPermissionTitle": "Требуется доступ к камере",
+  "cameraPermissionBody": "Для сканирования лица требуется доступ к камере. Разрешите его в настройках.",
+  "openSettings": "Перейти в настройки"
 }
