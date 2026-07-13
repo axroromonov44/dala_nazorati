@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/connectivity/connectivity_cubit.dart';
 import '../../../../core/map/tile_cache_service.dart';
+import '../../../../core/map/tile_math.dart';
+import '../../../../core/map/uzbekistan_regions.dart';
 import '../../../../core/utils/haptic.dart';
 import '../../../../core/utils/responsive.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -12,6 +14,7 @@ import '../../../../core/constants/app_spacings.dart';
 import '../../domain/entities/location_point.dart';
 import '../bloc/map_bloc.dart';
 import 'field_form_sheet.dart';
+import 'offline_map_download_dialog.dart';
 
 class LocationMap extends StatefulWidget {
   const LocationMap({
@@ -39,8 +42,127 @@ class _LocationMapState extends State<LocationMap>
 
   bool _mapReady = false;
   bool _isDrawing = false;
+  bool _offlineDialogChecked = false;
+  bool _introPlayed = false;
   final List<List<LatLng>> _polygons = [];
   final List<LatLng> _currentPoints = [];
+
+  static const _tileSubdomains = ['a', 'b', 'c', 'd'];
+
+  // Joriy joylashuv atrofidagi mayda (dala chizish darajasidagi) hudud —
+  // viloyat bo'yicha keshdan farqli, bu doim yangilanib turishi kerak
+  // (25 kunda bir marta), shuning uchun alohida, kichikroq va yuqori
+  // zoom'li qilib saqlanadi.
+  static const _fieldRadiusMeters = 1000.0;
+  static const _fieldMinZoom = 14;
+  static const _fieldMaxZoom = 18;
+
+  // Joriy joylashuv qaysi viloyatda bo'lsa, o'sha atrofidagi kengroq
+  // (lekin kam tafsilotli) hudud — bir martalik, foydalanuvchi hozir
+  // turgan joyga qarab avtomatik markazlashadi (butun viloyat emas —
+  // ba'zi viloyatlar juda katta, shuning uchun joriy joylashuv atrofi).
+  static const _regionalRadiusMeters = 30000.0;
+  static const _regionalMinZoom = 10;
+  static const _regionalMaxZoom = 15;
+
+  String _tileUrlFor(bool isDark) => isDark
+      ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
+      : 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
+
+  /// Bitta xarita ochilishida bittagina taklif dialogi chiqadi — agar
+  /// viloyat va joy-darajasidagi hududlarning ikkalasi ham hali yuklab
+  /// olinmagan bo'lsa, ular BITTA umumiy hajm/bitta tasdiq bilan
+  /// birlashtiriladi (foydalanuvchiga ikki marta savol berilmaydi). Faqat
+  /// biri kerak bo'lsa (masalan viloyat allaqachon yuklangan, joy-darajasi
+  /// esa 25 kunda yangilanishi kerak bo'lsa), faqat o'sha bittasi so'raladi.
+  /// Viloyat nomi foydalanuvchining joriy joylashuviga qarab avtomatik
+  /// aniqlanadi (masalan Qashqadaryoda bo'lsa — "Qashqadaryo xaritasi...").
+  void _maybePromptOfflineDownload() {
+    if (_offlineDialogChecked || !mounted) return;
+    _offlineDialogChecked = true;
+
+    final center = LatLng(widget.location.latitude, widget.location.longitude);
+    final isOnline = context.read<ConnectivityCubit>().state;
+    if (!isOnline) return;
+
+    final regionalRegionId = TileCacheService.regionalRegionId(center);
+    final regionalPending = TileCacheService.shouldPromptDownload(
+      regionalRegionId,
+      isOnline: isOnline,
+      checkFreshness: false,
+    );
+    final fieldRegionId = TileCacheService.locationRegionId(center);
+    final fieldPending = TileCacheService.shouldPromptDownload(fieldRegionId, isOnline: isOnline);
+
+    final jobs = [
+      if (regionalPending)
+        TileDownloadJob(
+          regionId: regionalRegionId,
+          center: center,
+          radiusMeters: _regionalRadiusMeters,
+          minZoom: _regionalMinZoom,
+          maxZoom: _regionalMaxZoom,
+          checkFreshness: false,
+        ),
+      if (fieldPending)
+        TileDownloadJob(
+          regionId: fieldRegionId,
+          center: center,
+          radiusMeters: _fieldRadiusMeters,
+          minZoom: _fieldMinZoom,
+          maxZoom: _fieldMaxZoom,
+        ),
+    ];
+    if (jobs.isEmpty) return;
+
+    final regionName =
+        UzbekistanRegions.nearestTo(center).localizedName(context.locale.languageCode);
+
+    final String title;
+    final String body;
+    if (regionalPending && fieldPending) {
+      title = 'offlineMapCombinedTitle'.tr(namedArgs: {'region': regionName});
+      body = 'offlineMapCombinedBody'.tr(namedArgs: {'region': regionName});
+    } else if (regionalPending) {
+      title = 'offlineMapCityTitle'.tr(namedArgs: {'region': regionName});
+      body = 'offlineMapCityBody'.tr(namedArgs: {'region': regionName});
+    } else {
+      title = 'offlineMapTitle'.tr();
+      body = 'offlineMapBody'.tr();
+    }
+
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    showOfflineMapDownloadDialog(
+      context,
+      jobs: jobs,
+      title: title,
+      body: body,
+      urlTemplate: _tileUrlFor(isDark),
+      subdomains: _tileSubdomains,
+      retina: RetinaMode.isHighDensity(context),
+    );
+  }
+
+  /// App ochilganda avval butun Toshkent shahri ko'rinishi (kamera shahar
+  /// chegarasiga moslanadi), keyin 3-4 sekunddan so'ng joriy joylashuvga
+  /// silliq yaqinlashadi. Yuklab olish dialogi esa joriy joylashuv
+  /// ko'rsatilib bo'lgach (parvoz animatsiyasi tugagach), yana 2 soniyadan
+  /// keyin chiqadi — shaharni ko'rsatish bilan bir vaqtda emas.
+  void _playCityIntro() {
+    if (_introPlayed || !mounted) return;
+    _introPlayed = true;
+
+    Future.delayed(const Duration(milliseconds: 3500), () {
+      if (!mounted) return;
+      _flyTo(LatLng(widget.location.latitude, widget.location.longitude), zoom: 15.5);
+
+      final flyDuration = _flyController.duration ?? const Duration(milliseconds: 900);
+      Future.delayed(flyDuration + const Duration(seconds: 2), () {
+        if (!mounted) return;
+        _maybePromptOfflineDownload();
+      });
+    });
+  }
 
   @override
   void initState() {
@@ -53,6 +175,20 @@ class _LocationMapState extends State<LocationMap>
       parent: _flyController,
       curve: Curves.easeInOutCubic,
     );
+    TileCacheService.cacheVersion.addListener(_onCacheCleared);
+  }
+
+  /// Kesh sozlamalardan (drawer) tozalansa, xarita hali ochiq turgan bo'lsa
+  /// ham — drawer yopilgach — yuklab olish taklifi qayta so'raladi, foydalanuvchi
+  /// ilovani qayta ochishiga hojat qolmaydi. Drawer yopilish animatsiyasi
+  /// tugashi uchun kichik kechikish beriladi.
+  void _onCacheCleared() {
+    if (!mounted) return;
+    _offlineDialogChecked = false;
+    Future.delayed(const Duration(milliseconds: 400), () {
+      if (!mounted) return;
+      _maybePromptOfflineDownload();
+    });
   }
 
   void _onFlyTick() {
@@ -88,6 +224,7 @@ class _LocationMapState extends State<LocationMap>
 
   @override
   void dispose() {
+    TileCacheService.cacheVersion.removeListener(_onCacheCleared);
     _flyController.dispose();
     _flyCurve.dispose();
     super.dispose();
@@ -216,9 +353,7 @@ class _LocationMapState extends State<LocationMap>
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final isOnline = context.watch<ConnectivityCubit>().state;
 
-    final tileUrl = isDark
-        ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
-        : 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
+    final tileUrl = _tileUrlFor(isDark);
 
     final polygonFill = isDark
         ? kGreenLight.withAlpha(60)
@@ -230,15 +365,23 @@ class _LocationMapState extends State<LocationMap>
         FlutterMap(
           mapController: _mapController,
           options: MapOptions(
-            initialCenter: latLng,
-            initialZoom: 15.5,
-            onMapReady: () => setState(() => _mapReady = true),
+            // Birinchi ochilishda joriy joylashuv atrofidagi kengroq hudud
+            // ko'rinadi, so'ng `_playCityIntro` orqali aniq joylashuvga
+            // yaqinlashiladi.
+            initialCameraFit: CameraFit.bounds(
+              bounds: TileMath.boundsFor(latLng, _regionalRadiusMeters),
+              padding: const EdgeInsets.all(24),
+            ),
+            onMapReady: () {
+              setState(() => _mapReady = true);
+              _playCityIntro();
+            },
             onTap: _onMapTap,
           ),
           children: [
             TileLayer(
               urlTemplate: tileUrl,
-              subdomains: const ['a', 'b', 'c', 'd'],
+              subdomains: _tileSubdomains,
               userAgentPackageName: 'uz.dala.nazorati',
               maxNativeZoom: 19,
               keepBuffer: 5,

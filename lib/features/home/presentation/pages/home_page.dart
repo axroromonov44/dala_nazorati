@@ -3,11 +3,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/di/injection.dart';
+import '../../../../core/notifications/app_notification.dart';
+import '../../../../core/notifications/notification_center.dart';
 import '../../../../core/utils/haptic.dart';
 import '../../../../core/utils/responsive.dart';
 import '../../../../core/widgets/app_drawer.dart';
 import '../bloc/map_bloc.dart';
 import '../widgets/location_map.dart';
+import '../widgets/notifications_panel.dart';
 import 'fake_gps_page.dart';
 
 class HomePage extends StatelessWidget {
@@ -110,6 +113,62 @@ class _HomeViewState extends State<_HomeView> {
               );
             },
           ),
+
+          ValueListenableBuilder<bool>(
+            valueListenable: _drawingNotifier,
+            builder: (ctx, isDrawing, child) {
+              if (isDrawing) return const SizedBox.shrink();
+              return Positioned(
+                top: MediaQuery.of(context).padding.top + context.spaceSm,
+                right: context.rs(12.0, 18.0),
+                child: const _NotificationButton(),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _NotificationButton extends StatelessWidget {
+  const _NotificationButton();
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<List<AppNotification>>(
+      valueListenable: NotificationCenter.items,
+      builder: (context, items, child) => Stack(
+        clipBehavior: Clip.none,
+        children: [
+          _FloatingButton(
+            heroTag: 'notifications',
+            icon: Icons.notifications_none_rounded,
+            onPressed: hTap(() => showNotificationsPanel(context))!,
+          ),
+          if (items.isNotEmpty)
+            Positioned(
+              top: -2,
+              right: -2,
+              child: Container(
+                padding: const EdgeInsets.all(3),
+                constraints: const BoxConstraints(minWidth: 18, minHeight: 18),
+                decoration: BoxDecoration(
+                  color: kError,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: kWhite, width: 1.5),
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  '${items.length}',
+                  style: const TextStyle(
+                    color: kWhite,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ),
         ],
       ),
     );

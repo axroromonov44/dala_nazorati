@@ -1,10 +1,16 @@
+import 'dart:io';
+
 import 'package:easy_localization/easy_localization.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import '../constants/app_colors.dart';
 import '../constants/app_spacings.dart';
 import '../di/injection.dart';
+import '../map/tile_cache_service.dart';
+import '../notifications/app_notification.dart';
+import '../notifications/notification_center.dart';
 import '../storage/secure_storage_service.dart';
 import '../utils/haptic.dart';
 import '../utils/responsive.dart';
@@ -73,7 +79,11 @@ class AppDrawer extends StatelessWidget {
           ),
 
           SizedBox(height: context.spaceLg),
-          Divider(indent: hPad, endIndent: hPad, color: colorScheme.outlineVariant),
+          Divider(
+            indent: hPad,
+            endIndent: hPad,
+            color: colorScheme.outlineVariant,
+          ),
           SizedBox(height: context.spaceSm),
           Padding(
             padding: EdgeInsets.symmetric(horizontal: hPad),
@@ -83,6 +93,23 @@ class AppDrawer extends StatelessWidget {
           Padding(
             padding: EdgeInsets.symmetric(horizontal: hPad),
             child: _ThemeSwitchTile(isDark: isDark),
+          ),
+
+          SizedBox(height: context.spaceLg),
+          Divider(
+            indent: hPad,
+            endIndent: hPad,
+            color: colorScheme.outlineVariant,
+          ),
+          SizedBox(height: context.spaceSm),
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: hPad),
+            child: _SectionLabel('mapSectionLabel'.tr()),
+          ),
+          SizedBox(height: context.spaceSm),
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: hPad),
+            child: const _ClearMapCacheTile(),
           ),
           const Spacer(),
           Padding(
@@ -112,14 +139,14 @@ class _SectionLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Text(
-        text,
-        style: TextStyle(
-          fontSize: context.rs(11.0, 13.0),
-          color: Theme.of(context).colorScheme.onSurfaceVariant,
-          fontWeight: FontWeight.w600,
-          letterSpacing: 0.6,
-        ),
-      );
+    text,
+    style: TextStyle(
+      fontSize: context.rs(11.0, 13.0),
+      color: Theme.of(context).colorScheme.onSurfaceVariant,
+      fontWeight: FontWeight.w600,
+      letterSpacing: 0.6,
+    ),
+  );
 }
 
 class _LanguageDropdown extends StatelessWidget {
@@ -140,8 +167,10 @@ class _LanguageDropdown extends StatelessWidget {
       initialValue: current,
       isDense: true,
       decoration: InputDecoration(
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 10,
+        ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
           borderSide: BorderSide(color: colorScheme.outline),
@@ -281,6 +310,51 @@ class _MiniSwitch extends StatelessWidget {
   }
 }
 
+Future<bool> _showLogoutConfirmDialog(BuildContext context) {
+  if (Platform.isIOS) {
+    return showCupertinoDialog<bool>(
+      context: context,
+      builder: (ctx) => CupertinoAlertDialog(
+        title: Text('logoutConfirmTitle'.tr()),
+        content: Text('logoutConfirmBody'.tr()),
+        actions: [
+          CupertinoDialogAction(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text('cancelAction'.tr()),
+          ),
+          CupertinoDialogAction(
+            isDestructiveAction: true,
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text('logout'.tr()),
+          ),
+        ],
+      ),
+    ).then((value) => value ?? false);
+  }
+
+  return showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      title: Text('logoutConfirmTitle'.tr()),
+      content: Text('logoutConfirmBody'.tr()),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(ctx).pop(false),
+          child: Text('cancelAction'.tr()),
+        ),
+        TextButton(
+          onPressed: () => Navigator.of(ctx).pop(true),
+          child: Text(
+            'logout'.tr(),
+            style: const TextStyle(color: kError, fontWeight: FontWeight.w600),
+          ),
+        ),
+      ],
+    ),
+  ).then((value) => value ?? false);
+}
+
 class _LogoutButton extends StatelessWidget {
   const _LogoutButton();
 
@@ -289,6 +363,8 @@ class _LogoutButton extends StatelessWidget {
     return OutlinedButton.icon(
       onPressed: () async {
         hapticSelect();
+        final confirmed = await _showLogoutConfirmDialog(context);
+        if (!confirmed || !context.mounted) return;
         await getIt<SecureStorageService>().clearTokens();
         if (context.mounted) {
           Navigator.of(context).pop();
@@ -298,18 +374,155 @@ class _LogoutButton extends StatelessWidget {
       icon: const Icon(Icons.logout_rounded, size: 18, color: kError),
       label: Text(
         'logout'.tr(),
-        style: const TextStyle(
-          color: kError,
-          fontWeight: FontWeight.w600,
-        ),
+        style: const TextStyle(color: kError, fontWeight: FontWeight.w600),
       ),
       style: OutlinedButton.styleFrom(
         side: const BorderSide(color: kError),
         padding: const EdgeInsets.symmetric(vertical: 12),
-        shape: RoundedRectangleBorder(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+    );
+  }
+}
+
+class _ClearMapCacheTile extends StatefulWidget {
+  const _ClearMapCacheTile();
+
+  @override
+  State<_ClearMapCacheTile> createState() => _ClearMapCacheTileState();
+}
+
+class _ClearMapCacheTileState extends State<_ClearMapCacheTile> {
+  late Future<int> _sizeFuture = TileCacheService.cacheSizeBytes();
+  bool _clearing = false;
+
+  Future<void> _clear() async {
+    hapticSelect();
+    final confirmed = await _showClearCacheConfirmDialog(context);
+    if (!confirmed || !mounted) return;
+
+    setState(() => _clearing = true);
+    await TileCacheService.clearCache();
+    // Kesh tozalanganda unga bog'liq bo'lgan yuklab olish bildirishnomalari
+    // ham eskiradi — ularni olib tashlaymiz, boshqa (masalan umumiy xabar)
+    // bildirishnomalarga tegmaymiz.
+    NotificationCenter.items.value = NotificationCenter.items.value
+        .where((n) => n is! OfflineDownloadNotification)
+        .toList();
+    if (!mounted) return;
+    setState(() {
+      _clearing = false;
+      _sizeFuture = TileCacheService.cacheSizeBytes();
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('clearMapCacheSuccess'.tr())),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return GestureDetector(
+      onTap: _clearing ? null : _clear,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: colorScheme.surface,
           borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: colorScheme.outline),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.delete_outline_rounded, color: kGreen, size: 20),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'clearMapCache'.tr(),
+                    style: TextStyle(
+                      fontSize: context.rs(13.0, 15.0),
+                      fontWeight: FontWeight.w500,
+                      color: colorScheme.onSurface,
+                    ),
+                  ),
+                  FutureBuilder<int>(
+                    future: _sizeFuture,
+                    builder: (context, snapshot) => Text(
+                      'mapCacheSize'.tr(
+                        namedArgs: {
+                          'size': snapshot.hasData
+                              ? formatMapCacheSize(snapshot.data!)
+                              : '…',
+                        },
+                      ),
+                      style: TextStyle(
+                        fontSize: context.rs(11.0, 13.0),
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (_clearing)
+              const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2, color: kGreen),
+              )
+            else
+              Icon(Icons.chevron_right_rounded, color: colorScheme.onSurfaceVariant),
+          ],
         ),
       ),
     );
   }
+}
+
+Future<bool> _showClearCacheConfirmDialog(BuildContext context) {
+  if (Platform.isIOS) {
+    return showCupertinoDialog<bool>(
+      context: context,
+      builder: (ctx) => CupertinoAlertDialog(
+        title: Text('clearMapCacheConfirmTitle'.tr()),
+        content: Text('clearMapCacheConfirmBody'.tr()),
+        actions: [
+          CupertinoDialogAction(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text('cancelAction'.tr()),
+          ),
+          CupertinoDialogAction(
+            isDestructiveAction: true,
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text('clearMapCache'.tr()),
+          ),
+        ],
+      ),
+    ).then((value) => value ?? false);
+  }
+
+  return showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      title: Text('clearMapCacheConfirmTitle'.tr()),
+      content: Text('clearMapCacheConfirmBody'.tr()),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(ctx).pop(false),
+          child: Text('cancelAction'.tr()),
+        ),
+        TextButton(
+          onPressed: () => Navigator.of(ctx).pop(true),
+          child: Text(
+            'clearMapCache'.tr(),
+            style: const TextStyle(color: kError, fontWeight: FontWeight.w600),
+          ),
+        ),
+      ],
+    ),
+  ).then((value) => value ?? false);
 }

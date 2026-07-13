@@ -16,6 +16,7 @@ import '../../features/home/domain/usecases/watch_location_usecase.dart';
 import '../../features/home/presentation/bloc/map_bloc.dart';
 import '../../features/sync/presentation/bloc/sync_bloc.dart';
 import '../connectivity/connectivity_cubit.dart';
+import '../constants/storage_keys.dart';
 import '../network/dio_service.dart';
 import '../theme/theme_cubit.dart';
 import '../update/shorebird_update_service.dart';
@@ -43,6 +44,17 @@ Future<void> configureDependencies() async {
   getIt.registerLazySingleton<OfflineSyncService>(
     () => OfflineSyncService(getIt(), getIt()),
   );
+
+  // iOS Keychain (used by flutter_secure_storage) survives app uninstalls,
+  // unlike ordinary app storage — so a stale access token can silently log
+  // the user back in after a fresh reinstall. Hive's on-disk box IS wiped on
+  // uninstall (both platforms), so it doubles as a trip wire: if this marker
+  // is missing, this is a fresh install and any leftover Keychain tokens
+  // from a previous install are purged before the router ever checks them.
+  if (hiveService.userBox.get(StorageKeys.installMarker) != true) {
+    await getIt<SecureStorageService>().clearTokens();
+    await hiveService.userBox.put(StorageKeys.installMarker, true);
+  }
 
   // Network — barcha API chaqiruvlari DioService orqali
   getIt.registerLazySingleton<DioService>(

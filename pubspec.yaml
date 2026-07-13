@@ -1,7 +1,8 @@
 name: dala_nazorati
 description: "Dala nazorati - field monitoring application"
 publish_to: 'none'
-version: 1.0.0+7
+
+version: 1.0.0+9
 
 environment:
   sdk: ^3.11.4
@@ -53,7 +54,6 @@ dependencies:
   # Code generation annotations
   json_annotation: ^4.9.0
 
-  # OTA updates (no store release needed)
   shorebird_code_push: ^2.0.6
 
   cupertino_icons: ^1.0.8
@@ -72,6 +72,7 @@ dependencies:
   webview_flutter_android: ^4.12.0
   webview_flutter_wkwebview: ^3.25.0
   permission_handler: ^12.0.1
+  wakelock_plus: ^1.5.2
 
 dev_dependencies:
   flutter_test:
