@@ -31,7 +31,7 @@
   "notificationsTitle": "Notifications",
   "notificationsEmpty": "No notifications yet",
   "offlineMapCityTitle": "Save {region} map for offline use?",
-  "offlineMapCityBody": "The map of {region} and its surroundings (~100-250 MB) will be downloaded once, so the app keeps working without internet anywhere nearby — not just around your current location. This only happens once.",
+  "offlineMapCityBody": "The map of {region} and its surroundings will be downloaded once, so the app keeps working without internet anywhere nearby — not just around your current location. This only happens once.",
   "offlineMapCombinedTitle": "Save {region} map for offline use?",
   "offlineMapCombinedBody": "The map of {region} and a detailed map around your current location (for precisely drawing fields) will be downloaded together in one go, so the app keeps working without internet both around {region} and up close on your field.",
   "mapSectionLabel": "Map",

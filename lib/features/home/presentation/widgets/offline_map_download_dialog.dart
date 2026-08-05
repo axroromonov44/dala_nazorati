@@ -29,7 +29,7 @@ Future<void> showOfflineMapDownloadDialog(
   required List<String> subdomains,
   required bool retina,
 }) async {
-  final estimate = TileCacheService.estimateJobs(jobs);
+  final estimate = TileCacheService.estimateJobs(jobs, retina: retina);
   if (!context.mounted) return;
 
   final bool? confirmed;
@@ -64,6 +64,8 @@ Future<void> showOfflineMapDownloadDialog(
   await showOfflineDownloadProgress(
     context,
     jobs: jobs,
+    title: title,
+    body: body,
     urlTemplate: urlTemplate,
     subdomains: subdomains,
     retina: retina,
@@ -74,15 +76,23 @@ Future<void> showOfflineMapDownloadDialog(
 /// confirmation step — used when the user has already explicitly chosen to
 /// download (e.g. tapping an item in the postponed-downloads notification
 /// panel), so re-confirming would be redundant.
+///
+/// [title]/[body] are only used to re-create a notification entry (see
+/// [_DownloadProgressDialogState._cancel]) if the user cancels mid-download —
+/// they're not otherwise shown in this dialog.
 Future<void> showOfflineDownloadProgress(
   BuildContext context, {
   required List<TileDownloadJob> jobs,
+  required String title,
+  required String body,
   required String urlTemplate,
   required List<String> subdomains,
   required bool retina,
 }) async {
   final progressDialog = _DownloadProgressDialog(
     jobs: jobs,
+    title: title,
+    body: body,
     urlTemplate: urlTemplate,
     subdomains: subdomains,
     retina: retina,
@@ -208,12 +218,16 @@ Future<bool?> _confirmDialogAndroid(
 class _DownloadProgressDialog extends StatefulWidget {
   const _DownloadProgressDialog({
     required this.jobs,
+    required this.title,
+    required this.body,
     required this.urlTemplate,
     required this.subdomains,
     required this.retina,
   });
 
   final List<TileDownloadJob> jobs;
+  final String title;
+  final String body;
   final String urlTemplate;
   final List<String> subdomains;
   final bool retina;
@@ -270,6 +284,26 @@ class _DownloadProgressDialogState extends State<_DownloadProgressDialog> {
     setState(() => _cancelled = true);
     _cancelToken.cancel();
     Navigator.of(context).pop();
+
+    // Bekor qilingan yuklab olish "yo'qolib" ketmasin — "Keyinroq" bosilgan
+    // holat bilan bir xil: hudud "rad etildi" deb belgilanadi (shu uchun
+    // xarita darhol qayta so'ramaydi) va bildirishnomalar sahifasida qayta
+    // urinish uchun karta qoladi. Keyinroq shu yerdan qayta boshlansa, hech
+    // qaysi tayl "yuklab olindi" deb belgilanmagani uchun (tile_cache_service
+    // ->downloadJobs) jarayon xuddi birinchi martadek 0% dan qayta boshlanadi.
+    for (final job in widget.jobs) {
+      TileCacheService.markRegionDeclined(job.regionId);
+    }
+    NotificationCenter.add(
+      OfflineDownloadNotification(
+        jobs: widget.jobs,
+        title: widget.title,
+        body: widget.body,
+        urlTemplate: widget.urlTemplate,
+        subdomains: widget.subdomains,
+        retina: widget.retina,
+      ),
+    );
   }
 
   @override

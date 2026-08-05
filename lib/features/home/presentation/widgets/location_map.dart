@@ -63,7 +63,14 @@ class _LocationMapState extends State<LocationMap>
   // ba'zi viloyatlar juda katta, shuning uchun joriy joylashuv atrofi).
   static const _regionalRadiusMeters = 30000.0;
   static const _regionalMinZoom = 10;
-  static const _regionalMaxZoom = 15;
+  // 15 edi — z14/z15 hududning 90%+ og'irligini tashkil qilardi (30km radius
+  // + retina tayllar bilan ~340 MB), lekin bu qatlam "kam tafsilotli umumiy
+  // ko'rinish" uchun (yuqoridagi izohga qarang) — yaqin-diqqat tafsilot
+  // joriy joylashuv atrofidagi alohida `_field*` qatlamdan keladi. 13 gacha
+  // tushirish umumiy (regional+field) yuklab olishni ~370 MB dan ~50 MB ga
+  // tushiradi, kartaning maqsadidan (keng, kam tafsilotli umumiy ko'rinish)
+  // hech narsa yo'qotmay.
+  static const _regionalMaxZoom = 13;
 
   String _tileUrlFor(bool isDark) => isDark
       ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'

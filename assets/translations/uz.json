@@ -31,7 +31,7 @@
   "notificationsTitle": "Bildirishnomalar",
   "notificationsEmpty": "Hozircha bildirishnomalar yo'q",
   "offlineMapCityTitle": "{region} xaritasi oflayn saqlansinmi?",
-  "offlineMapCityBody": "{region} va uning atrofi xaritasi (~100-250 MB) bir marta yuklab olinadi, shunda ilova shu atrofda — nafaqat aynan joriy joylashuvingiz atrofida — internetsiz ham ishlayveradi. Bu faqat bir marta sodir bo'ladi.",
+  "offlineMapCityBody": "{region} va uning atrofi xaritasi bir marta yuklab olinadi, shunda ilova shu atrofda — nafaqat aynan joriy joylashuvingiz atrofida — internetsiz ham ishlayveradi. Bu faqat bir marta sodir bo'ladi.",
   "offlineMapCombinedTitle": "{region} xaritasi oflayn saqlansinmi?",
   "offlineMapCombinedBody": "{region} xaritasi va joriy joylashuvingiz atrofidagi batafsil xarita (dalalarni aniq chizish uchun) birgalikda, bitta martada yuklab olinadi — shunda ilova {region} atrofida, shuningdek dalangiz yaqinida ham internetsiz ishlayveradi.",
   "mapSectionLabel": "Xarita",

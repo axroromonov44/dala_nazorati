@@ -86,7 +86,7 @@ class _OfflineDownloadTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final estimate = TileCacheService.estimateJobs(item.jobs);
+    final estimate = TileCacheService.estimateJobs(item.jobs, retina: item.retina);
 
     return _NotificationCard(
       icon: Icons.download_for_offline_rounded,

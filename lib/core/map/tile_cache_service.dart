@@ -99,7 +99,13 @@ class TileCacheService {
 
   static const _regionFreshDuration = Duration(days: 25);
   static const _declineCooldown = Duration(days: 3);
-  static const _avgTileBytes = 20 * 1024; // taxminiy: bitta tayl ~20 KB
+  static const _avgTileBytes = 20 * 1024; // taxminiy: bitta oddiy (1x) tayl ~20 KB
+  // @2x (retina) tayllar píkseli 4 barobar ko'p, lekin PNG siqilishi
+  // tufayli fayl hajmi taxminan 3 barobar kattaroq bo'ladi — shu hisobga
+  // olinmasa, taxminiy hajm haqiqiy yuklangan hajmdan bir necha barobar kam
+  // chiqib, foydalanuvchiga ikki xil (masalan "10 MB" va "100 MB") raqam
+  // ko'rsatilib qoladi.
+  static const _retinaSizeMultiplier = 3;
   static const _bulkConcurrency = 6;
   static const _maxConsecutiveFailures = 8;
 
@@ -134,9 +140,13 @@ class TileCacheService {
   /// Taxminiy umumiy tayl soni va hajmi (baytlarda) — bir nechta [jobs]
   /// birlashtirilganda ikkalasiga umumiy tushadigan tayllar (masalan shahar
   /// va joy-darajasi hududlari kesishgan zoom'larda) ikki marta hisoblanmaydi.
-  static ({int tileCount, int estimatedBytes}) estimateJobs(List<TileDownloadJob> jobs) {
+  static ({int tileCount, int estimatedBytes}) estimateJobs(
+    List<TileDownloadJob> jobs, {
+    bool retina = false,
+  }) {
     final count = _combinedTiles(jobs).length;
-    return (tileCount: count, estimatedBytes: count * _avgTileBytes);
+    final perTileBytes = retina ? _avgTileBytes * _retinaSizeMultiplier : _avgTileBytes;
+    return (tileCount: count, estimatedBytes: count * perTileBytes);
   }
 
   /// Bir nechta hududni ([jobs]) bitta umumiy yuklashda birlashtirib
