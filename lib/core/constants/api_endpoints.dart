@@ -9,4 +9,9 @@ class ApiEndpoints {
   static const String govLogin = '/users/login/gov';
   static const String karantinLogin = '/users/login/karantin';
   static const String refreshToken = '/users/token/refresh';
+
+  // Fields ("dalalar") — exact path/query contract not yet confirmed with
+  // backend; isolated here so a change only touches FieldRemoteDataSource.
+  static const String fields = '/fields';
+  static String fieldDetail(String id) => '/fields/$id';
 }

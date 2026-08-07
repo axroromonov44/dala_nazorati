@@ -9,6 +9,11 @@ import '../../features/auth/domain/usecases/gov_login_usecase.dart';
 import '../../features/auth/domain/usecases/karantin_login_usecase.dart';
 import '../../features/auth/domain/usecases/login_usecase.dart';
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
+import '../../features/fields/data/datasources/field_remote_datasource.dart';
+import '../../features/fields/data/field_spatial_index.dart';
+import '../../features/fields/data/repositories/field_repository_impl.dart';
+import '../../features/fields/domain/repositories/field_repository.dart';
+import '../../features/fields/presentation/bloc/fields_bloc.dart';
 import '../../features/home/data/repositories/location_repository_impl.dart';
 import '../../features/home/domain/repositories/location_repository.dart';
 import '../../features/home/domain/usecases/get_current_location_usecase.dart';
@@ -107,8 +112,23 @@ Future<void> configureDependencies() async {
     () => MapBloc(getIt(), getIt()),
   );
 
+  // Fields ("dalalar") — lightweight index synced/cached for every field,
+  // photos cached separately and lazily by FieldMediaCache (see main.dart).
+  getIt.registerLazySingleton<FieldRemoteDataSource>(
+    () => FieldRemoteDataSource(getIt()),
+  );
+  final fieldSpatialIndex = FieldSpatialIndex();
+  getIt.registerSingleton<FieldSpatialIndex>(fieldSpatialIndex);
+  final fieldRepository = FieldRepositoryImpl(
+    getIt<FieldRemoteDataSource>(),
+    getIt<HiveService>(),
+    fieldSpatialIndex,
+  )..loadCachedIndex();
+  getIt.registerSingleton<FieldRepository>(fieldRepository);
+  getIt.registerFactory<FieldsBloc>(() => FieldsBloc(getIt()));
+
   // Sync
   getIt.registerSingleton<SyncBloc>(
-    SyncBloc(getIt<OfflineSyncService>(), getIt<DioService>()),
+    SyncBloc(getIt<OfflineSyncService>(), getIt<DioService>(), getIt()),
   );
 }

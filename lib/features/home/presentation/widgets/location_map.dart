@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/connectivity/connectivity_cubit.dart';
+import '../../../../core/di/injection.dart';
 import '../../../../core/map/tile_cache_service.dart';
 import '../../../../core/map/tile_math.dart';
 import '../../../../core/map/uzbekistan_regions.dart';
@@ -11,6 +14,10 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_spacings.dart';
+import '../../../fields/domain/entities/field_detail.dart';
+import '../../../fields/domain/entities/field_summary.dart';
+import '../../../fields/domain/repositories/field_repository.dart';
+import '../../../fields/presentation/bloc/fields_bloc.dart';
 import '../../domain/entities/location_point.dart';
 import '../bloc/map_bloc.dart';
 import 'field_form_sheet.dart';
@@ -46,8 +53,14 @@ class _LocationMapState extends State<LocationMap>
   bool _introPlayed = false;
   final List<List<LatLng>> _polygons = [];
   final List<LatLng> _currentPoints = [];
+  Timer? _viewportDebounce;
 
   static const _tileSubdomains = ['a', 'b', 'c', 'd'];
+
+  // Server-synced fields render in amber, distinct from the green used for
+  // fields the user is drawing/has drawn locally.
+  static const _serverFieldFill = Color(0x33FF8F00);
+  static const _serverFieldBorder = Color(0xFFFF8F00);
 
   // Joriy joylashuv atrofidagi mayda (dala chizish darajasidagi) hudud —
   // viloyat bo'yicha keshdan farqli, bu doim yangilanib turishi kerak
@@ -232,9 +245,26 @@ class _LocationMapState extends State<LocationMap>
   @override
   void dispose() {
     TileCacheService.cacheVersion.removeListener(_onCacheCleared);
+    _viewportDebounce?.cancel();
     _flyController.dispose();
     _flyCurve.dispose();
     super.dispose();
+  }
+
+  /// Map pan/zoom fires far more often than the visible field-polygon list
+  /// actually needs to change, so the viewport query dispatched to
+  /// [FieldsBloc] is debounced here rather than on every camera tick.
+  void _onPositionChanged(MapCamera camera, bool hasGesture) {
+    _viewportDebounce?.cancel();
+    _viewportDebounce = Timer(const Duration(milliseconds: 250), () {
+      if (!mounted) return;
+      context.read<FieldsBloc>().add(
+            FieldsViewportChanged(
+              bounds: camera.visibleBounds,
+              zoom: camera.zoom,
+            ),
+          );
+    });
   }
 
   static const _maxRadiusMeters = 300.0;
@@ -267,12 +297,33 @@ class _LocationMapState extends State<LocationMap>
       setState(() => _currentPoints.add(point));
       return;
     }
+    final serverFields = context.read<FieldsBloc>().state.fields;
+    for (final field in serverFields) {
+      if (field.points.length >= 3 && _isPointInPolygon(point, field.points)) {
+        _showServerFieldDetail(field);
+        return;
+      }
+    }
     for (int i = 0; i < _polygons.length; i++) {
       if (_polygons[i].length >= 3 && _isPointInPolygon(point, _polygons[i])) {
         _showFieldFormSheet(i);
         return;
       }
     }
+  }
+
+  void _showServerFieldDetail(FieldSummary field) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      constraints: context.isTablet
+          ? BoxConstraints(maxWidth: context.sheetMaxWidth)
+          : null,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => _ServerFieldDetailSheet(field: field),
+    );
   }
 
   bool _isPointInPolygon(LatLng point, List<LatLng> polygon) {
@@ -384,6 +435,7 @@ class _LocationMapState extends State<LocationMap>
               _playCityIntro();
             },
             onTap: _onMapTap,
+            onPositionChanged: _onPositionChanged,
           ),
           children: [
             TileLayer(
@@ -422,6 +474,22 @@ class _LocationMapState extends State<LocationMap>
                       child: tile,
                     )
                   : null,
+            ),
+            BlocBuilder<FieldsBloc, FieldsState>(
+              builder: (context, state) => PolygonLayer(
+                polygonCulling: true,
+                simplificationTolerance: 3,
+                polygons: [
+                  for (final field in state.fields)
+                    if (field.points.length >= 3)
+                      Polygon(
+                        points: field.points,
+                        color: _serverFieldFill,
+                        borderColor: _serverFieldBorder,
+                        borderStrokeWidth: 2,
+                      ),
+                ],
+              ),
             ),
             if (_isDrawing)
               CircleLayer(
@@ -891,6 +959,73 @@ class _MapButton extends StatelessWidget {
       elevation: 3,
       shape: shape,
       child: child,
+    );
+  }
+}
+
+/// Minimal detail view for a server-synced field, tapped from the amber
+/// polygon layer. Fetches full detail (description/crop info/photo
+/// metadata) on demand — never eagerly downloaded as part of the index
+/// sync. Wiring this into the full multi-tab form (photos gallery, editing)
+/// is a follow-up UI task; this sheet only proves the offline-detail path
+/// end to end (network first, cached fallback via [FieldRepository]).
+class _ServerFieldDetailSheet extends StatelessWidget {
+  const _ServerFieldDetailSheet({required this.field});
+
+  final FieldSummary field;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final bottom = MediaQuery.of(context).padding.bottom;
+
+    return Container(
+      padding: EdgeInsets.fromLTRB(20, 14, 20, bottom + 20),
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            field.name,
+            style: TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w800,
+              color: colorScheme.onSurface,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            field.cropType,
+            style: TextStyle(fontSize: 13, color: colorScheme.onSurfaceVariant),
+          ),
+          const SizedBox(height: 16),
+          FutureBuilder<FieldDetail>(
+            future: getIt<FieldRepository>().getFieldDetail(field.id),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 24),
+                  child: Center(child: CircularProgressIndicator()),
+                );
+              }
+              if (snapshot.hasError) {
+                return Text(
+                  'errorGeneric'.tr(),
+                  style: TextStyle(color: colorScheme.onSurfaceVariant),
+                );
+              }
+              return Text(
+                snapshot.data!.description,
+                style: TextStyle(fontSize: 14, color: colorScheme.onSurface),
+              );
+            },
+          ),
+        ],
+      ),
     );
   }
 }

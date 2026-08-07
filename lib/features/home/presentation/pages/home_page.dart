@@ -8,6 +8,7 @@ import '../../../../core/notifications/notification_center.dart';
 import '../../../../core/utils/haptic.dart';
 import '../../../../core/utils/responsive.dart';
 import '../../../../core/widgets/app_drawer.dart';
+import '../../../fields/presentation/bloc/fields_bloc.dart';
 import '../bloc/map_bloc.dart';
 import '../widgets/location_map.dart';
 import '../widgets/notifications_panel.dart';
@@ -17,8 +18,13 @@ class HomePage extends StatelessWidget {
   const HomePage({super.key});
 
   @override
-  Widget build(BuildContext context) => BlocProvider(
-        create: (_) => getIt<MapBloc>()..add(const MapLocationStarted()),
+  Widget build(BuildContext context) => MultiBlocProvider(
+        providers: [
+          BlocProvider(
+            create: (_) => getIt<MapBloc>()..add(const MapLocationStarted()),
+          ),
+          BlocProvider(create: (_) => getIt<FieldsBloc>()),
+        ],
         child: const _HomeView(),
       );
 }

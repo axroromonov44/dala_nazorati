@@ -5,12 +5,14 @@ import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/network/dio_service.dart';
 import '../../../../core/storage/offline_sync_service.dart';
+import '../../../fields/domain/repositories/field_repository.dart';
 
 part 'sync_event.dart';
 part 'sync_state.dart';
 
 class SyncBloc extends Bloc<SyncEvent, SyncState> {
-  SyncBloc(this._syncService, this._dioService) : super(const SyncIdle()) {
+  SyncBloc(this._syncService, this._dioService, this._fieldRepository)
+      : super(const SyncIdle()) {
     on<SyncStarted>(_onStarted);
     on<SyncTriggered>(_onTriggered);
     on<SyncStopped>(_onStopped);
@@ -18,6 +20,7 @@ class SyncBloc extends Bloc<SyncEvent, SyncState> {
 
   final OfflineSyncService _syncService;
   final DioService _dioService;
+  final FieldRepository _fieldRepository;
   StreamSubscription<List<ConnectivityResult>>? _connectivitySub;
 
   Future<void> _onStarted(SyncStarted event, Emitter<SyncState> emit) async {
@@ -34,6 +37,14 @@ class SyncBloc extends Bloc<SyncEvent, SyncState> {
     SyncTriggered event,
     Emitter<SyncState> emit,
   ) async {
+    try {
+      await _fieldRepository.syncIndex();
+    } catch (_) {
+      // Best-effort: the offline mutation queue below must still flush even
+      // if the fields index sync fails (e.g. no connectivity after all, or
+      // the endpoint isn't ready yet).
+    }
+
     final pending = _syncService.getPendingItems();
     if (pending.isEmpty) return;
 
