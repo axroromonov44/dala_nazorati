@@ -19,7 +19,6 @@ import '../../../fields/domain/entities/field_summary.dart';
 import '../../../fields/domain/repositories/field_repository.dart';
 import '../../../fields/presentation/bloc/fields_bloc.dart';
 import '../../domain/entities/location_point.dart';
-import '../bloc/map_bloc.dart';
 import 'field_form_sheet.dart';
 import 'offline_map_download_dialog.dart';
 
@@ -57,46 +56,42 @@ class _LocationMapState extends State<LocationMap>
 
   static const _tileSubdomains = ['a', 'b', 'c', 'd'];
 
-  // Server-synced fields render in amber, distinct from the green used for
-  // fields the user is drawing/has drawn locally.
   static const _serverFieldFill = Color(0x33FF8F00);
   static const _serverFieldBorder = Color(0xFFFF8F00);
-
-  // Joriy joylashuv atrofidagi mayda (dala chizish darajasidagi) hudud —
-  // viloyat bo'yicha keshdan farqli, bu doim yangilanib turishi kerak
-  // (25 kunda bir marta), shuning uchun alohida, kichikroq va yuqori
-  // zoom'li qilib saqlanadi.
   static const _fieldRadiusMeters = 1000.0;
   static const _fieldMinZoom = 14;
   static const _fieldMaxZoom = 18;
-
-  // Joriy joylashuv qaysi viloyatda bo'lsa, o'sha atrofidagi kengroq
-  // (lekin kam tafsilotli) hudud — bir martalik, foydalanuvchi hozir
-  // turgan joyga qarab avtomatik markazlashadi (butun viloyat emas —
-  // ba'zi viloyatlar juda katta, shuning uchun joriy joylashuv atrofi).
+  static const _regionalPaddingMeters = 3000.0;
   static const _regionalRadiusMeters = 30000.0;
   static const _regionalMinZoom = 10;
-  // 15 edi — z14/z15 hududning 90%+ og'irligini tashkil qilardi (30km radius
-  // + retina tayllar bilan ~340 MB), lekin bu qatlam "kam tafsilotli umumiy
-  // ko'rinish" uchun (yuqoridagi izohga qarang) — yaqin-diqqat tafsilot
-  // joriy joylashuv atrofidagi alohida `_field*` qatlamdan keladi. 13 gacha
-  // tushirish umumiy (regional+field) yuklab olishni ~370 MB dan ~50 MB ga
-  // tushiradi, kartaning maqsadidan (keng, kam tafsilotli umumiy ko'rinish)
-  // hech narsa yo'qotmay.
   static const _regionalMaxZoom = 13;
+
+  static const _zoomCountry =
+      6.0; // butun O'zbekiston hududi ko'rinadigan daraja
+  static const _zoomOverview =
+      13.0; // ~10 ta dala bitta ekranda ko'rinadigan daraja
+  static const _zoomDetail =
+      17.0; // eng yaqin — dala chegarasini chizish darajasi
+  static const _allowedZooms = [_zoomCountry, _zoomOverview, _zoomDetail];
+
+  static const _onlineMinZoom = 3.0;
+  static const _onlineMaxZoom = 19.0; // TileLayer.maxNativeZoom bilan mos
+
+  static const _zoomGestureSources = {
+    MapEventSource.multiFingerGestureStart,
+    MapEventSource.onMultiFinger,
+    MapEventSource.scrollWheel,
+    MapEventSource.doubleTapZoomAnimationController,
+  };
+
+  Timer? _zoomGestureIdleTimer;
+  bool _zoomIndicatorVisible = false;
+  double _zoomIndicatorZoom = _zoomOverview;
 
   String _tileUrlFor(bool isDark) => isDark
       ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
       : 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
 
-  /// Bitta xarita ochilishida bittagina taklif dialogi chiqadi — agar
-  /// viloyat va joy-darajasidagi hududlarning ikkalasi ham hali yuklab
-  /// olinmagan bo'lsa, ular BITTA umumiy hajm/bitta tasdiq bilan
-  /// birlashtiriladi (foydalanuvchiga ikki marta savol berilmaydi). Faqat
-  /// biri kerak bo'lsa (masalan viloyat allaqachon yuklangan, joy-darajasi
-  /// esa 25 kunda yangilanishi kerak bo'lsa), faqat o'sha bittasi so'raladi.
-  /// Viloyat nomi foydalanuvchining joriy joylashuviga qarab avtomatik
-  /// aniqlanadi (masalan Qashqadaryoda bo'lsa — "Qashqadaryo xaritasi...").
   void _maybePromptOfflineDownload() {
     if (_offlineDialogChecked || !mounted) return;
     _offlineDialogChecked = true;
@@ -105,21 +100,29 @@ class _LocationMapState extends State<LocationMap>
     final isOnline = context.read<ConnectivityCubit>().state;
     if (!isOnline) return;
 
-    final regionalRegionId = TileCacheService.regionalRegionId(center);
+    final fieldsBounds = getIt<FieldRepository>().allFieldsBounds();
+    final regionalBounds = fieldsBounds == null
+        ? TileMath.boundsFor(center, _regionalRadiusMeters)
+        : TileMath.padBounds(fieldsBounds, _regionalPaddingMeters);
+    final regionalRegionId = fieldsBounds == null
+        ? TileCacheService.regionalRegionId(center)
+        : TileCacheService.assignedFieldsRegionId(regionalBounds);
     final regionalPending = TileCacheService.shouldPromptDownload(
       regionalRegionId,
       isOnline: isOnline,
       checkFreshness: false,
     );
     final fieldRegionId = TileCacheService.locationRegionId(center);
-    final fieldPending = TileCacheService.shouldPromptDownload(fieldRegionId, isOnline: isOnline);
+    final fieldPending = TileCacheService.shouldPromptDownload(
+      fieldRegionId,
+      isOnline: isOnline,
+    );
 
     final jobs = [
       if (regionalPending)
         TileDownloadJob(
           regionId: regionalRegionId,
-          center: center,
-          radiusMeters: _regionalRadiusMeters,
+          bounds: regionalBounds,
           minZoom: _regionalMinZoom,
           maxZoom: _regionalMaxZoom,
           checkFreshness: false,
@@ -127,16 +130,16 @@ class _LocationMapState extends State<LocationMap>
       if (fieldPending)
         TileDownloadJob(
           regionId: fieldRegionId,
-          center: center,
-          radiusMeters: _fieldRadiusMeters,
+          bounds: TileMath.boundsFor(center, _fieldRadiusMeters),
           minZoom: _fieldMinZoom,
           maxZoom: _fieldMaxZoom,
         ),
     ];
     if (jobs.isEmpty) return;
 
-    final regionName =
-        UzbekistanRegions.nearestTo(center).localizedName(context.locale.languageCode);
+    final regionName = UzbekistanRegions.nearestTo(
+      regionalBounds.center,
+    ).localizedName(context.locale.languageCode);
 
     final String title;
     final String body;
@@ -163,20 +166,19 @@ class _LocationMapState extends State<LocationMap>
     );
   }
 
-  /// App ochilganda avval butun Toshkent shahri ko'rinishi (kamera shahar
-  /// chegarasiga moslanadi), keyin 3-4 sekunddan so'ng joriy joylashuvga
-  /// silliq yaqinlashadi. Yuklab olish dialogi esa joriy joylashuv
-  /// ko'rsatilib bo'lgach (parvoz animatsiyasi tugagach), yana 2 soniyadan
-  /// keyin chiqadi — shaharni ko'rsatish bilan bir vaqtda emas.
   void _playCityIntro() {
     if (_introPlayed || !mounted) return;
     _introPlayed = true;
 
     Future.delayed(const Duration(milliseconds: 3500), () {
       if (!mounted) return;
-      _flyTo(LatLng(widget.location.latitude, widget.location.longitude), zoom: 15.5);
+      _flyTo(
+        LatLng(widget.location.latitude, widget.location.longitude),
+        zoom: _zoomDetail,
+      );
 
-      final flyDuration = _flyController.duration ?? const Duration(milliseconds: 900);
+      final flyDuration =
+          _flyController.duration ?? const Duration(milliseconds: 900);
       Future.delayed(flyDuration + const Duration(seconds: 2), () {
         if (!mounted) return;
         _maybePromptOfflineDownload();
@@ -198,10 +200,6 @@ class _LocationMapState extends State<LocationMap>
     TileCacheService.cacheVersion.addListener(_onCacheCleared);
   }
 
-  /// Kesh sozlamalardan (drawer) tozalansa, xarita hali ochiq turgan bo'lsa
-  /// ham — drawer yopilgach — yuklab olish taklifi qayta so'raladi, foydalanuvchi
-  /// ilovani qayta ochishiga hojat qolmaydi. Drawer yopilish animatsiyasi
-  /// tugashi uchun kichik kechikish beriladi.
   void _onCacheCleared() {
     if (!mounted) return;
     _offlineDialogChecked = false;
@@ -246,24 +244,73 @@ class _LocationMapState extends State<LocationMap>
   void dispose() {
     TileCacheService.cacheVersion.removeListener(_onCacheCleared);
     _viewportDebounce?.cancel();
+    _zoomGestureIdleTimer?.cancel();
     _flyController.dispose();
     _flyCurve.dispose();
     super.dispose();
   }
 
-  /// Map pan/zoom fires far more often than the visible field-polygon list
-  /// actually needs to change, so the viewport query dispatched to
-  /// [FieldsBloc] is debounced here rather than on every camera tick.
+  void _onMapEvent(MapEvent event) {
+    if (_zoomGestureSources.contains(event.source)) {
+      _zoomGestureIdleTimer?.cancel();
+      setState(() {
+        _zoomIndicatorVisible = true;
+        _zoomIndicatorZoom = event.camera.zoom;
+      });
+      _zoomGestureIdleTimer = Timer(
+        const Duration(milliseconds: 180),
+        () => _endZoomGesture(event.camera),
+      );
+      return;
+    }
+    final isPinchEnd =
+        event is MapEventMoveEnd &&
+        event.source == MapEventSource.multiFingerEnd;
+    if (isPinchEnd || event is MapEventDoubleTapZoomEnd) {
+      _zoomGestureIdleTimer?.cancel();
+      _endZoomGesture(event.camera);
+    }
+  }
+
+  double _nearestAllowedZoom(double zoom) => _allowedZooms.reduce(
+    (a, b) => (zoom - a).abs() <= (zoom - b).abs() ? a : b,
+  );
+
+  double _nextAllowedZoom(double zoom) => _allowedZooms.firstWhere(
+    (z) => z > zoom + 0.01,
+    orElse: () => _allowedZooms.last,
+  );
+
+  double _prevAllowedZoom(double zoom) => _allowedZooms.reversed.firstWhere(
+    (z) => z < zoom - 0.01,
+    orElse: () => _allowedZooms.first,
+  );
+
+  void _endZoomGesture(MapCamera camera) {
+    if (!mounted) return;
+    setState(() => _zoomIndicatorVisible = false);
+    if (context.read<ConnectivityCubit>().state) return;
+    final nearest = _nearestAllowedZoom(camera.zoom);
+    if ((camera.zoom - nearest).abs() > 0.01) {
+      _flyTo(camera.center, zoom: nearest);
+    }
+  }
+
+  String _formatZoomLevel(double zoom) {
+    final rounded = (zoom * 10).round() / 10;
+    if (rounded == rounded.roundToDouble()) {
+      return rounded.toStringAsFixed(0);
+    }
+    return rounded.toStringAsFixed(1);
+  }
+
   void _onPositionChanged(MapCamera camera, bool hasGesture) {
     _viewportDebounce?.cancel();
     _viewportDebounce = Timer(const Duration(milliseconds: 250), () {
       if (!mounted) return;
       context.read<FieldsBloc>().add(
-            FieldsViewportChanged(
-              bounds: camera.visibleBounds,
-              zoom: camera.zoom,
-            ),
-          );
+        FieldsViewportChanged(bounds: camera.visibleBounds, zoom: camera.zoom),
+      );
     });
   }
 
@@ -272,8 +319,10 @@ class _LocationMapState extends State<LocationMap>
 
   void _onMapTap(TapPosition tapPos, LatLng point) {
     if (_isDrawing) {
-      final userLatLng =
-          LatLng(widget.location.latitude, widget.location.longitude);
+      final userLatLng = LatLng(
+        widget.location.latitude,
+        widget.location.longitude,
+      );
       final meters = _distanceCalc.as(LengthUnit.Meter, userLatLng, point);
       if (meters > _maxRadiusMeters) {
         final km = (meters / 1000).toStringAsFixed(1);
@@ -283,9 +332,15 @@ class _LocationMapState extends State<LocationMap>
             SnackBar(
               content: Row(
                 children: [
-                  const Icon(Icons.location_off_rounded, color: Colors.white, size: 18),
+                  const Icon(
+                    Icons.location_off_rounded,
+                    color: Colors.white,
+                    size: 18,
+                  ),
                   const SizedBox(width: 8),
-                  Expanded(child: Text('pointTooFar'.tr(namedArgs: {'km': km}))),
+                  Expanded(
+                    child: Text('pointTooFar'.tr(namedArgs: {'km': km})),
+                  ),
                 ],
               ),
               backgroundColor: kError,
@@ -423,19 +478,19 @@ class _LocationMapState extends State<LocationMap>
         FlutterMap(
           mapController: _mapController,
           options: MapOptions(
-            // Birinchi ochilishda joriy joylashuv atrofidagi kengroq hudud
-            // ko'rinadi, so'ng `_playCityIntro` orqali aniq joylashuvga
-            // yaqinlashiladi.
             initialCameraFit: CameraFit.bounds(
               bounds: TileMath.boundsFor(latLng, _regionalRadiusMeters),
               padding: const EdgeInsets.all(24),
             ),
+            minZoom: isOnline ? _onlineMinZoom : _zoomCountry,
+            maxZoom: isOnline ? _onlineMaxZoom : _zoomDetail,
             onMapReady: () {
               setState(() => _mapReady = true);
               _playCityIntro();
             },
             onTap: _onMapTap,
             onPositionChanged: _onPositionChanged,
+            onMapEvent: _onMapEvent,
           ),
           children: [
             TileLayer(
@@ -556,14 +611,36 @@ class _LocationMapState extends State<LocationMap>
             bottom: context.rs(32.0, 48.0),
             right: context.rs(16.0, 24.0),
             child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.end,
               children: [
+                IgnorePointer(
+                  child: AnimatedSize(
+                    duration: const Duration(milliseconds: 200),
+                    alignment: Alignment.bottomCenter,
+                    child: _zoomIndicatorVisible
+                        ? Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: _ZoomLevelIndicator(
+                              label: "${_formatZoomLevel(_zoomIndicatorZoom)}X",
+                              isDark: isDark,
+                            ),
+                          )
+                        : const SizedBox.shrink(),
+                  ),
+                ),
                 _MapButton(
                   heroTag: 'zoom_in',
                   icon: Icons.add,
                   onPressed: hTap(
                     () => _flyTo(
                       _mapController.camera.center,
-                      zoom: _mapController.camera.zoom + 1,
+                      zoom: isOnline
+                          ? (_mapController.camera.zoom + 1).clamp(
+                              _onlineMinZoom,
+                              _onlineMaxZoom,
+                            )
+                          : _nextAllowedZoom(_mapController.camera.zoom),
                     ),
                   )!,
                 ),
@@ -574,7 +651,12 @@ class _LocationMapState extends State<LocationMap>
                   onPressed: hTap(
                     () => _flyTo(
                       _mapController.camera.center,
-                      zoom: _mapController.camera.zoom - 1,
+                      zoom: isOnline
+                          ? (_mapController.camera.zoom - 1).clamp(
+                              _onlineMinZoom,
+                              _onlineMaxZoom,
+                            )
+                          : _prevAllowedZoom(_mapController.camera.zoom),
                     ),
                   )!,
                 ),
@@ -582,10 +664,16 @@ class _LocationMapState extends State<LocationMap>
                 _MapButton(
                   heroTag: 'my_location',
                   icon: Icons.my_location,
-                  onPressed: hTap(() {
-                    _flyTo(latLng, zoom: 15.5);
-                    context.read<MapBloc>().add(const MapLocationStarted());
-                  })!,
+                  // Faqat joriy (allaqachon `watchLocation()` orqali doim
+                  // yangilanib turuvchi) joylashuvga animatsiyali "uchib"
+                  // boradi — `MapLocationStarted`ni QAYTA yubormaydi, aks
+                  // holda `MapBloc` `MapLocationLoading`ga o'tib,
+                  // `home_page.dart`dagi `BlocBuilder` `LocationMap`ni
+                  // butunlay yangisiga almashtirib yuborardi (uning holati
+                  // — jumladan `_introPlayed` — yo'qolib, tugma bosilgan
+                  // sari kirish animatsiyasi ("shahardan boshlab uchish")
+                  // qaytadan boshlanib qolardi).
+                  onPressed: hTap(() => _flyTo(latLng, zoom: _zoomDetail))!,
                 ),
                 kVerticalSpace8,
                 _MapButton(
@@ -606,7 +694,9 @@ class _LocationMapState extends State<LocationMap>
               label: 'undo'.tr(),
               enabled: _currentPoints.isNotEmpty,
               isDark: isDark,
-              onPressed: hTap(_currentPoints.isNotEmpty ? _removeLastPoint : null),
+              onPressed: hTap(
+                _currentPoints.isNotEmpty ? _removeLastPoint : null,
+              ),
             ),
           ),
           Positioned(
@@ -614,7 +704,9 @@ class _LocationMapState extends State<LocationMap>
             right: context.rs(12.0, 18.0),
             child: _DrawingDoneButton(
               enabled: _currentPoints.length >= 3,
-              onPressed: hTapMedium(_currentPoints.length >= 3 ? _finishDrawing : null),
+              onPressed: hTapMedium(
+                _currentPoints.length >= 3 ? _finishDrawing : null,
+              ),
             ),
           ),
           Positioned(
@@ -666,7 +758,11 @@ class _DrawingTopButton extends StatelessWidget {
           borderRadius: BorderRadius.circular(context.fabRadius),
           border: Border.all(color: fg, width: 1.5),
           boxShadow: const [
-            BoxShadow(color: Colors.black26, blurRadius: 6, offset: Offset(0, 2)),
+            BoxShadow(
+              color: Colors.black26,
+              blurRadius: 6,
+              offset: Offset(0, 2),
+            ),
           ],
         ),
         child: Row(
@@ -690,10 +786,7 @@ class _DrawingTopButton extends StatelessWidget {
 }
 
 class _DrawingDoneButton extends StatelessWidget {
-  const _DrawingDoneButton({
-    required this.enabled,
-    required this.onPressed,
-  });
+  const _DrawingDoneButton({required this.enabled, required this.onPressed});
 
   final bool enabled;
   final VoidCallback? onPressed;
@@ -716,14 +809,23 @@ class _DrawingDoneButton extends StatelessWidget {
           color: enabled ? null : Colors.grey.withAlpha(80),
           borderRadius: BorderRadius.circular(context.fabRadius),
           boxShadow: enabled
-              ? [BoxShadow(color: kGreen.withAlpha(80), blurRadius: 8, offset: const Offset(0, 3))]
+              ? [
+                  BoxShadow(
+                    color: kGreen.withAlpha(80),
+                    blurRadius: 8,
+                    offset: const Offset(0, 3),
+                  ),
+                ]
               : null,
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.check_rounded, size: 18,
-                color: enabled ? Colors.white : Colors.white54),
+            Icon(
+              Icons.check_rounded,
+              size: 18,
+              color: enabled ? Colors.white : Colors.white54,
+            ),
             const SizedBox(width: 5),
             Text(
               'done'.tr(),
@@ -741,10 +843,7 @@ class _DrawingDoneButton extends StatelessWidget {
 }
 
 class _DrawingBottomBar extends StatelessWidget {
-  const _DrawingBottomBar({
-    required this.pointCount,
-    required this.onCancel,
-  });
+  const _DrawingBottomBar({required this.pointCount, required this.onCancel});
 
   final int pointCount;
   final VoidCallback onCancel;
@@ -760,7 +859,11 @@ class _DrawingBottomBar extends StatelessWidget {
         color: colorScheme.surface,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         boxShadow: const [
-          BoxShadow(color: Colors.black26, blurRadius: 10, offset: Offset(0, -3)),
+          BoxShadow(
+            color: Colors.black26,
+            blurRadius: 10,
+            offset: Offset(0, -3),
+          ),
         ],
       ),
       child: Column(
@@ -781,7 +884,9 @@ class _DrawingBottomBar extends StatelessWidget {
                 Text(
                   pointCount == 0
                       ? 'drawingPrompt'.tr()
-                      : 'drawingPointsAdded'.tr(namedArgs: {'count': pointCount.toString()}),
+                      : 'drawingPointsAdded'.tr(
+                          namedArgs: {'count': pointCount.toString()},
+                        ),
                   style: const TextStyle(
                     color: kGreen,
                     fontSize: 13,
@@ -963,12 +1068,34 @@ class _MapButton extends StatelessWidget {
   }
 }
 
-/// Minimal detail view for a server-synced field, tapped from the amber
-/// polygon layer. Fetches full detail (description/crop info/photo
-/// metadata) on demand — never eagerly downloaded as part of the index
-/// sync. Wiring this into the full multi-tab form (photos gallery, editing)
-/// is a follow-up UI task; this sheet only proves the offline-detail path
-/// end to end (network first, cached fallback via [FieldRepository]).
+class _ZoomLevelIndicator extends StatelessWidget {
+  const _ZoomLevelIndicator({required this.label, required this.isDark});
+
+  final String label;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    final bg = isDark ? const Color(0xFF2A2A2A) : kWhite;
+    final fg = isDark ? kGreenLight : kGreen;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: const [
+          BoxShadow(color: Colors.black26, blurRadius: 6, offset: Offset(0, 2)),
+        ],
+      ),
+      child: Text(
+        label,
+        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: fg),
+      ),
+    );
+  }
+}
+
 class _ServerFieldDetailSheet extends StatelessWidget {
   const _ServerFieldDetailSheet({required this.field});
 

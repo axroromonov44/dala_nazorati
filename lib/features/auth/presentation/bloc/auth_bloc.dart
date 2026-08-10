@@ -12,8 +12,11 @@ part 'auth_event.dart';
 part 'auth_state.dart';
 
 class AuthBloc extends Bloc<AuthEvent, AuthState> {
-  AuthBloc(this._loginUseCase, this._govLoginUseCase, this._karantinLoginUseCase)
-      : super(const AuthInitial()) {
+  AuthBloc(
+    this._loginUseCase,
+    this._govLoginUseCase,
+    this._karantinLoginUseCase,
+  ) : super(const AuthInitial()) {
     on<AuthLoginRequested>(_onLoginRequested);
     on<AuthGovLoginRequested>(_onGovLoginRequested);
     on<AuthKarantinLoginRequested>(_onKarantinLoginRequested);
@@ -27,28 +30,25 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
   Future<void> _onLoginRequested(
     AuthLoginRequested event,
     Emitter<AuthState> emit,
-  ) =>
-      _login(
-        emit,
-        () => _loginUseCase(username: event.username, password: event.password),
-      );
+  ) => _login(
+    emit,
+    () => _loginUseCase(username: event.username, password: event.password),
+  );
 
   Future<void> _onGovLoginRequested(
     AuthGovLoginRequested event,
     Emitter<AuthState> emit,
-  ) =>
-      _login(emit, () => _govLoginUseCase(code: event.code));
+  ) => _login(emit, () => _govLoginUseCase(code: event.code));
 
   Future<void> _onKarantinLoginRequested(
     AuthKarantinLoginRequested event,
     Emitter<AuthState> emit,
-  ) =>
-      _login(emit, () => _karantinLoginUseCase(code: event.code));
+  ) => _login(emit, () => _karantinLoginUseCase(code: event.code));
 
   Future<void> _login(
     Emitter<AuthState> emit,
     Future<({User user, String accessToken, String refreshToken})> Function()
-        action,
+    action,
   ) async {
     emit(const AuthLoading());
     try {

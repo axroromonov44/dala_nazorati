@@ -1,13 +1,16 @@
+import 'dart:async';
+
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/di/injection.dart';
 import '../../../../core/notifications/app_notification.dart';
 import '../../../../core/notifications/notification_center.dart';
 import '../../../../core/utils/haptic.dart';
 import '../../../../core/utils/responsive.dart';
-import '../../../../core/widgets/app_drawer.dart';
+import '../../../auth/presentation/bloc/profile_cubit.dart';
 import '../../../fields/presentation/bloc/fields_bloc.dart';
 import '../bloc/map_bloc.dart';
 import '../widgets/location_map.dart';
@@ -19,14 +22,14 @@ class HomePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => MultiBlocProvider(
-        providers: [
-          BlocProvider(
-            create: (_) => getIt<MapBloc>()..add(const MapLocationStarted()),
-          ),
-          BlocProvider(create: (_) => getIt<FieldsBloc>()),
-        ],
-        child: const _HomeView(),
-      );
+    providers: [
+      BlocProvider(
+        create: (_) => getIt<MapBloc>()..add(const MapLocationStarted()),
+      ),
+      BlocProvider(create: (_) => getIt<FieldsBloc>()),
+    ],
+    child: const _HomeView(),
+  );
 }
 
 class _HomeView extends StatefulWidget {
@@ -40,6 +43,12 @@ class _HomeViewState extends State<_HomeView> {
   final _drawingNotifier = ValueNotifier<bool>(false);
 
   @override
+  void initState() {
+    super.initState();
+    unawaited(context.read<ProfileCubit>().refresh());
+  }
+
+  @override
   void dispose() {
     _drawingNotifier.dispose();
     super.dispose();
@@ -48,7 +57,6 @@ class _HomeViewState extends State<_HomeView> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      drawer: const AppDrawer(),
       body: Stack(
         children: [
           BlocBuilder<MapBloc, MapState>(
@@ -56,11 +64,13 @@ class _HomeViewState extends State<_HomeView> {
               MapInitial() => const SizedBox.expand(),
               MapLocationLoading() => const _LoadingView(),
               MapLocationLoaded(:final location) => LocationMap(
-                  location: location,
-                  drawingNotifier: _drawingNotifier,
-                ),
+                location: location,
+                drawingNotifier: _drawingNotifier,
+              ),
               MapFakeGpsDetected() => const FakeGpsPage(),
-              MapLocationFailure(:final message) => _ErrorView(message: message),
+              MapLocationFailure(:final message) => _ErrorView(
+                message: message,
+              ),
             },
           ),
 
@@ -109,13 +119,7 @@ class _HomeViewState extends State<_HomeView> {
               return Positioned(
                 top: MediaQuery.of(context).padding.top + context.spaceSm,
                 left: context.rs(12.0, 18.0),
-                child: Builder(
-                  builder: (ctx) => _FloatingButton(
-                    heroTag: 'menu',
-                    icon: Icons.menu_rounded,
-                    onPressed: hTap(() => Scaffold.of(ctx).openDrawer())!,
-                  ),
-                ),
+                child: const _ProfileButton(),
               );
             },
           ),
@@ -149,8 +153,8 @@ class _NotificationButton extends StatelessWidget {
         children: [
           _FloatingButton(
             heroTag: 'notifications',
-            icon: Icons.notifications_none_rounded,
             onPressed: hTap(() => showNotificationsPanel(context))!,
+            child: const Icon(Icons.notifications_none_rounded),
           ),
           if (items.isNotEmpty)
             Positioned(
@@ -185,9 +189,8 @@ class _LoadingView extends StatelessWidget {
   const _LoadingView();
 
   @override
-  Widget build(BuildContext context) => const Center(
-        child: CircularProgressIndicator(color: kGreen),
-      );
+  Widget build(BuildContext context) =>
+      const Center(child: CircularProgressIndicator(color: kGreen));
 }
 
 class _ErrorView extends StatelessWidget {
@@ -197,36 +200,36 @@ class _ErrorView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Center(
-        child: Padding(
-          padding: EdgeInsets.all(context.spaceLg),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.location_off, size: context.iconLg, color: kGreen),
-              SizedBox(height: context.spaceMd),
-              Text(message, textAlign: TextAlign.center),
-              SizedBox(height: context.spaceMd),
-              ElevatedButton(
-                onPressed: hTap(() => context
-                    .read<MapBloc>()
-                    .add(const MapLocationStarted())),
-                child: Text('retry'.tr()),
-              ),
-            ],
+    child: Padding(
+      padding: EdgeInsets.all(context.spaceLg),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.location_off, size: context.iconLg, color: kGreen),
+          SizedBox(height: context.spaceMd),
+          Text(message, textAlign: TextAlign.center),
+          SizedBox(height: context.spaceMd),
+          ElevatedButton(
+            onPressed: hTap(
+              () => context.read<MapBloc>().add(const MapLocationStarted()),
+            ),
+            child: Text('retry'.tr()),
           ),
-        ),
-      );
+        ],
+      ),
+    ),
+  );
 }
 
 class _FloatingButton extends StatelessWidget {
   const _FloatingButton({
     required this.heroTag,
-    required this.icon,
+    required this.child,
     required this.onPressed,
   });
 
   final String heroTag;
-  final IconData icon;
+  final Widget child;
   final VoidCallback onPressed;
 
   @override
@@ -238,7 +241,7 @@ class _FloatingButton extends StatelessWidget {
       borderRadius: BorderRadius.circular(context.fabRadius),
       side: BorderSide(color: fg),
     );
-    final child = Icon(icon, size: context.fabIconSize);
+    final iconTheme = IconThemeData(size: context.fabIconSize, color: fg);
 
     if (context.isTablet) {
       return FloatingActionButton(
@@ -248,7 +251,7 @@ class _FloatingButton extends StatelessWidget {
         foregroundColor: fg,
         elevation: 3,
         shape: shape,
-        child: child,
+        child: IconTheme(data: iconTheme, child: child),
       );
     }
     return FloatingActionButton.small(
@@ -258,7 +261,71 @@ class _FloatingButton extends StatelessWidget {
       foregroundColor: fg,
       elevation: 3,
       shape: shape,
-      child: child,
+      child: IconTheme(data: iconTheme, child: child),
     );
   }
+}
+
+class _ProfileButton extends StatelessWidget {
+  const _ProfileButton();
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bg = isDark ? const Color(0xFF2A2A2A) : kWhite;
+    final fg = isDark ? kGreenLight : kGreen;
+    final imageUrl = context.watch<ProfileCubit>().state?.imageUrl;
+    final hasPhoto = imageUrl != null && imageUrl.isNotEmpty;
+    final size = context.rs(40.0, 56.0);
+    final radius = context.fabRadius;
+
+    return GestureDetector(
+      onTap: hTap(() => context.push('/profile')),
+      child: Container(
+        width: size,
+        height: size,
+        padding: hasPhoto ? const EdgeInsets.all(2) : EdgeInsets.zero,
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(radius),
+          border: Border.all(color: fg),
+          boxShadow: const [
+            BoxShadow(
+              color: Colors.black26,
+              blurRadius: 3,
+              offset: Offset(0, 2),
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(hasPhoto ? radius - 2 : radius),
+          child: hasPhoto
+              ? Image.network(
+                  imageUrl,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) =>
+                      _ProfileFallbackIcon(color: fg),
+                  loadingBuilder: (context, child, progress) => progress == null
+                      ? child
+                      : _ProfileFallbackIcon(color: fg),
+                )
+              : _ProfileFallbackIcon(color: fg),
+        ),
+      ),
+    );
+  }
+}
+
+class _ProfileFallbackIcon extends StatelessWidget {
+  const _ProfileFallbackIcon({required this.color});
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => Center(
+    child: Icon(
+      Icons.account_circle_rounded,
+      size: context.fabIconSize,
+      color: color,
+    ),
+  );
 }

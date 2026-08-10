@@ -4,6 +4,7 @@ import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:go_router/go_router.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
 import '../../features/home/presentation/pages/home_page.dart';
+import '../../features/profile/presentation/pages/profile_page.dart';
 import '../constants/app_colors.dart';
 import '../storage/secure_storage_service.dart';
 import 'navigation_service.dart';
@@ -22,13 +23,11 @@ class AppRouter {
         path: '/splash',
         builder: (context, state) => const _SplashPage(),
       ),
+      GoRoute(path: '/login', builder: (context, state) => const LoginPage()),
+      GoRoute(path: '/home', builder: (context, state) => const HomePage()),
       GoRoute(
-        path: '/login',
-        builder: (context, state) => const LoginPage(),
-      ),
-      GoRoute(
-        path: '/home',
-        builder: (context, state) => const HomePage(),
+        path: '/profile',
+        builder: (context, state) => const ProfilePage(),
       ),
     ],
   );
@@ -67,10 +66,11 @@ class _SplashPageState extends State<_SplashPage>
       vsync: this,
       duration: const Duration(milliseconds: 700),
     )..forward();
-    _fade  = CurvedAnimation(parent: _ctrl, curve: Curves.easeIn);
-    _scale = Tween<double>(begin: 0.85, end: 1.0).animate(
-      CurvedAnimation(parent: _ctrl, curve: Curves.easeOutBack),
-    );
+    _fade = CurvedAnimation(parent: _ctrl, curve: Curves.easeIn);
+    _scale = Tween<double>(
+      begin: 0.85,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeOutBack));
   }
 
   @override

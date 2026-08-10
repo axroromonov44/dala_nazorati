@@ -1,3 +1,7 @@
+import 'dart:convert';
+
+import '../../../../core/constants/storage_keys.dart';
+import '../../../../core/storage/hive_service.dart';
 import '../../../../core/storage/secure_storage_service.dart';
 import '../../domain/entities/user.dart';
 import '../../domain/repositories/auth_repository.dart';
@@ -5,10 +9,15 @@ import '../datasources/auth_remote_datasource.dart';
 import '../models/user_model.dart';
 
 class AuthRepositoryImpl implements AuthRepository {
-  const AuthRepositoryImpl(this._remoteDataSource, this._storageService);
+  const AuthRepositoryImpl(
+    this._remoteDataSource,
+    this._storageService,
+    this._hiveService,
+  );
 
   final AuthRemoteDataSource _remoteDataSource;
   final SecureStorageService _storageService;
+  final HiveService _hiveService;
 
   @override
   Future<({User user, String accessToken, String refreshToken})> login({
@@ -24,20 +33,21 @@ class AuthRepositoryImpl implements AuthRepository {
 
   @override
   Future<({User user, String accessToken, String refreshToken})>
-      loginWithGovCode({required String code}) async {
+  loginWithGovCode({required String code}) async {
     final data = await _remoteDataSource.loginGov(code: code);
     return _completeLogin(data);
   }
 
   @override
   Future<({User user, String accessToken, String refreshToken})>
-      loginWithKarantinCode({required String code}) async {
+  loginWithKarantinCode({required String code}) async {
     final data = await _remoteDataSource.loginKarantin(code: code);
     return _completeLogin(data);
   }
 
-  Future<({User user, String accessToken, String refreshToken})>
-      _completeLogin(Map<String, dynamic> data) async {
+  Future<({User user, String accessToken, String refreshToken})> _completeLogin(
+    Map<String, dynamic> data,
+  ) async {
     final accessToken = data['access'] as String;
     final refreshToken = data['refresh'] as String;
     final user = UserModel.fromAccessToken(accessToken);
@@ -49,7 +59,15 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
-  Future<void> logout() => _storageService.clearTokens();
+  Future<void> logout() async {
+    await _storageService.clearTokens();
+    // Faqat shu auth-domenga tegishli kesh — dalalar/tayl/media keshini
+    // tozalash boshqa repositorylar zimmasida (bu yerdan turib ularga
+    // bog'lanish auth qatlamini boshqa feature'larga bog'lab qo'yardi).
+    // To'liq tozalash uchun chaqiruvchi tomon shularni ham chaqirishi kerak
+    // — profile sahifasidagi "chiqish" tugmasiga qarang.
+    await _hiveService.userBox.delete(StorageKeys.userData);
+  }
 
   @override
   Future<User?> getCurrentUser() async {
@@ -60,5 +78,16 @@ class AuthRepositoryImpl implements AuthRepository {
     } catch (_) {
       return null;
     }
+  }
+
+  @override
+  Future<User> fetchProfile() async {
+    final json = await _remoteDataSource.getMe();
+    final previous =
+        await getCurrentUser() ??
+        const User(id: '', username: '', fullName: '');
+    final user = UserModel.fromMeResponse(json, previous: previous);
+    await _hiveService.userBox.put(StorageKeys.userData, jsonEncode(json));
+    return user;
   }
 }

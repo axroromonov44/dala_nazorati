@@ -9,6 +9,7 @@ import '../../features/auth/domain/usecases/gov_login_usecase.dart';
 import '../../features/auth/domain/usecases/karantin_login_usecase.dart';
 import '../../features/auth/domain/usecases/login_usecase.dart';
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
+import '../../features/auth/presentation/bloc/profile_cubit.dart';
 import '../../features/fields/data/datasources/field_remote_datasource.dart';
 import '../../features/fields/data/field_spatial_index.dart';
 import '../../features/fields/data/repositories/field_repository_impl.dart';
@@ -87,15 +88,19 @@ Future<void> configureDependencies() async {
     () => AuthRemoteDataSource(getIt()),
   );
   getIt.registerLazySingleton<AuthRepository>(
-    () => AuthRepositoryImpl(getIt(), getIt()),
+    () => AuthRepositoryImpl(getIt(), getIt(), getIt()),
   );
   getIt.registerLazySingleton<LoginUseCase>(() => LoginUseCase(getIt()));
   getIt.registerLazySingleton<GovLoginUseCase>(() => GovLoginUseCase(getIt()));
   getIt.registerLazySingleton<KarantinLoginUseCase>(
     () => KarantinLoginUseCase(getIt()),
   );
-  getIt.registerFactory<AuthBloc>(
-    () => AuthBloc(getIt(), getIt(), getIt()),
+  getIt.registerFactory<AuthBloc>(() => AuthBloc(getIt(), getIt(), getIt()));
+  // Butun ilova bo'ylab bir marta yuklanadigan, keshlangan foydalanuvchi
+  // profili — home page uni ochilganda `refresh()` bilan to'ldiradi, qolgan
+  // ekranlar shu bitta nusxani o'qiydi (qayta so'rov yubormaydi).
+  getIt.registerLazySingleton<ProfileCubit>(
+    () => ProfileCubit(getIt(), getIt()),
   );
 
   // Home / Location
@@ -108,9 +113,7 @@ Future<void> configureDependencies() async {
   getIt.registerLazySingleton<WatchLocationUseCase>(
     () => WatchLocationUseCase(getIt()),
   );
-  getIt.registerFactory<MapBloc>(
-    () => MapBloc(getIt(), getIt()),
-  );
+  getIt.registerFactory<MapBloc>(() => MapBloc(getIt(), getIt()));
 
   // Fields ("dalalar") — lightweight index synced/cached for every field,
   // photos cached separately and lazily by FieldMediaCache (see main.dart).

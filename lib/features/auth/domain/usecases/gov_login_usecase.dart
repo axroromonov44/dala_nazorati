@@ -8,6 +8,5 @@ class GovLoginUseCase {
 
   Future<({User user, String accessToken, String refreshToken})> call({
     required String code,
-  }) =>
-      _repository.loginWithGovCode(code: code);
+  }) => _repository.loginWithGovCode(code: code);
 }

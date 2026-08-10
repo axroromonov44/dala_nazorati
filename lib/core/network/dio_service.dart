@@ -29,7 +29,7 @@ class DioService {
     if (kDebugMode) {
       _dio.interceptors.add(
         PrettyDioLogger(
-          requestHeader: false,
+          requestHeader: true,
           requestBody: true,
           responseBody: true,
           compact: false,

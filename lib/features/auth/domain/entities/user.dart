@@ -8,6 +8,16 @@ class User extends Equatable {
     this.email,
     this.phone,
     this.roles = const [],
+    this.imageUrl,
+    this.passportNumber,
+    this.pinfl,
+    this.birthDate,
+    this.address,
+    this.gender,
+    this.position,
+    this.fullNameCyrillic,
+    this.regionName,
+    this.districtName,
   });
 
   final String id;
@@ -16,7 +26,38 @@ class User extends Equatable {
   final String? email;
   final String? phone;
   final List<String> roles;
+  final String? imageUrl;
+
+  // `GET /users/me` — shaxsiy hujjat ma'lumotlari, faqat profil
+  // "tafsilotlar" varag'ida ko'rsatiladi (xarita/asosiy ekranlarda kerak
+  // emas).
+  final String? passportNumber;
+  final String? pinfl;
+  final String? birthDate;
+  final String? address;
+  final String? gender;
+  final String? position;
+  final String? fullNameCyrillic;
+  final String? regionName;
+  final String? districtName;
 
   @override
-  List<Object?> get props => [id, username, fullName, email, phone, roles];
+  List<Object?> get props => [
+    id,
+    username,
+    fullName,
+    email,
+    phone,
+    roles,
+    imageUrl,
+    passportNumber,
+    pinfl,
+    birthDate,
+    address,
+    gender,
+    position,
+    fullNameCyrillic,
+    regionName,
+    districtName,
+  ];
 }

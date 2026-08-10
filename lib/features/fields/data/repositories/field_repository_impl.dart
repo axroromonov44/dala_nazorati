@@ -37,8 +37,9 @@ class FieldRepositoryImpl implements FieldRepository {
   Future<void> syncIndex() async {
     final cursorMs =
         _hiveService.userBox.get(StorageKeys.fieldsIndexSyncCursor) as int?;
-    final cursor =
-        cursorMs != null ? DateTime.fromMillisecondsSinceEpoch(cursorMs) : null;
+    final cursor = cursorMs != null
+        ? DateTime.fromMillisecondsSinceEpoch(cursorMs)
+        : null;
 
     final page = await _remote.fetchIndex(updatedAfter: cursor);
 
@@ -80,6 +81,12 @@ class FieldRepositoryImpl implements FieldRepository {
       _spatialIndex.query(bounds);
 
   @override
+  LatLngBounds? allFieldsBounds() {
+    final points = [for (final field in _spatialIndex.all) ...field.points];
+    return points.isEmpty ? null : LatLngBounds.fromPoints(points);
+  }
+
+  @override
   Future<FieldDetail> getFieldDetail(String id) async {
     final cachedRaw = _hiveService.fieldDetailBox.get(id) as String?;
     try {
@@ -95,5 +102,13 @@ class FieldRepositoryImpl implements FieldRepository {
       }
       rethrow;
     }
+  }
+
+  @override
+  Future<void> clearLocalData() async {
+    await _hiveService.fieldsIndexBox.clear();
+    await _hiveService.fieldDetailBox.clear();
+    await _hiveService.userBox.delete(StorageKeys.fieldsIndexSyncCursor);
+    _spatialIndex.rebuild(const []);
   }
 }

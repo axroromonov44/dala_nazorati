@@ -7,6 +7,7 @@ import '../../../../core/di/injection.dart';
 import '../../../../core/locale/language_switcher.dart';
 import '../../../../core/theme/theme_cubit.dart';
 import '../../../../core/utils/responsive.dart';
+import '../../../sync/presentation/bloc/sync_bloc.dart';
 import '../bloc/auth_bloc.dart';
 import '../widgets/login_form.dart';
 
@@ -14,10 +15,8 @@ class LoginPage extends StatelessWidget {
   const LoginPage({super.key});
 
   @override
-  Widget build(BuildContext context) => BlocProvider(
-        create: (_) => getIt<AuthBloc>(),
-        child: const _LoginView(),
-      );
+  Widget build(BuildContext context) =>
+      BlocProvider(create: (_) => getIt<AuthBloc>(), child: const _LoginView());
 }
 
 class _LoginView extends StatelessWidget {
@@ -30,13 +29,18 @@ class _LoginView extends StatelessWidget {
 
     return BlocListener<AuthBloc, AuthState>(
       listener: (context, state) {
-        if (state is AuthAuthenticated) context.go('/home');
+        if (state is AuthAuthenticated) {
+          // Ilova jarayoni qayta ishga tushirilmaganda (masalan chiqib,
+          // boshqa hodim sifatida qayta kirilganda) `SyncBloc` faqat bir
+          // marta — ilova ochilganda — sinxronlangan bo'ladi. Shu yerda
+          // qayta so'rab, dalalar indeksi darhol qaytadan yuklanishini
+          // ta'minlaymiz.
+          context.read<SyncBloc>().add(const SyncTriggered());
+          context.go('/home');
+        }
         if (state is AuthError) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(state.message),
-              backgroundColor: kError,
-            ),
+            SnackBar(content: Text(state.message), backgroundColor: kError),
           );
         }
       },
@@ -59,8 +63,7 @@ class _LoginView extends StatelessWidget {
           body: SafeArea(
             child: Center(
               child: ConstrainedBox(
-                constraints:
-                    BoxConstraints(maxWidth: context.contentMaxWidth),
+                constraints: BoxConstraints(maxWidth: context.contentMaxWidth),
                 child: SingleChildScrollView(
                   padding: EdgeInsets.all(context.spaceLg),
                   child: Column(
@@ -77,9 +80,9 @@ class _LoginView extends StatelessWidget {
                             (Theme.of(context).textTheme.headlineMedium ??
                                     const TextStyle())
                                 .copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: colorScheme.onSurface,
-                        ),
+                                  fontWeight: FontWeight.bold,
+                                  color: colorScheme.onSurface,
+                                ),
                         child: Text(
                           'appTitle'.tr(),
                           textAlign: TextAlign.center,
@@ -112,9 +115,7 @@ class _ThemeToggle extends StatelessWidget {
         curve: Curves.easeInOut,
         padding: const EdgeInsets.all(4),
         decoration: BoxDecoration(
-          color: isDark
-              ? kGreen.withAlpha(40)
-              : kGreen.withAlpha(20),
+          color: isDark ? kGreen.withAlpha(40) : kGreen.withAlpha(20),
           borderRadius: BorderRadius.circular(22),
           border: Border.all(
             color: isDark ? kGreenLight.withAlpha(120) : kGreen.withAlpha(100),

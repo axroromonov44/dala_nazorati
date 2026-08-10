@@ -41,6 +41,12 @@ class FieldSpatialIndex {
     if (existing != null) _removeFromCell(existing);
   }
 
+  /// Every field currently in the index, regardless of location — used to
+  /// compute a bounding box over all of them (e.g. to size an offline tile
+  /// download to the employee's whole assigned area, not just whatever's
+  /// currently on screen).
+  Iterable<FieldSummary> get all => _byId.values;
+
   List<FieldSummary> query(LatLngBounds bounds) {
     final xMin = TileMath.lonToTileX(bounds.west, _gridZoom);
     final xMax = TileMath.lonToTileX(bounds.east, _gridZoom);

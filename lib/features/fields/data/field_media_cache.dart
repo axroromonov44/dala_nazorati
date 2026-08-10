@@ -107,4 +107,16 @@ class FieldMediaCache {
   }
 
   static int _now() => DateTime.now().millisecondsSinceEpoch;
+
+  /// Deletes every cached photo file and its metadata — called on logout so
+  /// the next person to use this device can't see the previous employee's
+  /// field photos still sitting on disk.
+  static Future<void> clear() async {
+    final dir = _dir;
+    if (dir != null && await dir.exists()) {
+      await dir.delete(recursive: true);
+      await dir.create(recursive: true);
+    }
+    await getIt<HiveService>().fieldPhotoMetaBox.clear();
+  }
 }

@@ -32,4 +32,11 @@ class AuthRemoteDataSource {
     );
     return response.data!;
   }
+
+  Future<Map<String, dynamic>> getMe() async {
+    final response = await _dioService.get<Map<String, dynamic>>(
+      ApiEndpoints.me,
+    );
+    return response.data!;
+  }
 }

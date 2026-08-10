@@ -9,6 +9,5 @@ class LoginUseCase {
   Future<({User user, String accessToken, String refreshToken})> call({
     required String username,
     required String password,
-  }) =>
-      _repository.login(username: username, password: password);
+  }) => _repository.login(username: username, password: password);
 }

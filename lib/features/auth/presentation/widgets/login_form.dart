@@ -60,8 +60,7 @@ class _LoginFormState extends State<LoginForm> {
 
   Future<void> _openKarantinWebView() async {
     final authBloc = context.read<AuthBloc>();
-    final code = await Navigator.of(context, rootNavigator: true)
-        .push<String?>(
+    final code = await Navigator.of(context, rootNavigator: true).push<String?>(
       MaterialPageRoute(builder: (_) => const KarantinWebViewPage()),
     );
     debugPrint('[KarantinID] webview returned code=$code');

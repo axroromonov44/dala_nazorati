@@ -19,7 +19,7 @@ import '../../../../core/notifications/notification_center.dart';
 ///
 /// Renders as a native-styled [CupertinoAlertDialog] on iOS and a Material
 /// [AlertDialog] everywhere else, matching the platform-aware pattern
-/// already used for the logout confirmation in `app_drawer.dart`.
+/// already used for the logout confirmation in `profile_page.dart`.
 Future<void> showOfflineMapDownloadDialog(
   BuildContext context, {
   required List<TileDownloadJob> jobs,
@@ -34,9 +34,19 @@ Future<void> showOfflineMapDownloadDialog(
 
   final bool? confirmed;
   if (Platform.isIOS) {
-    confirmed = await _confirmDialogIOS(context, title, body, estimate.estimatedBytes);
+    confirmed = await _confirmDialogIOS(
+      context,
+      title,
+      body,
+      estimate.estimatedBytes,
+    );
   } else {
-    confirmed = await _confirmDialogAndroid(context, title, body, estimate.estimatedBytes);
+    confirmed = await _confirmDialogAndroid(
+      context,
+      title,
+      body,
+      estimate.estimatedBytes,
+    );
   }
 
   if (!context.mounted) return;
@@ -192,7 +202,10 @@ Future<bool?> _confirmDialogAndroid(
                   'offlineMapSizeEstimate'.tr(
                     namedArgs: {'size': formatMapCacheSize(estimatedBytes)},
                   ),
-                  style: const TextStyle(fontWeight: FontWeight.w600, color: kGreen),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: kGreen,
+                  ),
                 ),
               ],
             ),
@@ -233,7 +246,8 @@ class _DownloadProgressDialog extends StatefulWidget {
   final bool retina;
 
   @override
-  State<_DownloadProgressDialog> createState() => _DownloadProgressDialogState();
+  State<_DownloadProgressDialog> createState() =>
+      _DownloadProgressDialogState();
 }
 
 class _DownloadProgressDialogState extends State<_DownloadProgressDialog> {
@@ -254,30 +268,32 @@ class _DownloadProgressDialogState extends State<_DownloadProgressDialog> {
     // Yuklab olish davomida ekran uxlab (lock) qolmasin — foydalanuvchi
     // qo'lini olib qo'ysa ham jarayon foreground'da davom etaveradi.
     WakelockPlus.enable();
-    _sub = TileCacheService.downloadJobs(
-      jobs: widget.jobs,
-      urlTemplate: widget.urlTemplate,
-      subdomains: widget.subdomains,
-      retina: widget.retina,
-      cancelToken: _cancelToken,
-    ).listen(
-      (progress) {
-        if (!mounted || _cancelled) return;
-        setState(() => _progress = progress);
-      },
-      onDone: () {
-        if (!mounted || _cancelled) return;
-        setState(() => _done = true);
-        Future.delayed(const Duration(milliseconds: 600), () {
-          if (mounted) Navigator.of(context).pop();
-        });
-      },
-      onError: (Object error) {
-        if (!mounted || _cancelled) return;
-        if (error is DioException && error.type == DioExceptionType.cancel) return;
-        setState(() => _failed = true);
-      },
-    );
+    _sub =
+        TileCacheService.downloadJobs(
+          jobs: widget.jobs,
+          urlTemplate: widget.urlTemplate,
+          subdomains: widget.subdomains,
+          retina: widget.retina,
+          cancelToken: _cancelToken,
+        ).listen(
+          (progress) {
+            if (!mounted || _cancelled) return;
+            setState(() => _progress = progress);
+          },
+          onDone: () {
+            if (!mounted || _cancelled) return;
+            setState(() => _done = true);
+            Future.delayed(const Duration(milliseconds: 600), () {
+              if (mounted) Navigator.of(context).pop();
+            });
+          },
+          onError: (Object error) {
+            if (!mounted || _cancelled) return;
+            if (error is DioException && error.type == DioExceptionType.cancel)
+              return;
+            setState(() => _failed = true);
+          },
+        );
   }
 
   void _cancel() {
@@ -317,14 +333,16 @@ class _DownloadProgressDialogState extends State<_DownloadProgressDialog> {
   String get _titleText => _failed
       ? 'offlineMapFailed'.tr()
       : _done
-          ? 'offlineMapSuccess'.tr(
-              namedArgs: {'size': formatMapCacheSize(_progress.downloadedBytes)},
-            )
-          : 'offlineMapDownloading'.tr();
+      ? 'offlineMapSuccess'.tr(
+          namedArgs: {'size': formatMapCacheSize(_progress.downloadedBytes)},
+        )
+      : 'offlineMapDownloading'.tr();
 
   double get _fraction {
     final total = _progress.totalTiles;
-    return total == 0 ? 0.0 : (_progress.downloadedTiles / total).clamp(0.0, 1.0);
+    return total == 0
+        ? 0.0
+        : (_progress.downloadedTiles / total).clamp(0.0, 1.0);
   }
 
   @override
@@ -355,20 +373,19 @@ class _DownloadProgressDialogState extends State<_DownloadProgressDialog> {
           const SizedBox(height: 10),
           if (!_failed)
             Text(
-              'offlineMapProgress'.tr(namedArgs: {
-                'percent': (_fraction * 100).toStringAsFixed(0),
-                'size': formatMapCacheSize(_progress.downloadedBytes),
-              }),
+              'offlineMapProgress'.tr(
+                namedArgs: {
+                  'percent': (_fraction * 100).toStringAsFixed(0),
+                  'size': formatMapCacheSize(_progress.downloadedBytes),
+                },
+              ),
               style: const TextStyle(color: kTextSecondary, fontSize: 13),
             ),
         ],
       ),
       actions: [
         if (!_done && !_failed)
-          TextButton(
-            onPressed: _cancel,
-            child: Text('offlineMapCancel'.tr()),
-          ),
+          TextButton(onPressed: _cancel, child: Text('offlineMapCancel'.tr())),
         if (_failed)
           TextButton(
             onPressed: () => Navigator.of(context).pop(),
@@ -388,15 +405,19 @@ class _DownloadProgressDialogState extends State<_DownloadProgressDialog> {
         children: [
           _CupertinoProgressBar(
             value: _failed ? 0 : _fraction,
-            color: _failed ? CupertinoColors.systemRed : CupertinoColors.activeGreen,
+            color: _failed
+                ? CupertinoColors.systemRed
+                : CupertinoColors.activeGreen,
           ),
           const SizedBox(height: 8),
           if (!_failed)
             Text(
-              'offlineMapProgress'.tr(namedArgs: {
-                'percent': (_fraction * 100).toStringAsFixed(0),
-                'size': formatMapCacheSize(_progress.downloadedBytes),
-              }),
+              'offlineMapProgress'.tr(
+                namedArgs: {
+                  'percent': (_fraction * 100).toStringAsFixed(0),
+                  'size': formatMapCacheSize(_progress.downloadedBytes),
+                },
+              ),
               style: const TextStyle(
                 color: CupertinoColors.secondaryLabel,
                 fontSize: 13,

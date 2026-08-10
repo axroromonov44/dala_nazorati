@@ -8,6 +8,5 @@ class KarantinLoginUseCase {
 
   Future<({User user, String accessToken, String refreshToken})> call({
     required String code,
-  }) =>
-      _repository.loginWithKarantinCode(code: code);
+  }) => _repository.loginWithKarantinCode(code: code);
 }

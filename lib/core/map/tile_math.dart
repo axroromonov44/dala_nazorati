@@ -38,21 +38,26 @@ class TileMath {
     required double radiusMeters,
     required int minZoom,
     required int maxZoom,
-  }) {
-    final latDelta = radiusMeters / 111320.0;
-    final lngDelta =
-        radiusMeters / (111320.0 * cos(center.latitude * pi / 180));
-    final north = (center.latitude + latDelta).clamp(-85.05112878, 85.05112878);
-    final south = (center.latitude - latDelta).clamp(-85.05112878, 85.05112878);
-    final east = center.longitude + lngDelta;
-    final west = center.longitude - lngDelta;
+  }) => tilesForBounds(
+    bounds: boundsFor(center, radiusMeters),
+    minZoom: minZoom,
+    maxZoom: maxZoom,
+  );
 
+  /// All tiles covering an arbitrary [bounds] (e.g. the bounding box of a
+  /// whole set of fields, not just a circle around one point), for every
+  /// zoom level in `minZoom..maxZoom` (inclusive).
+  static List<TileCoord> tilesForBounds({
+    required LatLngBounds bounds,
+    required int minZoom,
+    required int maxZoom,
+  }) {
     final tiles = <TileCoord>[];
     for (var z = minZoom; z <= maxZoom; z++) {
-      final xMin = lonToTileX(west, z);
-      final xMax = lonToTileX(east, z);
-      final yMin = latToTileY(north, z);
-      final yMax = latToTileY(south, z);
+      final xMin = lonToTileX(bounds.west, z);
+      final xMax = lonToTileX(bounds.east, z);
+      final yMin = latToTileY(bounds.north, z);
+      final yMax = latToTileY(bounds.south, z);
       for (var x = xMin; x <= xMax; x++) {
         for (var y = yMin; y <= yMax; y++) {
           tiles.add(TileCoord(x, y, z));
@@ -64,12 +69,27 @@ class TileMath {
 
   /// A square [LatLngBounds] of [radiusMeters] around [center] — used to fit
   /// the map camera to the same area a [tilesForRegion] download covers.
-  static LatLngBounds boundsFor(LatLng center, double radiusMeters) {
-    final latDelta = radiusMeters / 111320.0;
-    final lngDelta = radiusMeters / (111320.0 * cos(center.latitude * pi / 180));
+  static LatLngBounds boundsFor(LatLng center, double radiusMeters) =>
+      padBounds(LatLngBounds(center, center), radiusMeters);
+
+  /// Grows [bounds] outward by [marginMeters] on every side — used to give
+  /// an offline download a bit of breathing room beyond the exact bounding
+  /// box of the fields it's meant to cover (e.g. the access road right next
+  /// to the outermost field), rather than cutting off precisely at the
+  /// field polygon edge.
+  static LatLngBounds padBounds(LatLngBounds bounds, double marginMeters) {
+    final midLat = (bounds.north + bounds.south) / 2;
+    final latDelta = marginMeters / 111320.0;
+    final lngDelta = marginMeters / (111320.0 * cos(midLat * pi / 180));
     return LatLngBounds(
-      LatLng(center.latitude - latDelta, center.longitude - lngDelta),
-      LatLng(center.latitude + latDelta, center.longitude + lngDelta),
+      LatLng(
+        (bounds.south - latDelta).clamp(-85.05112878, 85.05112878),
+        bounds.west - lngDelta,
+      ),
+      LatLng(
+        (bounds.north + latDelta).clamp(-85.05112878, 85.05112878),
+        bounds.east + lngDelta,
+      ),
     );
   }
 
