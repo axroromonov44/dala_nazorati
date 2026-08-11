@@ -75,33 +75,43 @@ class _MonitoringPageState extends State<MonitoringPage>
 
   void _onSubmit() {
     if (_nameCtrl.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('fieldNameRequired'.tr()),
-        backgroundColor: kError,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      ));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('fieldNameRequired'.tr()),
+          backgroundColor: kError,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      );
       _tabController.animateTo(0);
       return;
     }
     if (_areaError != null) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(_areaError!),
-        backgroundColor: kError,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      ));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(_areaError!),
+          backgroundColor: kError,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      );
       _tabController.animateTo(0);
       return;
     }
     hapticMedium();
     Navigator.pop(context);
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text('fieldSaved'.tr()),
-      backgroundColor: kGreen,
-      behavior: SnackBarBehavior.floating,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-    ));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('fieldSaved'.tr()),
+        backgroundColor: kGreen,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
   }
 
   @override
@@ -120,7 +130,11 @@ class _MonitoringPageState extends State<MonitoringPage>
             colorScheme: colorScheme,
             pointCount: widget.points.length,
           ),
-          _MonitoringTabBar(controller: _tabController, isDark: isDark, colorScheme: colorScheme),
+          _MonitoringTabBar(
+            controller: _tabController,
+            isDark: isDark,
+            colorScheme: colorScheme,
+          ),
           const SizedBox(height: 2),
           Expanded(
             child: TabBarView(
@@ -146,7 +160,8 @@ class _MonitoringPageState extends State<MonitoringPage>
                   isDark: isDark,
                   colorScheme: colorScheme,
                   onCropTypeChanged: (v) => setState(() => _cropType = v),
-                  onIrrigationChanged: (v) => setState(() => _irrigationType = v),
+                  onIrrigationChanged: (v) =>
+                      setState(() => _irrigationType = v),
                 ),
                 _MediaTab(
                   images: _images,
@@ -163,7 +178,12 @@ class _MonitoringPageState extends State<MonitoringPage>
               ],
             ),
           ),
-          _SubmitBar(bottom: bottom, onSubmit: _onSubmit, isDark: isDark, colorScheme: colorScheme),
+          _SubmitBar(
+            bottom: bottom,
+            onSubmit: _onSubmit,
+            isDark: isDark,
+            colorScheme: colorScheme,
+          ),
         ],
       ),
     );
@@ -171,7 +191,11 @@ class _MonitoringPageState extends State<MonitoringPage>
 }
 
 class _MonitoringAppBar extends StatelessWidget {
-  const _MonitoringAppBar({required this.isDark, required this.colorScheme, required this.pointCount});
+  const _MonitoringAppBar({
+    required this.isDark,
+    required this.colorScheme,
+    required this.pointCount,
+  });
   final bool isDark;
   final ColorScheme colorScheme;
   final int pointCount;
@@ -183,7 +207,9 @@ class _MonitoringAppBar extends StatelessWidget {
       padding: EdgeInsets.fromLTRB(4, top + 4, 16, 14),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: isDark ? [const Color(0xFF1A2E1A), const Color(0xFF111111)] : [kGreen, const Color(0xFF2E7D32)],
+          colors: isDark
+              ? [const Color(0xFF1A2E1A), const Color(0xFF111111)]
+              : [kGreen, const Color(0xFF2E7D32)],
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
         ),
@@ -191,8 +217,15 @@ class _MonitoringAppBar extends StatelessWidget {
       child: Row(
         children: [
           IconButton(
-            onPressed: () { hapticLight(); Navigator.pop(context); },
-            icon: const Icon(Icons.arrow_back_ios_rounded, color: Colors.white, size: 20),
+            onPressed: () {
+              hapticLight();
+              Navigator.pop(context);
+            },
+            icon: const Icon(
+              Icons.arrow_back_ios_rounded,
+              color: Colors.white,
+              size: 20,
+            ),
           ),
           const SizedBox(width: 4),
           Expanded(
@@ -210,8 +243,14 @@ class _MonitoringAppBar extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  'cornerPointsCount'.tr(namedArgs: {'count': pointCount.toString()}),
-                  style: TextStyle(color: Colors.white.withAlpha(180), fontSize: 12, fontWeight: FontWeight.w500),
+                  'cornerPointsCount'.tr(
+                    namedArgs: {'count': pointCount.toString()},
+                  ),
+                  style: TextStyle(
+                    color: Colors.white.withAlpha(180),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ],
             ),
@@ -226,9 +265,20 @@ class _MonitoringAppBar extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.sensors_rounded, color: Colors.white, size: 14),
+                const Icon(
+                  Icons.sensors_rounded,
+                  color: Colors.white,
+                  size: 14,
+                ),
                 const SizedBox(width: 5),
-                Text('tabCoord'.tr(), style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w600)),
+                Text(
+                  'tabCoord'.tr(),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ],
             ),
           ),
@@ -239,7 +289,11 @@ class _MonitoringAppBar extends StatelessWidget {
 }
 
 class _MonitoringTabBar extends StatelessWidget {
-  const _MonitoringTabBar({required this.controller, required this.isDark, required this.colorScheme});
+  const _MonitoringTabBar({
+    required this.controller,
+    required this.isDark,
+    required this.colorScheme,
+  });
   final TabController controller;
   final bool isDark;
   final ColorScheme colorScheme;
@@ -252,7 +306,9 @@ class _MonitoringTabBar extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(4),
         decoration: BoxDecoration(
-          color: isDark ? Colors.white.withAlpha(10) : Colors.white.withAlpha(30),
+          color: isDark
+              ? Colors.white.withAlpha(10)
+              : Colors.white.withAlpha(30),
           borderRadius: BorderRadius.circular(16),
         ),
         child: TabBar(
@@ -260,12 +316,20 @@ class _MonitoringTabBar extends StatelessWidget {
           indicator: BoxDecoration(
             color: isDark ? kGreen : Colors.white,
             borderRadius: BorderRadius.circular(12),
-            boxShadow: [BoxShadow(color: Colors.black.withAlpha(30), blurRadius: 6, offset: const Offset(0, 2))],
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withAlpha(30),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
           indicatorSize: TabBarIndicatorSize.tab,
           dividerColor: Colors.transparent,
           labelColor: isDark ? Colors.white : kGreen,
-          unselectedLabelColor: isDark ? Colors.white.withAlpha(130) : Colors.white.withAlpha(200),
+          unselectedLabelColor: isDark
+              ? Colors.white.withAlpha(130)
+              : Colors.white.withAlpha(200),
           labelPadding: EdgeInsets.zero,
           splashFactory: NoSplash.splashFactory,
           overlayColor: WidgetStateProperty.all(Colors.transparent),
@@ -288,12 +352,20 @@ class _Tab extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Tab(
     height: 38,
-    child: Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+    child: Text(
+      label,
+      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+    ),
   );
 }
 
 class _Section extends StatelessWidget {
-  const _Section({required this.title, required this.children, required this.isDark, required this.colorScheme});
+  const _Section({
+    required this.title,
+    required this.children,
+    required this.isDark,
+    required this.colorScheme,
+  });
   final String title;
   final List<Widget> children;
   final bool isDark;
@@ -307,10 +379,24 @@ class _Section extends StatelessWidget {
         color: cardBg,
         borderRadius: BorderRadius.circular(18),
         boxShadow: isDark
-            ? [BoxShadow(color: Colors.black.withAlpha(70), blurRadius: 10, offset: const Offset(0, 2))]
+            ? [
+                BoxShadow(
+                  color: Colors.black.withAlpha(70),
+                  blurRadius: 10,
+                  offset: const Offset(0, 2),
+                ),
+              ]
             : [
-                BoxShadow(color: Colors.black.withAlpha(10), blurRadius: 10, offset: const Offset(0, 2)),
-                BoxShadow(color: Colors.black.withAlpha(5), blurRadius: 20, offset: const Offset(0, 5)),
+                BoxShadow(
+                  color: Colors.black.withAlpha(10),
+                  blurRadius: 10,
+                  offset: const Offset(0, 2),
+                ),
+                BoxShadow(
+                  color: Colors.black.withAlpha(5),
+                  blurRadius: 20,
+                  offset: const Offset(0, 5),
+                ),
               ],
       ),
       child: Column(
@@ -328,7 +414,10 @@ class _Section extends StatelessWidget {
               ),
             ),
           ),
-          Divider(height: 1, color: colorScheme.outlineVariant.withAlpha(isDark ? 40 : 55)),
+          Divider(
+            height: 1,
+            color: colorScheme.outlineVariant.withAlpha(isDark ? 40 : 55),
+          ),
           Padding(
             padding: const EdgeInsets.all(14),
             child: Column(
@@ -382,7 +471,13 @@ class _BasicTab extends StatelessWidget {
           isDark: isDark,
           colorScheme: colorScheme,
           children: [
-            _Input(controller: nameCtrl, label: 'fieldName'.tr(), hint: 'fieldNameHint'.tr(), isDark: isDark, colorScheme: colorScheme),
+            _Input(
+              controller: nameCtrl,
+              label: 'fieldName'.tr(),
+              hint: 'fieldNameHint'.tr(),
+              isDark: isDark,
+              colorScheme: colorScheme,
+            ),
             _Input(
               controller: areaCtrl,
               label: 'fieldArea'.tr(),
@@ -390,7 +485,9 @@ class _BasicTab extends StatelessWidget {
               errorText: areaError,
               isDark: isDark,
               colorScheme: colorScheme,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+              ),
               inputFormatters: [DecimalInputFormatter(maxDecimals: 3)],
             ),
           ],
@@ -401,8 +498,30 @@ class _BasicTab extends StatelessWidget {
           isDark: isDark,
           colorScheme: colorScheme,
           children: [
-            _Dropdown(label: 'ownershipType'.tr(), value: ownershipType, items: ['ownerPrivate'.tr(), 'ownerRented'.tr(), 'ownerState'.tr()], isDark: isDark, colorScheme: colorScheme, onChanged: onOwnershipChanged),
-            _Dropdown(label: 'fieldStatusLabel'.tr(), value: fieldStatus, items: ['statusActive'.tr(), 'statusInactive'.tr(), 'statusPending'.tr()], isDark: isDark, colorScheme: colorScheme, onChanged: onStatusChanged),
+            _Dropdown(
+              label: 'ownershipType'.tr(),
+              value: ownershipType,
+              items: [
+                'ownerPrivate'.tr(),
+                'ownerRented'.tr(),
+                'ownerState'.tr(),
+              ],
+              isDark: isDark,
+              colorScheme: colorScheme,
+              onChanged: onOwnershipChanged,
+            ),
+            _Dropdown(
+              label: 'fieldStatusLabel'.tr(),
+              value: fieldStatus,
+              items: [
+                'statusActive'.tr(),
+                'statusInactive'.tr(),
+                'statusPending'.tr(),
+              ],
+              isDark: isDark,
+              colorScheme: colorScheme,
+              onChanged: onStatusChanged,
+            ),
           ],
         ),
         const SizedBox(height: 14),
@@ -411,7 +530,14 @@ class _BasicTab extends StatelessWidget {
           isDark: isDark,
           colorScheme: colorScheme,
           children: [
-            _Input(controller: notesCtrl, label: 'fieldNotes'.tr(), hint: 'fieldNotesHint'.tr(), isDark: isDark, colorScheme: colorScheme, maxLines: 3),
+            _Input(
+              controller: notesCtrl,
+              label: 'fieldNotes'.tr(),
+              hint: 'fieldNotesHint'.tr(),
+              isDark: isDark,
+              colorScheme: colorScheme,
+              maxLines: 3,
+            ),
           ],
         ),
       ],
@@ -451,12 +577,27 @@ class _CropTab extends StatelessWidget {
             _Dropdown(
               label: 'cropTypeLabel'.tr(),
               value: cropType,
-              items: ['cropWheat'.tr(), 'cropCorn'.tr(), 'cropCotton'.tr(), 'cropBarley'.tr(), 'cropRice'.tr(), 'cropVegetable'.tr(), 'cropFruit'.tr(), 'cropOther'.tr()],
+              items: [
+                'cropWheat'.tr(),
+                'cropCorn'.tr(),
+                'cropCotton'.tr(),
+                'cropBarley'.tr(),
+                'cropRice'.tr(),
+                'cropVegetable'.tr(),
+                'cropFruit'.tr(),
+                'cropOther'.tr(),
+              ],
               isDark: isDark,
               colorScheme: colorScheme,
               onChanged: onCropTypeChanged,
             ),
-            _Input(controller: varietyCtrl, label: 'cropVariety'.tr(), hint: 'cropVarietyHint'.tr(), isDark: isDark, colorScheme: colorScheme),
+            _Input(
+              controller: varietyCtrl,
+              label: 'cropVariety'.tr(),
+              hint: 'cropVarietyHint'.tr(),
+              isDark: isDark,
+              colorScheme: colorScheme,
+            ),
           ],
         ),
         const SizedBox(height: 14),
@@ -468,7 +609,12 @@ class _CropTab extends StatelessWidget {
             _Dropdown(
               label: 'irrigationMethod'.tr(),
               value: irrigationType,
-              items: ['irrigationSurface'.tr(), 'irrigationDrip'.tr(), 'irrigationSprinkler'.tr(), 'irrigationRainfed'.tr()],
+              items: [
+                'irrigationSurface'.tr(),
+                'irrigationDrip'.tr(),
+                'irrigationSprinkler'.tr(),
+                'irrigationRainfed'.tr(),
+              ],
               isDark: isDark,
               colorScheme: colorScheme,
               onChanged: onIrrigationChanged,
@@ -485,7 +631,11 @@ class _CropTab extends StatelessWidget {
           ),
           child: Text(
             'cropInfoText'.tr(),
-            style: TextStyle(fontSize: 12.5, color: isDark ? kGreenLight : kGreen, height: 1.5),
+            style: TextStyle(
+              fontSize: 12.5,
+              color: isDark ? kGreenLight : kGreen,
+              height: 1.5,
+            ),
           ),
         ),
       ],
@@ -529,7 +679,10 @@ class _MediaTab extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: kGreen.withAlpha(isDark ? 22 : 14),
                     borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: kGreen.withAlpha(120), width: 1.5),
+                    border: Border.all(
+                      color: kGreen.withAlpha(120),
+                      width: 1.5,
+                    ),
                   ),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
@@ -537,11 +690,27 @@ class _MediaTab extends StatelessWidget {
                       Container(
                         width: 36,
                         height: 36,
-                        decoration: BoxDecoration(color: kGreen.withAlpha(22), shape: BoxShape.circle),
-                        child: const Icon(Icons.camera_alt_rounded, color: kGreen, size: 20),
+                        decoration: BoxDecoration(
+                          color: kGreen.withAlpha(22),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.camera_alt_rounded,
+                          color: kGreen,
+                          size: 20,
+                        ),
                       ),
                       const SizedBox(height: 6),
-                      Text('addPhotoLabel'.tr(), textAlign: TextAlign.center, style: const TextStyle(color: kGreen, fontSize: 10.5, fontWeight: FontWeight.w700, height: 1.3)),
+                      Text(
+                        'addPhotoLabel'.tr(),
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: kGreen,
+                          fontSize: 10.5,
+                          fontWeight: FontWeight.w700,
+                          height: 1.3,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -570,7 +739,11 @@ class _MediaTab extends StatelessWidget {
                             color: Colors.black.withAlpha(160),
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(Icons.close_rounded, color: Colors.white, size: 14),
+                          child: const Icon(
+                            Icons.close_rounded,
+                            color: Colors.white,
+                            size: 14,
+                          ),
                         ),
                       ),
                     ),
@@ -580,7 +753,14 @@ class _MediaTab extends StatelessWidget {
           ),
           if (images.isEmpty) ...[
             const SizedBox(height: 10),
-            Text('mediaInfoText'.tr(), style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant.withAlpha(170), height: 1.4)),
+            Text(
+              'mediaInfoText'.tr(),
+              style: TextStyle(
+                fontSize: 12,
+                color: colorScheme.onSurfaceVariant.withAlpha(170),
+                height: 1.4,
+              ),
+            ),
           ],
         ],
       ),
@@ -589,7 +769,11 @@ class _MediaTab extends StatelessWidget {
 }
 
 class _CoordsTab extends StatelessWidget {
-  const _CoordsTab({required this.points, required this.isDark, required this.colorScheme});
+  const _CoordsTab({
+    required this.points,
+    required this.isDark,
+    required this.colorScheme,
+  });
   final List<LatLng> points;
   final bool isDark;
   final ColorScheme colorScheme;
@@ -606,7 +790,12 @@ class _CoordsTab extends StatelessWidget {
           children: [
             for (int i = 0; i < points.length; i++) ...[
               if (i > 0) const SizedBox(height: 8),
-              _CoordCard(index: i, point: points[i], isDark: isDark, colorScheme: colorScheme),
+              _CoordCard(
+                index: i,
+                point: points[i],
+                isDark: isDark,
+                colorScheme: colorScheme,
+              ),
             ],
           ],
         ),
@@ -616,7 +805,12 @@ class _CoordsTab extends StatelessWidget {
 }
 
 class _CoordCard extends StatelessWidget {
-  const _CoordCard({required this.index, required this.point, required this.isDark, required this.colorScheme});
+  const _CoordCard({
+    required this.index,
+    required this.point,
+    required this.isDark,
+    required this.colorScheme,
+  });
   final int index;
   final LatLng point;
   final bool isDark;
@@ -631,32 +825,70 @@ class _CoordCard extends StatelessWidget {
           height: 30,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            gradient: const LinearGradient(colors: [kGreen, kGreenLight], begin: Alignment.topLeft, end: Alignment.bottomRight),
+            gradient: const LinearGradient(
+              colors: [kGreen, kGreenLight],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
             shape: BoxShape.circle,
           ),
-          child: Text('${index + 1}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 12)),
+          child: Text(
+            '${index + 1}',
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w800,
+              fontSize: 12,
+            ),
+          ),
         ),
         const SizedBox(width: 12),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('${'latitude'.tr()}: ${point.latitude.toStringAsFixed(7)}', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: colorScheme.onSurface, fontFeatures: const [FontFeature.tabularFigures()])),
+              Text(
+                '${'latitude'.tr()}: ${point.latitude.toStringAsFixed(7)}',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: colorScheme.onSurface,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
               const SizedBox(height: 2),
-              Text('${'longitude'.tr()}: ${point.longitude.toStringAsFixed(7)}', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: colorScheme.onSurface, fontFeatures: const [FontFeature.tabularFigures()])),
+              Text(
+                '${'longitude'.tr()}: ${point.longitude.toStringAsFixed(7)}',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: colorScheme.onSurface,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
             ],
           ),
         ),
         GestureDetector(
           onTap: () {
             hapticLight();
-            Clipboard.setData(ClipboardData(text: '${point.latitude.toStringAsFixed(7)}, ${point.longitude.toStringAsFixed(7)}'));
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-              content: Text('pointCopied'.tr(namedArgs: {'index': '${index + 1}'})),
-              duration: const Duration(seconds: 1),
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-            ));
+            Clipboard.setData(
+              ClipboardData(
+                text:
+                    '${point.latitude.toStringAsFixed(7)}, ${point.longitude.toStringAsFixed(7)}',
+              ),
+            );
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  'pointCopied'.tr(namedArgs: {'index': '${index + 1}'}),
+                ),
+                duration: const Duration(seconds: 1),
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+            );
           },
           child: Container(
             padding: const EdgeInsets.all(7),
@@ -673,7 +905,12 @@ class _CoordCard extends StatelessWidget {
 }
 
 class _SubmitBar extends StatelessWidget {
-  const _SubmitBar({required this.bottom, required this.onSubmit, required this.isDark, required this.colorScheme});
+  const _SubmitBar({
+    required this.bottom,
+    required this.onSubmit,
+    required this.isDark,
+    required this.colorScheme,
+  });
   final double bottom;
   final VoidCallback onSubmit;
   final bool isDark;
@@ -686,13 +923,25 @@ class _SubmitBar extends StatelessWidget {
       padding: EdgeInsets.fromLTRB(16, 10, 16, bottom + 14),
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF111111) : const Color(0xFFEEF1EE),
-        border: Border(top: BorderSide(color: colorScheme.outlineVariant.withAlpha(70))),
+        border: Border(
+          top: BorderSide(color: colorScheme.outlineVariant.withAlpha(70)),
+        ),
       ),
       child: Container(
         decoration: BoxDecoration(
-          gradient: const LinearGradient(colors: [kGreen, kGreenLight], begin: Alignment.centerLeft, end: Alignment.centerRight),
+          gradient: const LinearGradient(
+            colors: [kGreen, kGreenLight],
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+          ),
           borderRadius: BorderRadius.circular(16),
-          boxShadow: [BoxShadow(color: kGreen.withAlpha(90), blurRadius: 14, offset: const Offset(0, 4))],
+          boxShadow: [
+            BoxShadow(
+              color: kGreen.withAlpha(90),
+              blurRadius: 14,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
         child: Material(
           color: Colors.transparent,
@@ -749,29 +998,70 @@ class _Input extends StatelessWidget {
       keyboardType: keyboardType,
       maxLines: maxLines,
       inputFormatters: inputFormatters,
-      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: colorScheme.onSurface),
+      style: TextStyle(
+        fontSize: 14,
+        fontWeight: FontWeight.w500,
+        color: colorScheme.onSurface,
+      ),
       decoration: InputDecoration(
         labelText: label,
         hintText: hint,
         errorText: errorText,
         filled: true,
         fillColor: fill,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(13), borderSide: BorderSide.none),
-        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(13), borderSide: BorderSide(color: colorScheme.outlineVariant.withAlpha(60))),
-        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(13), borderSide: const BorderSide(color: kGreen, width: 1.8)),
-        errorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(13), borderSide: const BorderSide(color: kError, width: 1.4)),
-        focusedErrorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(13), borderSide: const BorderSide(color: kError, width: 1.8)),
-        labelStyle: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 14),
-        floatingLabelStyle: TextStyle(color: isDark ? kGreenLight : kGreen, fontSize: 13, fontWeight: FontWeight.w600),
-        hintStyle: TextStyle(color: colorScheme.onSurfaceVariant.withAlpha(100), fontSize: 13),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 14,
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(13),
+          borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(13),
+          borderSide: BorderSide(
+            color: colorScheme.outlineVariant.withAlpha(60),
+          ),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(13),
+          borderSide: const BorderSide(color: kGreen, width: 1.8),
+        ),
+        errorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(13),
+          borderSide: const BorderSide(color: kError, width: 1.4),
+        ),
+        focusedErrorBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(13),
+          borderSide: const BorderSide(color: kError, width: 1.8),
+        ),
+        labelStyle: TextStyle(
+          color: colorScheme.onSurfaceVariant,
+          fontSize: 14,
+        ),
+        floatingLabelStyle: TextStyle(
+          color: isDark ? kGreenLight : kGreen,
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+        ),
+        hintStyle: TextStyle(
+          color: colorScheme.onSurfaceVariant.withAlpha(100),
+          fontSize: 13,
+        ),
       ),
     );
   }
 }
 
 class _Dropdown extends StatelessWidget {
-  const _Dropdown({required this.label, required this.value, required this.items, required this.isDark, required this.colorScheme, required this.onChanged});
+  const _Dropdown({
+    required this.label,
+    required this.value,
+    required this.items,
+    required this.isDark,
+    required this.colorScheme,
+    required this.onChanged,
+  });
   final String label;
   final String? value;
   final List<String> items;
@@ -789,18 +1079,45 @@ class _Dropdown extends StatelessWidget {
         labelText: label,
         filled: true,
         fillColor: fill,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(13), borderSide: BorderSide.none),
-        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(13), borderSide: BorderSide(color: colorScheme.outlineVariant.withAlpha(60))),
-        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(13), borderSide: const BorderSide(color: kGreen, width: 1.8)),
-        labelStyle: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 14),
-        floatingLabelStyle: TextStyle(color: isDark ? kGreenLight : kGreen, fontSize: 13, fontWeight: FontWeight.w600),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 14,
+        ),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(13),
+          borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(13),
+          borderSide: BorderSide(
+            color: colorScheme.outlineVariant.withAlpha(60),
+          ),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(13),
+          borderSide: const BorderSide(color: kGreen, width: 1.8),
+        ),
+        labelStyle: TextStyle(
+          color: colorScheme.onSurfaceVariant,
+          fontSize: 14,
+        ),
+        floatingLabelStyle: TextStyle(
+          color: isDark ? kGreenLight : kGreen,
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+        ),
       ),
       borderRadius: BorderRadius.circular(14),
       dropdownColor: isDark ? const Color(0xFF2C2C2E) : Colors.white,
       icon: const Icon(Icons.keyboard_arrow_down_rounded, color: kGreen),
-      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: colorScheme.onSurface),
-      items: items.map((item) => DropdownMenuItem(value: item, child: Text(item))).toList(),
+      style: TextStyle(
+        fontSize: 14,
+        fontWeight: FontWeight.w500,
+        color: colorScheme.onSurface,
+      ),
+      items: items
+          .map((item) => DropdownMenuItem(value: item, child: Text(item)))
+          .toList(),
       onChanged: onChanged,
     );
   }

@@ -18,6 +18,13 @@ class HiveService {
   /// the app documents directory, not in this box.
   late Box<dynamic> fieldPhotoMetaBox;
 
+  /// Reference catalog (crop/plant/propagation/pest types, distribution
+  /// zones, plants, pests) fetched from the open karantin.uz API — one
+  /// `jsonEncode`d list per category, cached indefinitely since the catalog
+  /// is stable and only refreshed on explicit request. Image *bytes* are
+  /// never stored here, only their URLs.
+  late Box<dynamic> referenceDataBox;
+
   static Future<HiveService> create() async {
     await Hive.initFlutter();
     final service = HiveService();
@@ -25,8 +32,10 @@ class HiveService {
     service.userBox = await Hive.openBox(StorageKeys.userBox);
     service.fieldsIndexBox = await Hive.openBox(StorageKeys.fieldsIndexBox);
     service.fieldDetailBox = await Hive.openBox(StorageKeys.fieldDetailBox);
-    service.fieldPhotoMetaBox =
-        await Hive.openBox(StorageKeys.fieldPhotoMetaBox);
+    service.fieldPhotoMetaBox = await Hive.openBox(
+      StorageKeys.fieldPhotoMetaBox,
+    );
+    service.referenceDataBox = await Hive.openBox(StorageKeys.referenceDataBox);
     return service;
   }
 }

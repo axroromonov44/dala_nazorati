@@ -64,8 +64,7 @@ class TileCacheService {
 
   static const _regionFreshDuration = Duration(days: 25);
   static const _declineCooldown = Duration(days: 3);
-  static const _avgTileBytes =
-      20 * 1024;
+  static const _avgTileBytes = 20 * 1024;
   static const _retinaSizeMultiplier = 3;
   static const _bulkConcurrency = 6;
   static const _maxConsecutiveFailures = 8;
@@ -318,7 +317,16 @@ class TileCacheService {
     }
     return total;
   }
-  static Future<void> clearCache() async {
+
+  /// [notify] drives [cacheVersion], which `LocationMap` listens to in
+  /// order to re-check (and possibly re-prompt for) a pending map download
+  /// once the cache is cleared while the user keeps browsing the app.
+  /// Logout passes `notify: false` — at that point the home page is being
+  /// torn down anyway, and re-arming that prompt right as the user leaves
+  /// is exactly the "a dialog shows up after logout" bug this guards
+  /// against, since `LocationMap` may still be mid-teardown (pushed under
+  /// the profile page, not yet disposed) when logout clears this cache.
+  static Future<void> clearCache({bool notify = true}) async {
     await _store?.clean();
     final box = getIt<HiveService>().userBox;
     final keysToRemove = box.keys.where(
@@ -328,7 +336,7 @@ class TileCacheService {
               key.startsWith(StorageKeys.mapRegionDeclinedPrefix)),
     );
     await box.deleteAll(keysToRemove);
-    cacheVersion.value++;
+    if (notify) cacheVersion.value++;
   }
 }
 

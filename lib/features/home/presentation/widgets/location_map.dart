@@ -19,8 +19,78 @@ import '../../../fields/domain/entities/field_summary.dart';
 import '../../../fields/domain/repositories/field_repository.dart';
 import '../../../fields/presentation/bloc/fields_bloc.dart';
 import '../../domain/entities/location_point.dart';
+import 'app_download_dialog.dart';
 import 'field_form_sheet.dart';
 import 'offline_map_download_dialog.dart';
+
+// Google's hybrid (satellite + labels) tile layer — "Dalalar" view. Field
+// boundaries/crops read far better on satellite imagery than on a vector
+// street map, and unlike the old CartoDB voyager/dark_all pair, this has
+// no separate dark-mode variant (satellite photos don't have one).
+const _tileSubdomains = ['0', '1', '2', '3'];
+const _tileUrl = 'https://mt{s}.google.com/vt/lyrs=y&hl=uz&x={x}&y={y}&z={z}';
+
+/// Vivid green used only for the boundary currently being drawn — brighter
+/// and more saturated than the app's usual `kGreen` accent so it pops
+/// against the satellite basemap.
+const _drawingGreen = Color(0xFF00C853);
+
+const _regionalPaddingMeters = 3000.0;
+const _regionalMinZoom = 10;
+const _regionalMaxZoom = 13;
+
+/// Regional (city-level) map-tile prefetch check — synchronous, since it
+/// only needs already-cached field bounds (no GPS wait), so it can run at
+/// `HomePage.initState()` time and fold straight into the one post-login
+/// download dialog (`showAppDownloadDialog`) rather than popping its own.
+///
+/// The close-up "around your current exact GPS position" job isn't covered
+/// here (that genuinely needs a fresh location fix) — it's still checked
+/// separately, later, by [_LocationMapState._maybePromptOfflineDownload]
+/// once the map itself has a location (e.g. after the user manually clears
+/// the map cache from Profile settings).
+PendingMapDownload? computeRegionalMapDownload(BuildContext context) {
+  final isOnline = context.read<ConnectivityCubit>().state;
+  if (!isOnline) return null;
+
+  final fieldsBounds = getIt<FieldRepository>().allFieldsBounds();
+  if (fieldsBounds == null) return null;
+
+  final regionalBounds = TileMath.padBounds(
+    fieldsBounds,
+    _regionalPaddingMeters,
+  );
+  final regionalRegionId = TileCacheService.assignedFieldsRegionId(
+    regionalBounds,
+  );
+  final regionalPending = TileCacheService.shouldPromptDownload(
+    regionalRegionId,
+    isOnline: isOnline,
+    checkFreshness: false,
+  );
+  if (!regionalPending) return null;
+
+  final regionName = UzbekistanRegions.nearestTo(
+    regionalBounds.center,
+  ).localizedName(context.locale.languageCode);
+
+  return PendingMapDownload(
+    jobs: [
+      TileDownloadJob(
+        regionId: regionalRegionId,
+        bounds: regionalBounds,
+        minZoom: _regionalMinZoom,
+        maxZoom: _regionalMaxZoom,
+        checkFreshness: false,
+      ),
+    ],
+    title: 'offlineMapCityTitle'.tr(namedArgs: {'region': regionName}),
+    body: 'offlineMapCityBody'.tr(namedArgs: {'region': regionName}),
+    urlTemplate: _tileUrl,
+    subdomains: _tileSubdomains,
+    retina: RetinaMode.isHighDensity(context),
+  );
+}
 
 class LocationMap extends StatefulWidget {
   const LocationMap({
@@ -54,17 +124,14 @@ class _LocationMapState extends State<LocationMap>
   final List<LatLng> _currentPoints = [];
   Timer? _viewportDebounce;
 
-  static const _tileSubdomains = ['a', 'b', 'c', 'd'];
-
   static const _serverFieldFill = Color(0x33FF8F00);
   static const _serverFieldBorder = Color(0xFFFF8F00);
   static const _fieldRadiusMeters = 1000.0;
   static const _fieldMinZoom = 14;
   static const _fieldMaxZoom = 18;
-  static const _regionalPaddingMeters = 3000.0;
+  // Regional (city-level) padding/zoom/subdomain constants and the tile
+  // URL now live top-level — shared with `computeRegionalMapDownload`.
   static const _regionalRadiusMeters = 30000.0;
-  static const _regionalMinZoom = 10;
-  static const _regionalMaxZoom = 13;
 
   static const _zoomCountry =
       6.0; // butun O'zbekiston hududi ko'rinadigan daraja
@@ -87,10 +154,6 @@ class _LocationMapState extends State<LocationMap>
   Timer? _zoomGestureIdleTimer;
   bool _zoomIndicatorVisible = false;
   double _zoomIndicatorZoom = _zoomOverview;
-
-  String _tileUrlFor(bool isDark) => isDark
-      ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
-      : 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
 
   void _maybePromptOfflineDownload() {
     if (_offlineDialogChecked || !mounted) return;
@@ -154,18 +217,23 @@ class _LocationMapState extends State<LocationMap>
       body = 'offlineMapBody'.tr();
     }
 
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     showOfflineMapDownloadDialog(
       context,
       jobs: jobs,
       title: title,
       body: body,
-      urlTemplate: _tileUrlFor(isDark),
+      urlTemplate: _tileUrl,
       subdomains: _tileSubdomains,
       retina: RetinaMode.isHighDensity(context),
     );
   }
 
+  // The initial offline-map prompt no longer fires from here — it's folded
+  // into `showAppDownloadDialog` (see `computeRegionalMapDownload` below),
+  // triggered once from `HomePage.initState` alongside the reference-catalog
+  // sync, so only one dialog ever appears after login.
+  // `_maybePromptOfflineDownload` below is still used, but only by
+  // [_onCacheCleared] (an explicit, later user action).
   void _playCityIntro() {
     if (_introPlayed || !mounted) return;
     _introPlayed = true;
@@ -176,13 +244,6 @@ class _LocationMapState extends State<LocationMap>
         LatLng(widget.location.latitude, widget.location.longitude),
         zoom: _zoomDetail,
       );
-
-      final flyDuration =
-          _flyController.duration ?? const Duration(milliseconds: 900);
-      Future.delayed(flyDuration + const Duration(seconds: 2), () {
-        if (!mounted) return;
-        _maybePromptOfflineDownload();
-      });
     });
   }
 
@@ -466,12 +527,10 @@ class _LocationMapState extends State<LocationMap>
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final isOnline = context.watch<ConnectivityCubit>().state;
 
-    final tileUrl = _tileUrlFor(isDark);
-
-    final polygonFill = isDark
-        ? kGreenLight.withAlpha(60)
-        : kGreen.withAlpha(50);
-    final polygonBorder = isDark ? kGreenLight : kGreen;
+    // Same vivid green as the in-progress drawing, so a saved field keeps
+    // the exact color it had while it was being drawn.
+    final polygonFill = _drawingGreen.withAlpha(150);
+    final polygonBorder = _drawingGreen;
 
     return Stack(
       children: [
@@ -494,7 +553,7 @@ class _LocationMapState extends State<LocationMap>
           ),
           children: [
             TileLayer(
-              urlTemplate: tileUrl,
+              urlTemplate: _tileUrl,
               subdomains: _tileSubdomains,
               userAgentPackageName: 'uz.dala.nazorati',
               maxNativeZoom: 19,
@@ -502,33 +561,6 @@ class _LocationMapState extends State<LocationMap>
               retinaMode: RetinaMode.isHighDensity(context),
               tileDisplay: const TileDisplay.fadeIn(),
               tileProvider: TileCacheService.build(isOnline: isOnline),
-              tileBuilder: isDark
-                  ? (ctx, tile, _) => ColorFiltered(
-                      colorFilter: const ColorFilter.matrix([
-                        1.35,
-                        0,
-                        0,
-                        0,
-                        18,
-                        0,
-                        1.35,
-                        0,
-                        0,
-                        18,
-                        0,
-                        0,
-                        1.35,
-                        0,
-                        18,
-                        0,
-                        0,
-                        0,
-                        1,
-                        0,
-                      ]),
-                      child: tile,
-                    )
-                  : null,
             ),
             BlocBuilder<FieldsBloc, FieldsState>(
               builder: (context, state) => PolygonLayer(
@@ -576,8 +608,12 @@ class _LocationMapState extends State<LocationMap>
                 polygons: [
                   Polygon(
                     points: _currentPoints,
-                    color: kGreen.withAlpha(30),
-                    borderColor: kGreen,
+                    // A brighter, more saturated green than the app's
+                    // usual `kGreen` — solid enough to stay visible over
+                    // the satellite basemap (the old alpha-30 fill from
+                    // the vector-tile days all but disappeared on imagery).
+                    color: _drawingGreen.withAlpha(150),
+                    borderColor: _drawingGreen,
                     borderStrokeWidth: 2.5,
                   ),
                 ],
@@ -688,14 +724,19 @@ class _LocationMapState extends State<LocationMap>
           Positioned(
             top: MediaQuery.of(context).padding.top + context.spaceSm,
             left: context.rs(12.0, 18.0),
+            // No points yet: nothing to undo, so this doubles as "cancel
+            // drawing" instead of just sitting disabled. Once a point
+            // exists, it goes back to undoing the last one.
             child: _DrawingTopButton(
               heroTag: 'undo_draw',
-              icon: Icons.undo_rounded,
-              label: 'undo'.tr(),
-              enabled: _currentPoints.isNotEmpty,
+              icon: _currentPoints.isEmpty
+                  ? Icons.close_rounded
+                  : Icons.undo_rounded,
+              label: _currentPoints.isEmpty ? 'cancelAction'.tr() : 'undo'.tr(),
+              enabled: true,
               isDark: isDark,
               onPressed: hTap(
-                _currentPoints.isNotEmpty ? _removeLastPoint : null,
+                _currentPoints.isEmpty ? _cancelDrawing : _removeLastPoint,
               ),
             ),
           ),

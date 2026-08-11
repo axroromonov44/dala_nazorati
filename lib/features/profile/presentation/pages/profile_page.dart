@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/di/injection.dart';
@@ -37,7 +38,6 @@ class ProfilePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = context.watch<ThemeCubit>().state == ThemeMode.dark;
     final user = context.watch<ProfileCubit>().state;
     final hPad = context.spaceLg;
     final displayName = (user?.fullName.isNotEmpty ?? false)
@@ -56,9 +56,11 @@ class ProfilePage extends StatelessWidget {
         children: [
           _IdentityCard(user: user, displayName: displayName),
           SizedBox(height: context.spaceMd),
-          const _BorderedTile(child: _LanguageTile()),
+          const _BorderedTile(child: _AppSettingsTile()),
           SizedBox(height: context.spaceSm),
-          _BorderedTile(child: _ThemeTile(isDark: isDark)),
+          const _BorderedTile(child: _PublicOfferTile()),
+          SizedBox(height: context.spaceSm),
+          const _BorderedTile(child: _SupportTile()),
           SizedBox(height: context.spaceSm),
           const _BorderedTile(child: _ClearMapCacheTile()),
           SizedBox(height: context.spaceXl),
@@ -69,6 +71,142 @@ class ProfilePage extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Telegram handle used both as the support contact and (for now, until a
+/// dedicated policy page exists) the public-offer link.
+const _telegramSupportUrl = 'https://t.me/dalanazorat';
+
+Future<void> _openExternalLink(BuildContext context, String url) async {
+  hapticSelect();
+  final launched = await launchUrl(
+    Uri.parse(url),
+    mode: LaunchMode.externalApplication,
+  );
+  if (!launched && context.mounted) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('linkOpenFailed'.tr())));
+  }
+}
+
+/// Opens [_AppSettingsSheet] (language + dark mode) — those two used to sit
+/// directly on the profile page as separate rows; now they're grouped under
+/// one "Ilova sozlamalari" entry point.
+class _AppSettingsTile extends StatelessWidget {
+  const _AppSettingsTile();
+
+  @override
+  Widget build(BuildContext context) => ListTile(
+    dense: true,
+    visualDensity: VisualDensity.compact,
+    leading: const Icon(Icons.settings_rounded, color: kGreen),
+    title: Text('appSettingsLabel'.tr()),
+    trailing: Icon(
+      Icons.chevron_right_rounded,
+      color: Theme.of(context).colorScheme.onSurfaceVariant,
+    ),
+    onTap: () => _showAppSettingsSheet(context),
+  );
+}
+
+void _showAppSettingsSheet(BuildContext context) {
+  showModalBottomSheet(
+    context: context,
+    isScrollControlled: true,
+    constraints: context.isTablet
+        ? BoxConstraints(maxWidth: context.sheetMaxWidth)
+        : null,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    ),
+    builder: (_) => const _AppSettingsSheet(),
+  );
+}
+
+class _AppSettingsSheet extends StatelessWidget {
+  const _AppSettingsSheet();
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final bottom = MediaQuery.of(context).padding.bottom;
+
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(20, 14, 20, bottom + 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 36,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 14),
+                decoration: BoxDecoration(
+                  color: colorScheme.outlineVariant,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            Text(
+              'appSettingsLabel'.tr(),
+              style: TextStyle(
+                fontSize: 17,
+                fontWeight: FontWeight.w800,
+                color: colorScheme.onSurface,
+              ),
+            ),
+            const SizedBox(height: 14),
+            const _BorderedTile(child: _LanguageTile()),
+            const SizedBox(height: 8),
+            _BorderedTile(
+              child: BlocBuilder<ThemeCubit, ThemeMode>(
+                builder: (context, mode) =>
+                    _ThemeTile(isDark: mode == ThemeMode.dark),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PublicOfferTile extends StatelessWidget {
+  const _PublicOfferTile();
+
+  @override
+  Widget build(BuildContext context) => ListTile(
+    dense: true,
+    visualDensity: VisualDensity.compact,
+    leading: const Icon(Icons.description_rounded, color: kGreen),
+    title: Text('publicOfferLabel'.tr()),
+    trailing: Icon(
+      Icons.chevron_right_rounded,
+      color: Theme.of(context).colorScheme.onSurfaceVariant,
+    ),
+    onTap: () => _openExternalLink(context, _telegramSupportUrl),
+  );
+}
+
+class _SupportTile extends StatelessWidget {
+  const _SupportTile();
+
+  @override
+  Widget build(BuildContext context) => ListTile(
+    dense: true,
+    visualDensity: VisualDensity.compact,
+    leading: const Icon(Icons.support_agent_rounded, color: kGreen),
+    title: Text('supportLabel'.tr()),
+    trailing: Icon(
+      Icons.chevron_right_rounded,
+      color: Theme.of(context).colorScheme.onSurfaceVariant,
+    ),
+    onTap: () => _openExternalLink(context, _telegramSupportUrl),
+  );
 }
 
 /// Tappable identity summary at the top of the page — opens
@@ -774,10 +912,11 @@ class _LogoutTileState extends State<_LogoutTile> {
 
   /// Chiqishda shu qurilmadagi joriy hodimga tegishli BARCHA lokal
   /// ma'lumotlar (token, profil, dalalar indeksi/tafsiloti, dala rasmlari,
-  /// xarita tayl keshi, kutilayotgan oflayn navbat) tozalanadi — shunda
-  /// boshqa hodim shu qurilmada kirsa avvalgisining hech narsasini
-  /// ko'rmaydi, va qayta kirilganda hammasi qaytadan yuklanadi (bu
-  /// so'nggisi `SyncTriggered` orqali `login_page.dart`da ta'minlanadi).
+  /// xarita tayl keshi, kutilayotgan oflayn navbat, reference katalog)
+  /// tozalanadi — shunda boshqa hodim shu qurilmada kirsa avvalgisining
+  /// hech narsasini ko'rmaydi, va qayta kirilganda hammasi qaytadan
+  /// yuklanadi (fields/tayl `SyncTriggered` orqali `login_page.dart`da,
+  /// reference katalog esa `HomePage`dagi sinxronizatsiya dialogi orqali).
   Future<void> _logout() async {
     hapticSelect();
     final confirmed = await _showLogoutConfirmDialog(context);
@@ -787,8 +926,14 @@ class _LogoutTileState extends State<_LogoutTile> {
     await getIt<AuthRepository>().logout();
     await getIt<FieldRepository>().clearLocalData();
     await FieldMediaCache.clear();
-    await TileCacheService.clearCache();
+    // notify: false — HomePage/LocationMap may still be mid-teardown
+    // (pushed under this profile page, not yet disposed) when logout
+    // reaches here; letting this clear notify `cacheVersion` would re-arm
+    // LocationMap's offline-map re-check and pop a dialog right as the
+    // user is leaving, on top of whatever page they land on next.
+    await TileCacheService.clearCache(notify: false);
     await getIt<HiveService>().offlineQueueBox.clear();
+    await getIt<HiveService>().referenceDataBox.clear();
     getIt<ProfileCubit>().reset();
     NotificationCenter.items.value = const [];
 

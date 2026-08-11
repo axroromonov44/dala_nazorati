@@ -18,4 +18,8 @@ class StorageKeys {
   static const String fieldPhotoMetaBox = 'field_photo_meta_box';
   static const String fieldDetailBox = 'field_detail_box';
   static const String fieldsIndexSyncCursor = 'fields_index_sync_cursor';
+
+  // Reference catalog (crop/plant/propagation/pest types, zones, plants,
+  // pests) — one JSON blob per category, keyed by category name.
+  static const String referenceDataBox = 'reference_data_box';
 }

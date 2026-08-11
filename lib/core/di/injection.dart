@@ -20,6 +20,9 @@ import '../../features/home/domain/repositories/location_repository.dart';
 import '../../features/home/domain/usecases/get_current_location_usecase.dart';
 import '../../features/home/domain/usecases/watch_location_usecase.dart';
 import '../../features/home/presentation/bloc/map_bloc.dart';
+import '../../features/reference/data/datasources/reference_remote_datasource.dart';
+import '../../features/reference/data/repositories/reference_repository_impl.dart';
+import '../../features/reference/domain/repositories/reference_repository.dart';
 import '../../features/sync/presentation/bloc/sync_bloc.dart';
 import '../connectivity/connectivity_cubit.dart';
 import '../constants/storage_keys.dart';
@@ -130,8 +133,18 @@ Future<void> configureDependencies() async {
   getIt.registerSingleton<FieldRepository>(fieldRepository);
   getIt.registerFactory<FieldsBloc>(() => FieldsBloc(getIt()));
 
+  // Reference data (crop/plant/propagation/pest types, zones, plants,
+  // pests) — open karantin.uz API, separate host and no auth, so it
+  // bypasses DioService entirely. Cached in HiveService.referenceDataBox.
+  getIt.registerLazySingleton<ReferenceRemoteDataSource>(
+    () => ReferenceRemoteDataSource(),
+  );
+  getIt.registerLazySingleton<ReferenceRepository>(
+    () => ReferenceRepositoryImpl(getIt(), getIt()),
+  );
+
   // Sync
   getIt.registerSingleton<SyncBloc>(
-    SyncBloc(getIt<OfflineSyncService>(), getIt<DioService>(), getIt()),
+    SyncBloc(getIt<OfflineSyncService>(), getIt<DioService>()),
   );
 }

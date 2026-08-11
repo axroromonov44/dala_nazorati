@@ -12,7 +12,10 @@ import '../../../../core/utils/haptic.dart';
 import '../../../../core/utils/responsive.dart';
 import '../../../auth/presentation/bloc/profile_cubit.dart';
 import '../../../fields/presentation/bloc/fields_bloc.dart';
+import '../../../profile/presentation/widgets/profile_avatar.dart';
+import '../../../reference/domain/repositories/reference_repository.dart';
 import '../bloc/map_bloc.dart';
+import '../widgets/app_download_dialog.dart';
 import '../widgets/location_map.dart';
 import '../widgets/notifications_panel.dart';
 import 'fake_gps_page.dart';
@@ -46,6 +49,30 @@ class _HomeViewState extends State<_HomeView> {
   void initState() {
     super.initState();
     unawaited(context.read<ProfileCubit>().refresh());
+
+    // One combined download dialog covers both concerns, never two popups:
+    // - reference catalog: fresh after every login (logout wipes
+    //   referenceDataBox), skipped on a plain app resume where it's cached.
+    // - regional map tiles: decided synchronously from already-cached field
+    //   bounds (no GPS wait) — see `computeRegionalMapDownload`.
+    final includeCatalog = !getIt<ReferenceRepository>().isCatalogCached();
+    final mapDownload = computeRegionalMapDownload(context);
+    if (includeCatalog || mapDownload != null) {
+      // Let the home page (map, identity header) settle in first — the
+      // dialog interrupts less if it isn't the very first thing the user
+      // sees.
+      Future.delayed(const Duration(seconds: 3), () {
+        if (mounted) {
+          unawaited(
+            showAppDownloadDialog(
+              context,
+              includeCatalog: includeCatalog,
+              mapDownload: mapDownload,
+            ),
+          );
+        }
+      });
+    }
   }
 
   @override
@@ -266,8 +293,24 @@ class _FloatingButton extends StatelessWidget {
   }
 }
 
-class _ProfileButton extends StatelessWidget {
+class _ProfileButton extends StatefulWidget {
   const _ProfileButton();
+
+  @override
+  State<_ProfileButton> createState() => _ProfileButtonState();
+}
+
+class _ProfileButtonState extends State<_ProfileButton> {
+  // Mirrors `ProfileAvatar`'s loaded-tracking: the verified badge only
+  // appears once the real photo has actually decoded for the current URL.
+  String? _loadedForUrl;
+
+  void _markLoaded(String url) {
+    if (_loadedForUrl == url) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) setState(() => _loadedForUrl = url);
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -278,39 +321,57 @@ class _ProfileButton extends StatelessWidget {
     final hasPhoto = imageUrl != null && imageUrl.isNotEmpty;
     final size = context.rs(40.0, 56.0);
     final radius = context.fabRadius;
+    final showBadge = hasPhoto && _loadedForUrl == imageUrl;
 
     return GestureDetector(
       onTap: hTap(() => context.push('/profile')),
-      child: Container(
-        width: size,
-        height: size,
-        padding: hasPhoto ? const EdgeInsets.all(2) : EdgeInsets.zero,
-        decoration: BoxDecoration(
-          color: bg,
-          borderRadius: BorderRadius.circular(radius),
-          border: Border.all(color: fg),
-          boxShadow: const [
-            BoxShadow(
-              color: Colors.black26,
-              blurRadius: 3,
-              offset: Offset(0, 2),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Container(
+            width: size,
+            height: size,
+            padding: hasPhoto ? const EdgeInsets.all(2) : EdgeInsets.zero,
+            decoration: BoxDecoration(
+              color: bg,
+              borderRadius: BorderRadius.circular(radius),
+              border: Border.all(color: fg),
+              boxShadow: const [
+                BoxShadow(
+                  color: Colors.black26,
+                  blurRadius: 3,
+                  offset: Offset(0, 2),
+                ),
+              ],
             ),
-          ],
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(hasPhoto ? radius - 2 : radius),
-          child: hasPhoto
-              ? Image.network(
-                  imageUrl,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) =>
-                      _ProfileFallbackIcon(color: fg),
-                  loadingBuilder: (context, child, progress) => progress == null
-                      ? child
-                      : _ProfileFallbackIcon(color: fg),
-                )
-              : _ProfileFallbackIcon(color: fg),
-        ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(
+                hasPhoto ? radius - 2 : radius,
+              ),
+              child: hasPhoto
+                  ? Image.network(
+                      imageUrl,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) =>
+                          _ProfileFallbackIcon(color: fg),
+                      loadingBuilder: (context, child, progress) {
+                        if (progress == null) {
+                          _markLoaded(imageUrl);
+                          return child;
+                        }
+                        return _ProfileFallbackIcon(color: fg);
+                      },
+                    )
+                  : _ProfileFallbackIcon(color: fg),
+            ),
+          ),
+          if (showBadge)
+            Positioned(
+              right: -size * 0.04,
+              bottom: -size * 0.04,
+              child: ProfileVerifiedBadge(avatarSize: size, sizeBoost: 2),
+            ),
+        ],
       ),
     );
   }

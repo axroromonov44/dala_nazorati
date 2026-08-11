@@ -47,12 +47,13 @@ class LocationRepositoryImpl implements LocationRepository {
   @override
   Future<LocationPoint> getCurrentLocation() async {
     await _ensurePermission();
-    final position = await Geolocator.getCurrentPosition(
-      locationSettings: _locationSettings(),
-    ).timeout(
-      _timeout,
-      onTimeout: () => throw LocationException('locationTimeoutError'.tr()),
-    );
+    final position =
+        await Geolocator.getCurrentPosition(
+          locationSettings: _locationSettings(),
+        ).timeout(
+          _timeout,
+          onTimeout: () => throw LocationException('locationTimeoutError'.tr()),
+        );
     return _fromPosition(position);
   }
 
@@ -80,10 +81,10 @@ class LocationRepositoryImpl implements LocationRepository {
   }
 
   LocationPoint _fromPosition(Position p) => LocationPoint(
-        latitude: p.latitude,
-        longitude: p.longitude,
-        accuracy: p.accuracy,
-        timestamp: p.timestamp,
-        isMocked: Platform.isAndroid && p.isMocked,
-      );
+    latitude: p.latitude,
+    longitude: p.longitude,
+    accuracy: p.accuracy,
+    timestamp: p.timestamp,
+    isMocked: Platform.isAndroid && p.isMocked,
+  );
 }

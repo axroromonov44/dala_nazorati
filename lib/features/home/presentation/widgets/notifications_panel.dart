@@ -15,9 +15,9 @@ import 'offline_map_download_dialog.dart';
 /// type, so this page doesn't need to change when a new notification kind is
 /// introduced elsewhere in the app.
 Future<void> showNotificationsPanel(BuildContext context) {
-  return Navigator.of(context).push(
-    MaterialPageRoute<void>(builder: (_) => const _NotificationsPage()),
-  );
+  return Navigator.of(
+    context,
+  ).push(MaterialPageRoute<void>(builder: (_) => const _NotificationsPage()));
 }
 
 class _NotificationsPage extends StatelessWidget {
@@ -65,7 +65,9 @@ class _NotificationsPage extends StatelessWidget {
                 itemBuilder: (context, index) {
                   final item = items[index];
                   return switch (item) {
-                    OfflineDownloadNotification() => _OfflineDownloadTile(item: item),
+                    OfflineDownloadNotification() => _OfflineDownloadTile(
+                      item: item,
+                    ),
                     MessageNotification() => _MessageTile(item: item),
                   };
                 },
@@ -86,7 +88,10 @@ class _OfflineDownloadTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final estimate = TileCacheService.estimateJobs(item.jobs, retina: item.retina);
+    final estimate = TileCacheService.estimateJobs(
+      item.jobs,
+      retina: item.retina,
+    );
 
     return _NotificationCard(
       icon: Icons.download_for_offline_rounded,
@@ -204,7 +209,11 @@ class _NotificationCard extends StatelessWidget {
               IconButton(
                 tooltip: 'deleteLabel'.tr(),
                 onPressed: hTap(onDismiss),
-                icon: const Icon(Icons.close_rounded, size: 18, color: kTextSecondary),
+                icon: const Icon(
+                  Icons.close_rounded,
+                  size: 18,
+                  color: kTextSecondary,
+                ),
               ),
             ],
           ),

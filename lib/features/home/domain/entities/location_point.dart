@@ -16,5 +16,11 @@ class LocationPoint extends Equatable {
   final bool isMocked;
 
   @override
-  List<Object?> get props => [latitude, longitude, accuracy, timestamp, isMocked];
+  List<Object?> get props => [
+    latitude,
+    longitude,
+    accuracy,
+    timestamp,
+    isMocked,
+  ];
 }

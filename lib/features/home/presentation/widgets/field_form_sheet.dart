@@ -24,17 +24,21 @@ class FieldFormSheet extends StatelessWidget {
     final text = points
         .asMap()
         .entries
-        .map((e) =>
-            '${e.key + 1}. ${e.value.latitude.toStringAsFixed(7)}, '
-            '${e.value.longitude.toStringAsFixed(7)}')
+        .map(
+          (e) =>
+              '${e.key + 1}. ${e.value.latitude.toStringAsFixed(7)}, '
+              '${e.value.longitude.toStringAsFixed(7)}',
+        )
         .join('\n');
     Clipboard.setData(ClipboardData(text: text));
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text('allCoordsCopied'.tr()),
-      backgroundColor: kGreen,
-      behavior: SnackBarBehavior.floating,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-    ));
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('allCoordsCopied'.tr()),
+        backgroundColor: kGreen,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
   }
 
   @override
@@ -58,7 +62,9 @@ class FieldFormSheet extends StatelessWidget {
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: isDark ? Colors.white.withAlpha(50) : Colors.black.withAlpha(20),
+                color: isDark
+                    ? Colors.white.withAlpha(50)
+                    : Colors.black.withAlpha(20),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -77,9 +83,19 @@ class FieldFormSheet extends StatelessWidget {
                       end: Alignment.bottomRight,
                     ),
                     borderRadius: BorderRadius.circular(13),
-                    boxShadow: [BoxShadow(color: kGreen.withAlpha(80), blurRadius: 10, offset: const Offset(0, 3))],
+                    boxShadow: [
+                      BoxShadow(
+                        color: kGreen.withAlpha(80),
+                        blurRadius: 10,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
                   ),
-                  child: const Icon(Icons.crop_landscape_rounded, color: Colors.white, size: 22),
+                  child: const Icon(
+                    Icons.crop_landscape_rounded,
+                    color: Colors.white,
+                    size: 22,
+                  ),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
@@ -97,13 +113,18 @@ class FieldFormSheet extends StatelessWidget {
                       ),
                       const SizedBox(height: 4),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 9,
+                          vertical: 3,
+                        ),
                         decoration: BoxDecoration(
                           color: kGreen.withAlpha(isDark ? 45 : 28),
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
-                          'cornerPointsCount'.tr(namedArgs: {'count': points.length.toString()}),
+                          'cornerPointsCount'.tr(
+                            namedArgs: {'count': points.length.toString()},
+                          ),
                           style: TextStyle(
                             fontSize: 11,
                             color: isDark ? kGreenLight : kGreen,
@@ -117,16 +138,25 @@ class FieldFormSheet extends StatelessWidget {
                 Material(
                   color: Colors.transparent,
                   child: InkWell(
-                    onTap: () { hapticLight(); Navigator.pop(context); },
+                    onTap: () {
+                      hapticLight();
+                      Navigator.pop(context);
+                    },
                     borderRadius: BorderRadius.circular(20),
                     child: Container(
                       width: 36,
                       height: 36,
                       decoration: BoxDecoration(
-                        color: isDark ? Colors.white.withAlpha(12) : Colors.black.withAlpha(7),
+                        color: isDark
+                            ? Colors.white.withAlpha(12)
+                            : Colors.black.withAlpha(7),
                         shape: BoxShape.circle,
                       ),
-                      child: Icon(Icons.close_rounded, size: 18, color: colorScheme.onSurfaceVariant),
+                      child: Icon(
+                        Icons.close_rounded,
+                        size: 18,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
                     ),
                   ),
                 ),
@@ -134,12 +164,22 @@ class FieldFormSheet extends StatelessWidget {
               ],
             ),
           ),
-          Divider(height: 1, color: colorScheme.outlineVariant.withAlpha(60), indent: 20, endIndent: 20),
+          Divider(
+            height: 1,
+            color: colorScheme.outlineVariant.withAlpha(60),
+            indent: 20,
+            endIndent: 20,
+          ),
           ConstrainedBox(
             constraints: BoxConstraints(
               maxHeight: MediaQuery.of(context).size.height * 0.38,
             ),
-            child: _CoordsList(points: points, isDark: isDark, colorScheme: colorScheme, onCopyAll: () => _copyAll(context)),
+            child: _CoordsList(
+              points: points,
+              isDark: isDark,
+              colorScheme: colorScheme,
+              onCopyAll: () => _copyAll(context),
+            ),
           ),
           Padding(
             padding: EdgeInsets.fromLTRB(16, 10, 16, bottom + 16),
@@ -169,10 +209,18 @@ class FieldFormSheet extends StatelessWidget {
                           padding: const EdgeInsets.symmetric(vertical: 12),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
-                            side: BorderSide(color: colorScheme.outlineVariant.withAlpha(120)),
+                            side: BorderSide(
+                              color: colorScheme.outlineVariant.withAlpha(120),
+                            ),
                           ),
                         ),
-                        child: Text('redraw'.tr(), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                        child: Text(
+                          'redraw'.tr(),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                          ),
+                        ),
                       ),
                     ),
                     const SizedBox(width: 10),
@@ -190,7 +238,13 @@ class FieldFormSheet extends StatelessWidget {
                             side: const BorderSide(color: kError, width: 1.2),
                           ),
                         ),
-                        child: Text('deleteField'.tr(), style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                        child: Text(
+                          'deleteField'.tr(),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                          ),
+                        ),
                       ),
                     ),
                   ],
@@ -240,10 +294,19 @@ class _CoordsList extends StatelessWidget {
                 onPressed: onCopyAll,
                 style: TextButton.styleFrom(
                   foregroundColor: kGreen,
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
-                child: Text('copyAll'.tr(), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                child: Text(
+                  'copyAll'.tr(),
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ),
             ],
           ),
@@ -257,13 +320,22 @@ class _CoordsList extends StatelessWidget {
               final p = points[i];
               return Container(
                 margin: const EdgeInsets.only(bottom: 6),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 9,
+                ),
                 decoration: BoxDecoration(
                   color: isDark ? Colors.white.withAlpha(8) : Colors.white,
                   borderRadius: BorderRadius.circular(12),
                   boxShadow: isDark
                       ? null
-                      : [BoxShadow(color: Colors.black.withAlpha(6), blurRadius: 6, offset: const Offset(0, 1))],
+                      : [
+                          BoxShadow(
+                            color: Colors.black.withAlpha(6),
+                            blurRadius: 6,
+                            offset: const Offset(0, 1),
+                          ),
+                        ],
                 ),
                 child: Row(
                   children: [
@@ -272,10 +344,21 @@ class _CoordsList extends StatelessWidget {
                       height: 26,
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
-                        gradient: const LinearGradient(colors: [kGreen, kGreenLight], begin: Alignment.topLeft, end: Alignment.bottomRight),
+                        gradient: const LinearGradient(
+                          colors: [kGreen, kGreenLight],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
                         shape: BoxShape.circle,
                       ),
-                      child: Text('${i + 1}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 11)),
+                      child: Text(
+                        '${i + 1}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 11,
+                        ),
+                      ),
                     ),
                     const SizedBox(width: 10),
                     Expanded(
@@ -292,15 +375,26 @@ class _CoordsList extends StatelessWidget {
                     GestureDetector(
                       onTap: () {
                         hapticLight();
-                        Clipboard.setData(ClipboardData(
-                          text: '${p.latitude.toStringAsFixed(7)}, ${p.longitude.toStringAsFixed(7)}',
-                        ));
-                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                          content: Text('pointCopied'.tr(namedArgs: {'index': '${i + 1}'})),
-                          duration: const Duration(seconds: 1),
-                          behavior: SnackBarBehavior.floating,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        ));
+                        Clipboard.setData(
+                          ClipboardData(
+                            text:
+                                '${p.latitude.toStringAsFixed(7)}, ${p.longitude.toStringAsFixed(7)}',
+                          ),
+                        );
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(
+                              'pointCopied'.tr(
+                                namedArgs: {'index': '${i + 1}'},
+                              ),
+                            ),
+                            duration: const Duration(seconds: 1),
+                            behavior: SnackBarBehavior.floating,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                        );
                       },
                       child: Container(
                         padding: const EdgeInsets.all(6),
@@ -308,7 +402,11 @@ class _CoordsList extends StatelessWidget {
                           color: kGreen.withAlpha(isDark ? 35 : 18),
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: const Icon(Icons.copy_rounded, size: 14, color: kGreen),
+                        child: const Icon(
+                          Icons.copy_rounded,
+                          size: 14,
+                          color: kGreen,
+                        ),
                       ),
                     ),
                   ],
@@ -334,9 +432,19 @@ class _MonitoringButton extends StatelessWidget {
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        gradient: const LinearGradient(colors: [blue, blueLight], begin: Alignment.centerLeft, end: Alignment.centerRight),
+        gradient: const LinearGradient(
+          colors: [blue, blueLight],
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+        ),
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [BoxShadow(color: blue.withAlpha(90), blurRadius: 14, offset: const Offset(0, 4))],
+        boxShadow: [
+          BoxShadow(
+            color: blue.withAlpha(90),
+            blurRadius: 14,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Material(
         color: Colors.transparent,

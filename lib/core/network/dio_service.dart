@@ -2,13 +2,12 @@ import 'dart:async';
 
 import 'package:dio/dio.dart';
 import 'package:easy_localization/easy_localization.dart';
-import 'package:flutter/foundation.dart';
 import 'package:go_router/go_router.dart';
-import 'package:pretty_dio_logger/pretty_dio_logger.dart';
 import '../constants/api_endpoints.dart';
 import '../router/navigation_service.dart';
 import '../storage/secure_storage_service.dart';
 import 'api_exception.dart';
+import 'dio_debug_logger.dart';
 
 class DioService {
   DioService(this._storageService) {
@@ -26,16 +25,7 @@ class DioService {
       ),
     );
     _dio.interceptors.add(_AuthInterceptor(_storageService, _dio));
-    if (kDebugMode) {
-      _dio.interceptors.add(
-        PrettyDioLogger(
-          requestHeader: true,
-          requestBody: true,
-          responseBody: true,
-          compact: false,
-        ),
-      );
-    }
+    attachDebugLogger(_dio);
   }
 
   final SecureStorageService _storageService;
@@ -57,7 +47,12 @@ class DioService {
     Map<String, dynamic>? queryParameters,
     Options? options,
   }) => _handle(
-    () => _dio.post<T>(path, data: data, queryParameters: queryParameters, options: options),
+    () => _dio.post<T>(
+      path,
+      data: data,
+      queryParameters: queryParameters,
+      options: options,
+    ),
   );
 
   Future<Response<T>> put<T>(String path, {Object? data, Options? options}) =>

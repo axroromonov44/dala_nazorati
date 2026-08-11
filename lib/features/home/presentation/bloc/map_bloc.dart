@@ -9,10 +9,8 @@ part 'map_event.dart';
 part 'map_state.dart';
 
 class MapBloc extends Bloc<MapEvent, MapState> {
-  MapBloc(
-    this._getCurrentLocationUseCase,
-    this._watchLocationUseCase,
-  ) : super(const MapInitial()) {
+  MapBloc(this._getCurrentLocationUseCase, this._watchLocationUseCase)
+    : super(const MapInitial()) {
     on<MapLocationStarted>(_onLocationStarted);
     on<MapLocationUpdated>(_onLocationUpdated);
     on<MapLocationError>(_onLocationError);
@@ -45,20 +43,14 @@ class MapBloc extends Bloc<MapEvent, MapState> {
     }
   }
 
-  void _onLocationUpdated(
-    MapLocationUpdated event,
-    Emitter<MapState> emit,
-  ) =>
+  void _onLocationUpdated(MapLocationUpdated event, Emitter<MapState> emit) =>
       emit(
         event.location.isMocked
             ? const MapFakeGpsDetected()
             : MapLocationLoaded(event.location),
       );
 
-  void _onLocationError(
-    MapLocationError event,
-    Emitter<MapState> emit,
-  ) =>
+  void _onLocationError(MapLocationError event, Emitter<MapState> emit) =>
       emit(MapLocationFailure(event.message));
 
   @override

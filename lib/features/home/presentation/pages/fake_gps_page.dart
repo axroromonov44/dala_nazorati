@@ -47,18 +47,18 @@ class FakeGpsPage extends StatelessWidget {
                     'fakeGpsTitle'.tr(),
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: kError,
-                        ),
+                      fontWeight: FontWeight.bold,
+                      color: kError,
+                    ),
                   ),
                   SizedBox(height: context.spaceMd),
                   Text(
                     'fakeGpsDescription'.tr(),
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                          height: 1.5,
-                        ),
+                      color: colorScheme.onSurfaceVariant,
+                      height: 1.5,
+                    ),
                   ),
                   SizedBox(height: context.spaceLg),
                   Container(
@@ -87,8 +87,11 @@ class FakeGpsPage extends StatelessWidget {
                     ),
                     icon: const Icon(Icons.refresh_rounded),
                     label: Text('fakeGpsRetry'.tr()),
-                    onPressed: hTap(() =>
-                        context.read<MapBloc>().add(const MapLocationStarted())),
+                    onPressed: hTap(
+                      () => context.read<MapBloc>().add(
+                        const MapLocationStarted(),
+                      ),
+                    ),
                   ),
                   SizedBox(height: context.spaceMd),
                 ],
@@ -109,35 +112,32 @@ class _Step extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: context.rs(24.0, 32.0),
-            height: context.rs(24.0, 32.0),
-            decoration: const BoxDecoration(
-              color: kError,
-              shape: BoxShape.circle,
-            ),
-            alignment: Alignment.center,
-            child: Text(
-              number,
-              style: TextStyle(
-                color: kWhite,
-                fontSize: context.rs(12.0, 15.0),
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Container(
+        width: context.rs(24.0, 32.0),
+        height: context.rs(24.0, 32.0),
+        decoration: const BoxDecoration(color: kError, shape: BoxShape.circle),
+        alignment: Alignment.center,
+        child: Text(
+          number,
+          style: TextStyle(
+            color: kWhite,
+            fontSize: context.rs(12.0, 15.0),
+            fontWeight: FontWeight.bold,
           ),
-          SizedBox(width: context.spaceSm),
-          Expanded(
-            child: Text(
-              text,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurface,
-                    height: 1.4,
-                  ),
-            ),
+        ),
+      ),
+      SizedBox(width: context.spaceSm),
+      Expanded(
+        child: Text(
+          text,
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            color: Theme.of(context).colorScheme.onSurface,
+            height: 1.4,
           ),
-        ],
-      );
+        ),
+      ),
+    ],
+  );
 }
