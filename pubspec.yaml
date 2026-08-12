@@ -2,7 +2,7 @@ name: dala_nazorati
 description: "Dala nazorati - field monitoring application"
 publish_to: 'none'
 
-version: 1.0.0+12
+version: 1.0.0+13
 
 environment:
   sdk: ^3.11.4
@@ -75,6 +75,7 @@ dependencies:
   permission_handler: ^12.0.1
   wakelock_plus: ^1.5.2
   package_info_plus: ^9.0.1
+  animated_bottom_navigation_bar: ^1.4.1
 
 dev_dependencies:
   flutter_test:

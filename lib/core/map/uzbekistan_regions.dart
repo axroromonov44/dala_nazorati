@@ -2,12 +2,6 @@ import 'dart:math';
 
 import 'package:latlong2/latlong.dart';
 
-/// One of Uzbekistan's administrative regions (viloyat/shahar) — used only
-/// to label the "download this area offline" dialog with a human-readable
-/// name, picked by nearest-center distance to the user's current location.
-/// Centers are approximate provincial-capital coordinates, not precise
-/// administrative boundaries (a simple bounding box is used for the actual
-/// download area — see [TileMath.boundsFor]).
 class UzRegion {
   const UzRegion({
     required this.nameUz,
@@ -22,10 +16,10 @@ class UzRegion {
   final LatLng center;
 
   String localizedName(String languageCode) => switch (languageCode) {
-        'ru' => nameRu,
-        'en' => nameEn,
-        _ => nameUz,
-      };
+    'ru' => nameRu,
+    'en' => nameEn,
+    _ => nameUz,
+  };
 }
 
 class UzbekistanRegions {
@@ -112,8 +106,6 @@ class UzbekistanRegions {
     ),
   ];
 
-  /// The region whose center is closest to [point] (simple nearest-neighbor
-  /// match — good enough for a display label, not for precise boundaries).
   static UzRegion nearestTo(LatLng point) {
     var best = all.first;
     var bestDistSq = double.infinity;

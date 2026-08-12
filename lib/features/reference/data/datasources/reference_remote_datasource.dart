@@ -6,11 +6,6 @@ import '../models/pest_model.dart';
 import '../models/plant_model.dart';
 import '../models/reference_item_model.dart';
 
-/// Talks to the open karantin.uz reference API directly — it's public (no
-/// auth token, different host than [ApiEndpoints]), so this uses its own
-/// plain `Dio` instead of the app's authenticated [DioService] — including
-/// its own debug logger (see [attachDebugLogger]), since without it these
-/// requests are invisible in the console.
 class ReferenceRemoteDataSource {
   ReferenceRemoteDataSource()
     : _dio = Dio(BaseOptions(baseUrl: ReferenceEndpoints.baseUrl)) {
@@ -34,8 +29,6 @@ class ReferenceRemoteDataSource {
   Future<List<ReferenceItemModel>> fetchPestDistributionZones() =>
       _fetchList(ReferenceEndpoints.pestDistributionZones);
 
-  /// `/pests/` is the unified pest/weed/disease/nematode catalog — unlike
-  /// `/plants/` it isn't paginated, so this is a single plain-array fetch.
   Future<List<PestModel>> fetchPests() async {
     final response = await _dio.get<List<dynamic>>(ReferenceEndpoints.pests);
     final items = response.data ?? const [];
@@ -45,9 +38,6 @@ class ReferenceRemoteDataSource {
     ];
   }
 
-  /// `/plants/` is paginated (DRF-style `count`/`next`/`results`) — this
-  /// follows `next` until it's null, accumulating every page's `results`,
-  /// so callers always get the full list in one call.
   Future<List<PlantModel>> fetchPlants() async {
     final items = <PlantModel>[];
     String? path = ReferenceEndpoints.plants;

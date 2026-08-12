@@ -1,6 +1,3 @@
-/// Open/public reference-data API (no auth) — a different host than the
-/// main app backend ([ApiEndpoints]), so it gets its own base URL and its
-/// own [DioService]-less client rather than sharing the authenticated one.
 class ReferenceEndpoints {
   const ReferenceEndpoints._();
 

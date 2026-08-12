@@ -23,9 +23,11 @@ import '../../features/home/presentation/bloc/map_bloc.dart';
 import '../../features/reference/data/datasources/reference_remote_datasource.dart';
 import '../../features/reference/data/repositories/reference_repository_impl.dart';
 import '../../features/reference/domain/repositories/reference_repository.dart';
+import '../../features/reference/presentation/bloc/reference_cubit.dart';
 import '../../features/sync/presentation/bloc/sync_bloc.dart';
 import '../connectivity/connectivity_cubit.dart';
 import '../constants/storage_keys.dart';
+import '../download/app_download_controller.dart';
 import '../network/dio_service.dart';
 import '../theme/theme_cubit.dart';
 import '../update/shorebird_update_service.dart';
@@ -37,14 +39,12 @@ import '../storage/secure_storage_service.dart';
 final getIt = GetIt.instance;
 
 Future<void> configureDependencies() async {
-  // External
   const secureStorage = FlutterSecureStorage(
     aOptions: AndroidOptions(encryptedSharedPreferences: true),
   );
   getIt.registerLazySingleton<FlutterSecureStorage>(() => secureStorage);
   getIt.registerLazySingleton<Connectivity>(() => Connectivity());
 
-  // Storage
   getIt.registerLazySingleton<SecureStorageService>(
     () => SecureStorageService(getIt()),
   );
@@ -54,39 +54,27 @@ Future<void> configureDependencies() async {
     () => OfflineSyncService(getIt(), getIt()),
   );
 
-  // iOS Keychain (used by flutter_secure_storage) survives app uninstalls,
-  // unlike ordinary app storage — so a stale access token can silently log
-  // the user back in after a fresh reinstall. Hive's on-disk box IS wiped on
-  // uninstall (both platforms), so it doubles as a trip wire: if this marker
-  // is missing, this is a fresh install and any leftover Keychain tokens
-  // from a previous install are purged before the router ever checks them.
   if (hiveService.userBox.get(StorageKeys.installMarker) != true) {
     await getIt<SecureStorageService>().clearTokens();
     await hiveService.userBox.put(StorageKeys.installMarker, true);
   }
 
-  // Network — barcha API chaqiruvlari DioService orqali
   getIt.registerLazySingleton<DioService>(
     () => DioService(getIt<SecureStorageService>()),
   );
 
-  // Router
   getIt.registerLazySingleton<AppRouter>(() => AppRouter(getIt()));
 
-  // Theme
   getIt.registerLazySingleton<ThemeCubit>(() => ThemeCubit(getIt()));
 
-  // OTA update
   getIt.registerLazySingleton<ShorebirdUpdateService>(
     () => ShorebirdUpdateService(),
   );
 
-  // Connectivity
   getIt.registerLazySingleton<ConnectivityCubit>(
     () => ConnectivityCubit(getIt()),
   );
 
-  // Auth
   getIt.registerLazySingleton<AuthRemoteDataSource>(
     () => AuthRemoteDataSource(getIt()),
   );
@@ -99,14 +87,10 @@ Future<void> configureDependencies() async {
     () => KarantinLoginUseCase(getIt()),
   );
   getIt.registerFactory<AuthBloc>(() => AuthBloc(getIt(), getIt(), getIt()));
-  // Butun ilova bo'ylab bir marta yuklanadigan, keshlangan foydalanuvchi
-  // profili — home page uni ochilganda `refresh()` bilan to'ldiradi, qolgan
-  // ekranlar shu bitta nusxani o'qiydi (qayta so'rov yubormaydi).
   getIt.registerLazySingleton<ProfileCubit>(
     () => ProfileCubit(getIt(), getIt()),
   );
 
-  // Home / Location
   getIt.registerLazySingleton<LocationRepository>(
     () => LocationRepositoryImpl(),
   );
@@ -118,8 +102,6 @@ Future<void> configureDependencies() async {
   );
   getIt.registerFactory<MapBloc>(() => MapBloc(getIt(), getIt()));
 
-  // Fields ("dalalar") — lightweight index synced/cached for every field,
-  // photos cached separately and lazily by FieldMediaCache (see main.dart).
   getIt.registerLazySingleton<FieldRemoteDataSource>(
     () => FieldRemoteDataSource(getIt()),
   );
@@ -133,18 +115,19 @@ Future<void> configureDependencies() async {
   getIt.registerSingleton<FieldRepository>(fieldRepository);
   getIt.registerFactory<FieldsBloc>(() => FieldsBloc(getIt()));
 
-  // Reference data (crop/plant/propagation/pest types, zones, plants,
-  // pests) — open karantin.uz API, separate host and no auth, so it
-  // bypasses DioService entirely. Cached in HiveService.referenceDataBox.
   getIt.registerLazySingleton<ReferenceRemoteDataSource>(
     () => ReferenceRemoteDataSource(),
   );
   getIt.registerLazySingleton<ReferenceRepository>(
     () => ReferenceRepositoryImpl(getIt(), getIt()),
   );
+  getIt.registerFactory<ReferenceCubit>(() => ReferenceCubit(getIt()));
 
-  // Sync
   getIt.registerSingleton<SyncBloc>(
     SyncBloc(getIt<OfflineSyncService>(), getIt<DioService>()),
+  );
+
+  getIt.registerLazySingleton<AppDownloadController>(
+    () => AppDownloadController(),
   );
 }

@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'core/connectivity/connectivity_cubit.dart';
 import 'core/connectivity/no_internet_banner.dart';
 import 'core/di/injection.dart';
+import 'core/download/app_download_overlay.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/theme_cubit.dart';
@@ -39,7 +40,9 @@ class App extends StatelessWidget {
             data: isTablet
                 ? mq.copyWith(textScaler: const TextScaler.linear(1.2))
                 : mq,
-            child: NoInternetBanner(child: child ?? const SizedBox.shrink()),
+            child: AppDownloadOverlay(
+              child: NoInternetBanner(child: child ?? const SizedBox.shrink()),
+            ),
           );
         },
       ),

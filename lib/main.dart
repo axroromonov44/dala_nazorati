@@ -7,6 +7,7 @@ import 'core/di/injection.dart';
 import 'core/map/tile_cache_service.dart';
 import 'core/update/shorebird_update_service.dart';
 import 'features/fields/data/field_media_cache.dart';
+import 'features/reference/data/reference_image_cache.dart';
 
 void main() async {
   final binding = WidgetsFlutterBinding.ensureInitialized();
@@ -16,6 +17,7 @@ void main() async {
   await configureDependencies();
   await TileCacheService.init();
   await FieldMediaCache.init();
+  await ReferenceImageCache.init();
 
   runApp(
     EasyLocalization(
@@ -27,7 +29,5 @@ void main() async {
     ),
   );
 
-  unawaited(
-    getIt<ShorebirdUpdateService>().checkAndUpdateSilently(),
-  );
+  unawaited(getIt<ShorebirdUpdateService>().checkAndUpdateSilently());
 }

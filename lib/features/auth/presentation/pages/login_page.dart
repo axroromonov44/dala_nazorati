@@ -30,11 +30,6 @@ class _LoginView extends StatelessWidget {
     return BlocListener<AuthBloc, AuthState>(
       listener: (context, state) {
         if (state is AuthAuthenticated) {
-          // Ilova jarayoni qayta ishga tushirilmaganda (masalan chiqib,
-          // boshqa hodim sifatida qayta kirilganda) `SyncBloc` faqat bir
-          // marta — ilova ochilganda — sinxronlangan bo'ladi. Shu yerda
-          // qayta so'rab, dalalar indeksi darhol qaytadan yuklanishini
-          // ta'minlaymiz.
           context.read<SyncBloc>().add(const SyncTriggered());
           context.go('/home');
         }

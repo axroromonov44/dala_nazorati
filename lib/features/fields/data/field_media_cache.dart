@@ -8,11 +8,6 @@ import '../../../core/network/dio_debug_logger.dart';
 import '../../../core/storage/hive_service.dart';
 import '../domain/entities/field_detail.dart';
 
-/// Downloads field photos on demand for display. Persisting them as a
-/// durable offline cache is disabled for now (see [ensureCached]).
-///
-/// Modeled directly on `TileCacheService`: a static service holding a
-/// directory + dedicated short-timeout `Dio`.
 class FieldMediaCache {
   FieldMediaCache._();
 
@@ -29,16 +24,9 @@ class FieldMediaCache {
     final dir = Directory('${docs.path}/field_photos');
     if (!await dir.exists()) await dir.create(recursive: true);
     _dir = dir;
-    // logBody: false — photo responses are raw image bytes, not JSON.
     attachDebugLogger(_dio, logBody: false);
   }
 
-  /// Returns the local file path for [photo], always downloading it fresh.
-  /// Prefers [FieldPhoto.thumbUrl] when present.
-  ///
-  /// Backend/data are still being finalized, so persisting photo metadata
-  /// (and reusing a previous download) is disabled for now — every call
-  /// re-fetches from the API instead of trusting a local cache entry.
   static Future<String> ensureCached(FieldPhoto photo) async {
     final url = photo.thumbUrl ?? photo.remoteUrl;
     final response = await _dio.get<List<int>>(
@@ -51,9 +39,6 @@ class FieldMediaCache {
     return path;
   }
 
-  /// Deletes every cached photo file and its metadata — called on logout so
-  /// the next person to use this device can't see the previous employee's
-  /// field photos still sitting on disk.
   static Future<void> clear() async {
     final dir = _dir;
     if (dir != null && await dir.exists()) {

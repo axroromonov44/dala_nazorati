@@ -3,7 +3,6 @@ import 'package:webview_flutter/webview_flutter.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/oneid_config.dart';
 
-/// [OneIdConfig.redirectUri]'ga o'tishga urinadi — shu daqiqada navigatsiya
 class OneIdWebViewPage extends StatefulWidget {
   const OneIdWebViewPage({super.key});
 

@@ -318,14 +318,6 @@ class TileCacheService {
     return total;
   }
 
-  /// [notify] drives [cacheVersion], which `LocationMap` listens to in
-  /// order to re-check (and possibly re-prompt for) a pending map download
-  /// once the cache is cleared while the user keeps browsing the app.
-  /// Logout passes `notify: false` — at that point the home page is being
-  /// torn down anyway, and re-arming that prompt right as the user leaves
-  /// is exactly the "a dialog shows up after logout" bug this guards
-  /// against, since `LocationMap` may still be mid-teardown (pushed under
-  /// the profile page, not yet disposed) when logout clears this cache.
   static Future<void> clearCache({bool notify = true}) async {
     await _store?.clean();
     final box = getIt<HiveService>().userBox;

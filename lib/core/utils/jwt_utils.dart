@@ -1,8 +1,5 @@
 import 'dart:convert';
 
-/// JWT payload qismini (imzosini tekshirmasdan) dekodlaydi.
-/// Backend allaqachon ishonchli manba bo'lgani uchun bu yerda faqat
-/// tokendagi claim'larni (user_id, username, roles va h.k.) o'qish uchun ishlatiladi.
 Map<String, dynamic> decodeJwtPayload(String token) {
   final parts = token.split('.');
   if (parts.length != 3) {

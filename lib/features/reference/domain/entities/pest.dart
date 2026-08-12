@@ -2,9 +2,6 @@ import 'package:equatable/equatable.dart';
 
 import 'reference_item.dart';
 
-/// A single row from `/reference/pests/` — the unified catalog covering
-/// pests, weeds, diseases, nematodes and "unknown" entries (distinguished by
-/// [type]), used for offline zararkunanda/kasallik identification.
 class Pest extends Equatable {
   const Pest({
     required this.id,
@@ -26,8 +23,6 @@ class Pest extends Equatable {
   final ReferenceItem? distributionZone;
   final String description;
 
-  /// Free-form on the backend — seen as digits (`"5"`), a dash (`"-"`) or
-  /// empty, so this is kept as a string rather than parsed to `int`.
   final String generation;
   final String? infoLink;
   final List<String> images;

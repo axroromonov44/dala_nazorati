@@ -22,13 +22,13 @@ class OfflineQueueItem {
   final SyncStatus status;
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'endpoint': endpoint,
-        'method': method,
-        'body': body,
-        'createdAt': createdAt.toIso8601String(),
-        'status': status.name,
-      };
+    'id': id,
+    'endpoint': endpoint,
+    'method': method,
+    'body': body,
+    'createdAt': createdAt.toIso8601String(),
+    'status': status.name,
+  };
 
   factory OfflineQueueItem.fromJson(Map<String, dynamic> json) =>
       OfflineQueueItem(
@@ -48,23 +48,21 @@ class OfflineSyncService {
   final Connectivity _connectivity;
 
   Future<void> enqueue(OfflineQueueItem item) async {
-    await _hiveService.offlineQueueBox.put(
-      item.id,
-      jsonEncode(item.toJson()),
-    );
+    await _hiveService.offlineQueueBox.put(item.id, jsonEncode(item.toJson()));
   }
 
   List<OfflineQueueItem> getPendingItems() {
     return _hiveService.offlineQueueBox.values
-        .map((v) => OfflineQueueItem.fromJson(
-              jsonDecode(v as String) as Map<String, dynamic>,
-            ))
+        .map(
+          (v) => OfflineQueueItem.fromJson(
+            jsonDecode(v as String) as Map<String, dynamic>,
+          ),
+        )
         .where((item) => item.status == SyncStatus.pending)
         .toList();
   }
 
-  Future<void> markSynced(String id) =>
-      _hiveService.offlineQueueBox.delete(id);
+  Future<void> markSynced(String id) => _hiveService.offlineQueueBox.delete(id);
 
   Future<bool> isOnline() async {
     final result = await _connectivity.checkConnectivity();

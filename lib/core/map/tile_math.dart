@@ -3,7 +3,6 @@ import 'dart:math';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 
-/// A single slippy-map (XYZ) tile coordinate.
 class TileCoord {
   const TileCoord(this.x, this.y, this.z);
 
@@ -12,10 +11,6 @@ class TileCoord {
   final int z;
 }
 
-/// Pure tile-grid math, kept separate so both the live [TileLayer] rendering
-/// and the offline region pre-downloader compute the exact same URLs —
-/// otherwise pre-downloaded tiles would land under a different cache key
-/// than the one the map actually requests while browsing.
 class TileMath {
   const TileMath._();
 
@@ -31,8 +26,6 @@ class TileMath {
     return y.floor().clamp(0, n - 1);
   }
 
-  /// All tiles covering a square region of [radiusMeters] around [center],
-  /// for every zoom level in `minZoom..maxZoom` (inclusive).
   static List<TileCoord> tilesForRegion({
     required LatLng center,
     required double radiusMeters,
@@ -44,9 +37,6 @@ class TileMath {
     maxZoom: maxZoom,
   );
 
-  /// All tiles covering an arbitrary [bounds] (e.g. the bounding box of a
-  /// whole set of fields, not just a circle around one point), for every
-  /// zoom level in `minZoom..maxZoom` (inclusive).
   static List<TileCoord> tilesForBounds({
     required LatLngBounds bounds,
     required int minZoom,
@@ -67,16 +57,9 @@ class TileMath {
     return tiles;
   }
 
-  /// A square [LatLngBounds] of [radiusMeters] around [center] — used to fit
-  /// the map camera to the same area a [tilesForRegion] download covers.
   static LatLngBounds boundsFor(LatLng center, double radiusMeters) =>
       padBounds(LatLngBounds(center, center), radiusMeters);
 
-  /// Grows [bounds] outward by [marginMeters] on every side — used to give
-  /// an offline download a bit of breathing room beyond the exact bounding
-  /// box of the fields it's meant to cover (e.g. the access road right next
-  /// to the outermost field), rather than cutting off precisely at the
-  /// field polygon edge.
   static LatLngBounds padBounds(LatLngBounds bounds, double marginMeters) {
     final midLat = (bounds.north + bounds.south) / 2;
     final latDelta = marginMeters / 111320.0;
@@ -93,10 +76,6 @@ class TileMath {
     );
   }
 
-  /// Builds the concrete tile URL exactly the way flutter_map's [TileLayer]
-  /// would (see `base_tile_provider.dart#generateReplacementMap`), so
-  /// pre-downloaded tiles are cached under the same key that live rendering
-  /// will later request.
   static String buildTileUrl({
     required String urlTemplate,
     required List<String> subdomains,

@@ -10,11 +10,7 @@ class LocaleCubit extends Cubit<Locale> {
   final HiveService _hiveService;
   static const _key = 'locale';
 
-  static const supportedLocales = [
-    Locale('uz'),
-    Locale('ru'),
-    Locale('en'),
-  ];
+  static const supportedLocales = [Locale('uz'), Locale('ru'), Locale('en')];
 
   void _load() {
     final code = _hiveService.userBox.get(_key) as String?;

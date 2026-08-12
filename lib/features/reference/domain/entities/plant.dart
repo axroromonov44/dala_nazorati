@@ -2,9 +2,6 @@ import 'package:equatable/equatable.dart';
 
 import 'reference_item.dart';
 
-/// A single row from `/reference/plants/` — richer than the plain
-/// [ReferenceItem] lookups, carrying agronomy info (description, images)
-/// alongside its type/propagation classification.
 class Plant extends Equatable {
   const Plant({
     required this.id,

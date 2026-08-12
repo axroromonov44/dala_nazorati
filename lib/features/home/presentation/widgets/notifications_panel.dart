@@ -10,10 +10,6 @@ import '../../../../core/utils/haptic.dart';
 import '../../../../core/utils/responsive.dart';
 import 'offline_map_download_dialog.dart';
 
-/// Full page listing every [AppNotification] — opened from the notification
-/// bell on the map page. Rendering branches on the notification's runtime
-/// type, so this page doesn't need to change when a new notification kind is
-/// introduced elsewhere in the app.
 Future<void> showNotificationsPanel(BuildContext context) {
   return Navigator.of(
     context,

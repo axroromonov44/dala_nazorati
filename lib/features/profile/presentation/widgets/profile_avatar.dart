@@ -94,9 +94,7 @@ class ProfileVerifiedBadge extends StatelessWidget {
     return Container(
       width: badgeSize,
       height: badgeSize,
-      decoration: const BoxDecoration(
-        shape: BoxShape.circle,
-      ),
+      decoration: const BoxDecoration(shape: BoxShape.circle),
       child: Image.asset(
         'assets/images/verified.png',
         width: badgeSize,

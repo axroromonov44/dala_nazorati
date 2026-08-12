@@ -34,9 +34,6 @@ class SyncBloc extends Bloc<SyncEvent, SyncState> {
     SyncTriggered event,
     Emitter<SyncState> emit,
   ) async {
-    // Fields index sync (`GET /fields`) is disabled — the backend doesn't
-    // have that endpoint yet (404s every call), so this only flushes the
-    // offline mutation queue for now.
     final pending = _syncService.getPendingItems();
     if (pending.isEmpty) return;
 

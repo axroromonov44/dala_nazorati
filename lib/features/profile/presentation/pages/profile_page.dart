@@ -8,7 +8,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
-
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/di/injection.dart';
 import '../../../../core/map/tile_cache_service.dart';
@@ -22,17 +21,10 @@ import '../../../auth/domain/entities/user.dart';
 import '../../../auth/domain/repositories/auth_repository.dart';
 import '../../../auth/presentation/bloc/profile_cubit.dart';
 import '../../../fields/data/field_media_cache.dart';
+import '../../../reference/data/reference_image_cache.dart';
 import '../../../fields/domain/repositories/field_repository.dart';
 import '../widgets/profile_avatar.dart';
 
-/// Full-page replacement for the old slide-out drawer — reached by tapping
-/// the avatar/profile button next to the notification bell on the home
-/// page (see `home_page.dart`). Everything the drawer used to hold
-/// (language, dark mode, map cache, logout, app version) lives here now,
-/// under a proper identity header (photo + name from `ProfileCubit`).
-///
-/// Each setting is its own dense [ListTile] wrapped in [_BorderedTile] —
-/// separately bordered rows rather than one shared boxed/spaced-out list.
 class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key});
 
@@ -73,8 +65,6 @@ class ProfilePage extends StatelessWidget {
   }
 }
 
-/// Telegram handle used both as the support contact and (for now, until a
-/// dedicated policy page exists) the public-offer link.
 const _telegramSupportUrl = 'https://t.me/dalanazorat';
 
 Future<void> _openExternalLink(BuildContext context, String url) async {
@@ -90,9 +80,6 @@ Future<void> _openExternalLink(BuildContext context, String url) async {
   }
 }
 
-/// Opens [_AppSettingsSheet] (language + dark mode) — those two used to sit
-/// directly on the profile page as separate rows; now they're grouped under
-/// one "Ilova sozlamalari" entry point.
 class _AppSettingsTile extends StatelessWidget {
   const _AppSettingsTile();
 
@@ -209,10 +196,6 @@ class _SupportTile extends StatelessWidget {
   );
 }
 
-/// Tappable identity summary at the top of the page — opens
-/// [_ProfileDetailsSheet] with the full set of `GET /users/me` fields
-/// (pinfl/passport/birth date/address/…) that don't fit in a compact
-/// header.
 class _IdentityCard extends StatelessWidget {
   const _IdentityCard({required this.user, required this.displayName});
 
@@ -253,10 +236,6 @@ class _IdentityCard extends StatelessWidget {
         ),
         child: Row(
           children: [
-            // Rasmning o'zi alohida bosiladi (to'liq ekran preview ochadi)
-            // — kartaning qolgan qismi esa tafsilotlar varag'ini ochadi;
-            // ichki GestureDetector ustuvor bo'lgani uchun ikkalasi
-            // to'qnashmaydi.
             GestureDetector(
               onTap: hasPhoto
                   ? () {
@@ -319,9 +298,6 @@ class _IdentityCard extends StatelessWidget {
   }
 }
 
-/// Wraps a single settings [ListTile] in its own bordered, rounded card —
-/// each row (language/theme/cache/logout) stays visually separate rather
-/// than merged into one shared container.
 class _BorderedTile extends StatelessWidget {
   const _BorderedTile({required this.child});
 
@@ -330,12 +306,6 @@ class _BorderedTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    // `ClipRRect` + a separately-bordered `Container` clips the straight
-    // rectangular border stroke right where it should curve, leaving the
-    // corners looking border-less — putting `borderRadius` directly on the
-    // same `BoxDecoration` as `border` draws a properly rounded stroke, and
-    // `clipBehavior` alone still keeps the child (ListTile ink/ripple)
-    // contained to that same rounded shape.
     return Container(
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
@@ -375,9 +345,6 @@ void _showPhotoPreview(BuildContext context, String imageUrl) {
   );
 }
 
-/// Full-screen, pinch-zoomable preview of the profile photo — tapping the
-/// avatar in [_IdentityCard] opens this instead of (not in addition to) the
-/// details sheet the rest of the card opens.
 class _PhotoPreviewPage extends StatelessWidget {
   const _PhotoPreviewPage({required this.imageUrl});
 
@@ -430,9 +397,6 @@ class _PhotoPreviewPage extends StatelessWidget {
   }
 }
 
-/// Full read-only breakdown of every `GET /users/me` field this employee
-/// has — pinfl/passport carry a copy button (`_DetailRow(copyable: true)`)
-/// since those are the two values most often needed to paste elsewhere.
 class _ProfileDetailsSheet extends StatelessWidget {
   const _ProfileDetailsSheet({required this.user});
 
@@ -538,9 +502,6 @@ class _ProfileDetailsSheet extends StatelessWidget {
   }
 }
 
-/// One label/value line inside [_ProfileDetailsSheet]. [copyable] adds a
-/// small copy-to-clipboard button — used for pinfl/passport, the two
-/// values most often needed to paste into another form.
 class _DetailRow extends StatelessWidget {
   const _DetailRow({
     required this.label,
@@ -610,9 +571,6 @@ class _DetailRow extends StatelessWidget {
   }
 }
 
-/// `birth_date` comes as a plain ISO date (`"2001-01-02"`) — reformatted to
-/// `dd.MM.yyyy` when parseable; falls back to the raw string rather than
-/// hiding it if the backend ever changes format.
 String? _formattedBirthDate(String? raw) {
   if (raw == null || raw.isEmpty) return null;
   final parsed = DateTime.tryParse(raw);
@@ -750,9 +708,6 @@ class _ClearMapCacheTileState extends State<_ClearMapCacheTile> {
 
     setState(() => _clearing = true);
     await TileCacheService.clearCache();
-    // Kesh tozalanganda unga bog'liq bo'lgan yuklab olish bildirishnomalari
-    // ham eskiradi — ularni olib tashlaymiz, boshqa (masalan umumiy xabar)
-    // bildirishnomalarga tegmaymiz.
     NotificationCenter.items.value = NotificationCenter.items.value
         .where((n) => n is! OfflineDownloadNotification)
         .toList();
@@ -769,10 +724,6 @@ class _ClearMapCacheTileState extends State<_ClearMapCacheTile> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-
-    // Boshqa tugmalar (til, rejim) kabi bitta qatorli — o'lchamni pastki
-    // yozuv (subtitle) sifatida ko'rsatish qolganlariga nisbatan balandroq
-    // qilib qo'yardi.
     return ListTile(
       dense: true,
       visualDensity: VisualDensity.compact,
@@ -910,13 +861,6 @@ class _LogoutTile extends StatefulWidget {
 class _LogoutTileState extends State<_LogoutTile> {
   bool _loggingOut = false;
 
-  /// Chiqishda shu qurilmadagi joriy hodimga tegishli BARCHA lokal
-  /// ma'lumotlar (token, profil, dalalar indeksi/tafsiloti, dala rasmlari,
-  /// xarita tayl keshi, kutilayotgan oflayn navbat, reference katalog)
-  /// tozalanadi — shunda boshqa hodim shu qurilmada kirsa avvalgisining
-  /// hech narsasini ko'rmaydi, va qayta kirilganda hammasi qaytadan
-  /// yuklanadi (fields/tayl `SyncTriggered` orqali `login_page.dart`da,
-  /// reference katalog esa `HomePage`dagi sinxronizatsiya dialogi orqali).
   Future<void> _logout() async {
     hapticSelect();
     final confirmed = await _showLogoutConfirmDialog(context);
@@ -926,14 +870,10 @@ class _LogoutTileState extends State<_LogoutTile> {
     await getIt<AuthRepository>().logout();
     await getIt<FieldRepository>().clearLocalData();
     await FieldMediaCache.clear();
-    // notify: false — HomePage/LocationMap may still be mid-teardown
-    // (pushed under this profile page, not yet disposed) when logout
-    // reaches here; letting this clear notify `cacheVersion` would re-arm
-    // LocationMap's offline-map re-check and pop a dialog right as the
-    // user is leaving, on top of whatever page they land on next.
     await TileCacheService.clearCache(notify: false);
     await getIt<HiveService>().offlineQueueBox.clear();
     await getIt<HiveService>().referenceDataBox.clear();
+    await ReferenceImageCache.clear();
     getIt<ProfileCubit>().reset();
     NotificationCenter.items.value = const [];
 

@@ -61,11 +61,6 @@ class AuthRepositoryImpl implements AuthRepository {
   @override
   Future<void> logout() async {
     await _storageService.clearTokens();
-    // Faqat shu auth-domenga tegishli kesh — dalalar/tayl/media keshini
-    // tozalash boshqa repositorylar zimmasida (bu yerdan turib ularga
-    // bog'lanish auth qatlamini boshqa feature'larga bog'lab qo'yardi).
-    // To'liq tozalash uchun chaqiruvchi tomon shularni ham chaqirishi kerak
-    // — profile sahifasidagi "chiqish" tugmasiga qarang.
     await _hiveService.userBox.delete(StorageKeys.userData);
   }
 

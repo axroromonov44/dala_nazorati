@@ -1,10 +1,12 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/connectivity/connectivity_cubit.dart';
 import '../../../../core/di/injection.dart';
+import '../../../../core/download/app_download_controller.dart';
 import '../../../../core/map/tile_cache_service.dart';
 import '../../../../core/map/tile_math.dart';
 import '../../../../core/map/uzbekistan_regions.dart';
@@ -19,36 +21,20 @@ import '../../../fields/domain/entities/field_summary.dart';
 import '../../../fields/domain/repositories/field_repository.dart';
 import '../../../fields/presentation/bloc/fields_bloc.dart';
 import '../../domain/entities/location_point.dart';
-import 'app_download_dialog.dart';
 import 'field_form_sheet.dart';
 import 'offline_map_download_dialog.dart';
 
-// Google's hybrid (satellite + labels) tile layer — "Dalalar" view. Field
-// boundaries/crops read far better on satellite imagery than on a vector
-// street map, and unlike the old CartoDB voyager/dark_all pair, this has
-// no separate dark-mode variant (satellite photos don't have one).
 const _tileSubdomains = ['0', '1', '2', '3'];
 const _tileUrl = 'https://mt{s}.google.com/vt/lyrs=y&hl=uz&x={x}&y={y}&z={z}';
 
-/// Vivid green used only for the boundary currently being drawn — brighter
-/// and more saturated than the app's usual `kGreen` accent so it pops
-/// against the satellite basemap.
 const _drawingGreen = Color(0xFF00C853);
+
+const _radiusCircleColor = Color(0xFF2979FF);
 
 const _regionalPaddingMeters = 3000.0;
 const _regionalMinZoom = 10;
 const _regionalMaxZoom = 13;
 
-/// Regional (city-level) map-tile prefetch check — synchronous, since it
-/// only needs already-cached field bounds (no GPS wait), so it can run at
-/// `HomePage.initState()` time and fold straight into the one post-login
-/// download dialog (`showAppDownloadDialog`) rather than popping its own.
-///
-/// The close-up "around your current exact GPS position" job isn't covered
-/// here (that genuinely needs a fresh location fix) — it's still checked
-/// separately, later, by [_LocationMapState._maybePromptOfflineDownload]
-/// once the map itself has a location (e.g. after the user manually clears
-/// the map cache from Profile settings).
 PendingMapDownload? computeRegionalMapDownload(BuildContext context) {
   final isOnline = context.read<ConnectivityCubit>().state;
   if (!isOnline) return null;
@@ -129,20 +115,15 @@ class _LocationMapState extends State<LocationMap>
   static const _fieldRadiusMeters = 1000.0;
   static const _fieldMinZoom = 14;
   static const _fieldMaxZoom = 18;
-  // Regional (city-level) padding/zoom/subdomain constants and the tile
-  // URL now live top-level — shared with `computeRegionalMapDownload`.
   static const _regionalRadiusMeters = 30000.0;
 
-  static const _zoomCountry =
-      6.0; // butun O'zbekiston hududi ko'rinadigan daraja
-  static const _zoomOverview =
-      13.0; // ~10 ta dala bitta ekranda ko'rinadigan daraja
-  static const _zoomDetail =
-      17.0; // eng yaqin — dala chegarasini chizish darajasi
+  static const _zoomCountry = 6.0;
+  static const _zoomOverview = 13.0;
+  static const _zoomDetail = 17.0;
   static const _allowedZooms = [_zoomCountry, _zoomOverview, _zoomDetail];
 
   static const _onlineMinZoom = 3.0;
-  static const _onlineMaxZoom = 19.0; // TileLayer.maxNativeZoom bilan mos
+  static const _onlineMaxZoom = 19.0;
 
   static const _zoomGestureSources = {
     MapEventSource.multiFingerGestureStart,
@@ -228,12 +209,6 @@ class _LocationMapState extends State<LocationMap>
     );
   }
 
-  // The initial offline-map prompt no longer fires from here — it's folded
-  // into `showAppDownloadDialog` (see `computeRegionalMapDownload` below),
-  // triggered once from `HomePage.initState` alongside the reference-catalog
-  // sync, so only one dialog ever appears after login.
-  // `_maybePromptOfflineDownload` below is still used, but only by
-  // [_onCacheCleared] (an explicit, later user action).
   void _playCityIntro() {
     if (_introPlayed || !mounted) return;
     _introPlayed = true;
@@ -460,12 +435,33 @@ class _LocationMapState extends State<LocationMap>
     return inside;
   }
 
+  static double _metersPerPixelAtZoom0(double latitude) =>
+      156543.03392 * math.cos(latitude * math.pi / 180);
+
+  double _radiusFitZoom(double latitude) {
+    final size = MediaQuery.of(context).size;
+    final availablePx = math.min(size.width, size.height) * 0.8;
+    final metersPerPixelNeeded = (_maxRadiusMeters * 2) / availablePx;
+    final zoom =
+        math.log(_metersPerPixelAtZoom0(latitude) / metersPerPixelNeeded) /
+        math.ln2;
+    return zoom.clamp(_zoomOverview, _zoomDetail);
+  }
+
   void _startDrawing() {
     setState(() {
       _isDrawing = true;
       _currentPoints.clear();
     });
     widget.drawingNotifier.value = true;
+    final userLatLng = LatLng(
+      widget.location.latitude,
+      widget.location.longitude,
+    );
+    final fitZoom = _radiusFitZoom(userLatLng.latitude);
+    if (_mapController.camera.zoom > fitZoom + 0.01) {
+      _flyTo(userLatLng, zoom: fitZoom);
+    }
   }
 
   void _cancelDrawing() {
@@ -526,9 +522,6 @@ class _LocationMapState extends State<LocationMap>
     final latLng = LatLng(widget.location.latitude, widget.location.longitude);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final isOnline = context.watch<ConnectivityCubit>().state;
-
-    // Same vivid green as the in-progress drawing, so a saved field keeps
-    // the exact color it had while it was being drawn.
     final polygonFill = _drawingGreen.withAlpha(150);
     final polygonBorder = _drawingGreen;
 
@@ -585,8 +578,8 @@ class _LocationMapState extends State<LocationMap>
                     point: latLng,
                     radius: _maxRadiusMeters,
                     useRadiusInMeter: true,
-                    color: kGreen.withAlpha(18),
-                    borderColor: kGreen.withAlpha(160),
+                    color: _radiusCircleColor.withAlpha(40),
+                    borderColor: _radiusCircleColor.withAlpha(220),
                     borderStrokeWidth: 2,
                   ),
                 ],
@@ -608,10 +601,6 @@ class _LocationMapState extends State<LocationMap>
                 polygons: [
                   Polygon(
                     points: _currentPoints,
-                    // A brighter, more saturated green than the app's
-                    // usual `kGreen` — solid enough to stay visible over
-                    // the satellite basemap (the old alpha-30 fill from
-                    // the vector-tile days all but disappeared on imagery).
                     color: _drawingGreen.withAlpha(150),
                     borderColor: _drawingGreen,
                     borderStrokeWidth: 2.5,
@@ -644,7 +633,7 @@ class _LocationMapState extends State<LocationMap>
         ),
         if (!_isDrawing)
           Positioned(
-            bottom: context.rs(32.0, 48.0),
+            bottom: context.rs(32.0, 48.0) + kFloatingNavBarClearance,
             right: context.rs(16.0, 24.0),
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -700,15 +689,6 @@ class _LocationMapState extends State<LocationMap>
                 _MapButton(
                   heroTag: 'my_location',
                   icon: Icons.my_location,
-                  // Faqat joriy (allaqachon `watchLocation()` orqali doim
-                  // yangilanib turuvchi) joylashuvga animatsiyali "uchib"
-                  // boradi — `MapLocationStarted`ni QAYTA yubormaydi, aks
-                  // holda `MapBloc` `MapLocationLoading`ga o'tib,
-                  // `home_page.dart`dagi `BlocBuilder` `LocationMap`ni
-                  // butunlay yangisiga almashtirib yuborardi (uning holati
-                  // — jumladan `_introPlayed` — yo'qolib, tugma bosilgan
-                  // sari kirish animatsiyasi ("shahardan boshlab uchish")
-                  // qaytadan boshlanib qolardi).
                   onPressed: hTap(() => _flyTo(latLng, zoom: _zoomDetail))!,
                 ),
                 kVerticalSpace8,
@@ -724,9 +704,6 @@ class _LocationMapState extends State<LocationMap>
           Positioned(
             top: MediaQuery.of(context).padding.top + context.spaceSm,
             left: context.rs(12.0, 18.0),
-            // No points yet: nothing to undo, so this doubles as "cancel
-            // drawing" instead of just sitting disabled. Once a point
-            // exists, it goes back to undoing the last one.
             child: _DrawingTopButton(
               heroTag: 'undo_draw',
               icon: _currentPoints.isEmpty
@@ -751,7 +728,7 @@ class _LocationMapState extends State<LocationMap>
             ),
           ),
           Positioned(
-            bottom: 0,
+            bottom: kFloatingNavBarClearance,
             left: 0,
             right: 0,
             child: _DrawingBottomBar(

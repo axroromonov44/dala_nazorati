@@ -28,9 +28,6 @@ class User extends Equatable {
   final List<String> roles;
   final String? imageUrl;
 
-  // `GET /users/me` — shaxsiy hujjat ma'lumotlari, faqat profil
-  // "tafsilotlar" varag'ida ko'rsatiladi (xarita/asosiy ekranlarda kerak
-  // emas).
   final String? passportNumber;
   final String? pinfl;
   final String? birthDate;

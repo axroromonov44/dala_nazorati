@@ -2,22 +2,40 @@ import 'dart:io';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:latlong2/latlong.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/di/injection.dart';
 import '../../../../core/utils/decimal_input_formatter.dart';
 import '../../../../core/utils/haptic.dart';
 import '../../../../core/utils/responsive.dart';
+import '../../../reference/data/reference_image_cache.dart';
+import '../../../reference/domain/entities/plant.dart';
+import '../../../reference/presentation/bloc/reference_cubit.dart';
 
-class MonitoringPage extends StatefulWidget {
+class MonitoringPage extends StatelessWidget {
   const MonitoringPage({super.key, required this.points});
+
   final List<LatLng> points;
 
   @override
-  State<MonitoringPage> createState() => _MonitoringPageState();
+  Widget build(BuildContext context) => BlocProvider(
+    create: (_) => getIt<ReferenceCubit>(),
+    child: _MonitoringView(points: points),
+  );
 }
 
-class _MonitoringPageState extends State<MonitoringPage>
+class _MonitoringView extends StatefulWidget {
+  const _MonitoringView({required this.points});
+
+  final List<LatLng> points;
+
+  @override
+  State<_MonitoringView> createState() => _MonitoringViewState();
+}
+
+class _MonitoringViewState extends State<_MonitoringView>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
 
@@ -120,6 +138,7 @@ class _MonitoringPageState extends State<MonitoringPage>
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final bottom = MediaQuery.of(context).padding.bottom;
     final bg = isDark ? const Color(0xFF111111) : const Color(0xFFEEF1EE);
+    final plants = context.watch<ReferenceCubit>().state;
 
     return Scaffold(
       backgroundColor: bg,
@@ -155,6 +174,7 @@ class _MonitoringPageState extends State<MonitoringPage>
                 ),
                 _CropTab(
                   varietyCtrl: _varietyCtrl,
+                  plants: plants,
                   cropType: _cropType,
                   irrigationType: _irrigationType,
                   isDark: isDark,
@@ -196,6 +216,7 @@ class _MonitoringAppBar extends StatelessWidget {
     required this.colorScheme,
     required this.pointCount,
   });
+
   final bool isDark;
   final ColorScheme colorScheme;
   final int pointCount;
@@ -294,6 +315,7 @@ class _MonitoringTabBar extends StatelessWidget {
     required this.isDark,
     required this.colorScheme,
   });
+
   final TabController controller;
   final bool isDark;
   final ColorScheme colorScheme;
@@ -347,6 +369,7 @@ class _MonitoringTabBar extends StatelessWidget {
 
 class _Tab extends StatelessWidget {
   const _Tab({required this.label});
+
   final String label;
 
   @override
@@ -366,6 +389,7 @@ class _Section extends StatelessWidget {
     required this.isDark,
     required this.colorScheme,
   });
+
   final String title;
   final List<Widget> children;
   final bool isDark;
@@ -548,6 +572,7 @@ class _BasicTab extends StatelessWidget {
 class _CropTab extends StatelessWidget {
   const _CropTab({
     required this.varietyCtrl,
+    required this.plants,
     required this.cropType,
     required this.irrigationType,
     required this.isDark,
@@ -557,6 +582,7 @@ class _CropTab extends StatelessWidget {
   });
 
   final TextEditingController varietyCtrl;
+  final List<Plant> plants;
   final String? cropType;
   final String? irrigationType;
   final bool isDark;
@@ -566,6 +592,14 @@ class _CropTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final cropNames = {for (final plant in plants) plant.name}.toList()..sort();
+    final matchingPlants = cropType == null
+        ? const <Plant>[]
+        : [
+            for (final plant in plants)
+              if (plant.name == cropType) plant,
+          ];
+
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
       children: [
@@ -577,16 +611,7 @@ class _CropTab extends StatelessWidget {
             _Dropdown(
               label: 'cropTypeLabel'.tr(),
               value: cropType,
-              items: [
-                'cropWheat'.tr(),
-                'cropCorn'.tr(),
-                'cropCotton'.tr(),
-                'cropBarley'.tr(),
-                'cropRice'.tr(),
-                'cropVegetable'.tr(),
-                'cropFruit'.tr(),
-                'cropOther'.tr(),
-              ],
+              items: cropNames,
               isDark: isDark,
               colorScheme: colorScheme,
               onChanged: onCropTypeChanged,
@@ -598,6 +623,14 @@ class _CropTab extends StatelessWidget {
               isDark: isDark,
               colorScheme: colorScheme,
             ),
+            if (matchingPlants.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              _PlantGallery(
+                plants: matchingPlants,
+                isDark: isDark,
+                colorScheme: colorScheme,
+              ),
+            ],
           ],
         ),
         const SizedBox(height: 14),
@@ -643,6 +676,227 @@ class _CropTab extends StatelessWidget {
   }
 }
 
+class _PlantGallery extends StatelessWidget {
+  const _PlantGallery({
+    required this.plants,
+    required this.isDark,
+    required this.colorScheme,
+  });
+
+  final List<Plant> plants;
+  final bool isDark;
+  final ColorScheme colorScheme;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'referencePhotosLabel'.tr(),
+          style: TextStyle(
+            fontSize: 11.5,
+            fontWeight: FontWeight.w700,
+            color: isDark ? kGreenLight : kGreen,
+          ),
+        ),
+        const SizedBox(height: 8),
+        for (var i = 0; i < plants.length; i++) ...[
+          if (i > 0) const SizedBox(height: 8),
+          _PlantCard(
+            plant: plants[i],
+            isDark: isDark,
+            colorScheme: colorScheme,
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _PlantCard extends StatelessWidget {
+  const _PlantCard({
+    required this.plant,
+    required this.isDark,
+    required this.colorScheme,
+  });
+
+  final Plant plant;
+  final bool isDark;
+  final ColorScheme colorScheme;
+
+  @override
+  Widget build(BuildContext context) {
+    final url = plant.images.isEmpty ? null : plant.images.first;
+    const imageSize = 64.0;
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.white.withAlpha(8) : Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: colorScheme.outlineVariant.withAlpha(50)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: Material(
+              color: isDark ? Colors.white.withAlpha(10) : Colors.grey.shade100,
+              child: InkWell(
+                onTap: url == null
+                    ? null
+                    : () => _openImagePreview(context, url, plant.name),
+                child: SizedBox(
+                  width: imageSize,
+                  height: imageSize,
+                  child: url == null
+                      ? const _PlantImagePlaceholder()
+                      : _PlantImage(url: url, size: imageSize),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  plant.name,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w700,
+                    color: colorScheme.onSurface,
+                  ),
+                ),
+                if (plant.description.trim().isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    plant.description,
+                    maxLines: 4,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      color: colorScheme.onSurfaceVariant,
+                      height: 1.35,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PlantImagePlaceholder extends StatelessWidget {
+  const _PlantImagePlaceholder();
+
+  @override
+  Widget build(BuildContext context) =>
+      Icon(Icons.eco_rounded, color: kGreen.withAlpha(140), size: 26);
+}
+
+void _openImagePreview(BuildContext context, String url, String plantName) {
+  Navigator.of(context).push(
+    PageRouteBuilder<void>(
+      opaque: false,
+      barrierColor: Colors.black,
+      pageBuilder: (context, animation, secondaryAnimation) => FadeTransition(
+        opacity: animation,
+        child: _ImagePreviewPage(url: url, plantName: plantName),
+      ),
+    ),
+  );
+}
+
+class _ImagePreviewPage extends StatelessWidget {
+  const _ImagePreviewPage({required this.url, required this.plantName});
+
+  final String url;
+  final String plantName;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: Stack(
+        children: [
+          Center(
+            child: InteractiveViewer(
+              minScale: 0.8,
+              maxScale: 4,
+              child: _PlantImage(url: url, fit: BoxFit.contain),
+            ),
+          ),
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 4,
+            right: 8,
+            child: IconButton(
+              onPressed: () => Navigator.of(context).pop(),
+              icon: const Icon(
+                Icons.close_rounded,
+                color: Colors.white,
+                size: 28,
+              ),
+            ),
+          ),
+          Positioned(
+            left: 24,
+            right: 24,
+            bottom: MediaQuery.of(context).padding.bottom + 20,
+            child: Text(
+              plantName,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w700,
+                fontSize: 15,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PlantImage extends StatelessWidget {
+  const _PlantImage({required this.url, this.size, this.fit = BoxFit.cover});
+
+  final String url;
+  final double? size;
+  final BoxFit fit;
+
+  @override
+  Widget build(BuildContext context) {
+    final cached = ReferenceImageCache.cachedFile(url);
+    if (cached != null) {
+      return Image.file(cached, fit: fit, width: size, height: size);
+    }
+    return Image.network(
+      url,
+      fit: fit,
+      width: size,
+      height: size,
+      loadingBuilder: (context, child, progress) => progress == null
+          ? child
+          : const Center(
+              child: SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2, color: kGreen),
+              ),
+            ),
+      errorBuilder: (context, error, stackTrace) =>
+          const _PlantImagePlaceholder(),
+    );
+  }
+}
+
 class _MediaTab extends StatelessWidget {
   const _MediaTab({
     required this.images,
@@ -651,6 +905,7 @@ class _MediaTab extends StatelessWidget {
     required this.onAdd,
     required this.onRemove,
   });
+
   final List<XFile> images;
   final bool isDark;
   final ColorScheme colorScheme;
@@ -774,6 +1029,7 @@ class _CoordsTab extends StatelessWidget {
     required this.isDark,
     required this.colorScheme,
   });
+
   final List<LatLng> points;
   final bool isDark;
   final ColorScheme colorScheme;
@@ -811,6 +1067,7 @@ class _CoordCard extends StatelessWidget {
     required this.isDark,
     required this.colorScheme,
   });
+
   final int index;
   final LatLng point;
   final bool isDark;
@@ -911,6 +1168,7 @@ class _SubmitBar extends StatelessWidget {
     required this.isDark,
     required this.colorScheme,
   });
+
   final double bottom;
   final VoidCallback onSubmit;
   final bool isDark;
@@ -980,6 +1238,7 @@ class _Input extends StatelessWidget {
     this.errorText,
     this.inputFormatters,
   });
+
   final TextEditingController controller;
   final String label;
   final String hint;
@@ -1062,6 +1321,7 @@ class _Dropdown extends StatelessWidget {
     required this.colorScheme,
     required this.onChanged,
   });
+
   final String label;
   final String? value;
   final List<String> items;
@@ -1110,13 +1370,19 @@ class _Dropdown extends StatelessWidget {
       borderRadius: BorderRadius.circular(14),
       dropdownColor: isDark ? const Color(0xFF2C2C2E) : Colors.white,
       icon: const Icon(Icons.keyboard_arrow_down_rounded, color: kGreen),
+      isExpanded: true,
       style: TextStyle(
         fontSize: 14,
         fontWeight: FontWeight.w500,
         color: colorScheme.onSurface,
       ),
       items: items
-          .map((item) => DropdownMenuItem(value: item, child: Text(item)))
+          .map(
+            (item) => DropdownMenuItem(
+              value: item,
+              child: Text(item, maxLines: 1, overflow: TextOverflow.ellipsis),
+            ),
+          )
           .toList(),
       onChanged: onChanged,
     );

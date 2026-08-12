@@ -12,14 +12,6 @@ import '../../../../core/map/tile_cache_service.dart';
 import '../../../../core/notifications/app_notification.dart';
 import '../../../../core/notifications/notification_center.dart';
 
-/// Shows the "save map for offline use" confirmation dialog (with a single
-/// combined estimated size covering every pending [jobs] entry), then — if
-/// the user accepts — downloads all of them together and shows live
-/// progress inside a second dialog.
-///
-/// Renders as a native-styled [CupertinoAlertDialog] on iOS and a Material
-/// [AlertDialog] everywhere else, matching the platform-aware pattern
-/// already used for the logout confirmation in `profile_page.dart`.
 Future<void> showOfflineMapDownloadDialog(
   BuildContext context, {
   required List<TileDownloadJob> jobs,
@@ -55,8 +47,6 @@ Future<void> showOfflineMapDownloadDialog(
     for (final job in jobs) {
       await TileCacheService.markRegionDeclined(job.regionId);
     }
-    // "Keyinroq" — bildirishnoma qo'ng'irog'i orqali keyinroq davom
-    // ettirish uchun saqlab qo'yamiz, foydalanuvchi butunlay yo'qotmaydi.
     NotificationCenter.add(
       OfflineDownloadNotification(
         jobs: jobs,
@@ -82,14 +72,6 @@ Future<void> showOfflineMapDownloadDialog(
   );
 }
 
-/// Shows only the download-progress dialog for [jobs], without the initial
-/// confirmation step — used when the user has already explicitly chosen to
-/// download (e.g. tapping an item in the postponed-downloads notification
-/// panel), so re-confirming would be redundant.
-///
-/// [title]/[body] are only used to re-create a notification entry (see
-/// [_DownloadProgressDialogState._cancel]) if the user cancels mid-download —
-/// they're not otherwise shown in this dialog.
 Future<void> showOfflineDownloadProgress(
   BuildContext context, {
   required List<TileDownloadJob> jobs,
@@ -265,8 +247,6 @@ class _DownloadProgressDialogState extends State<_DownloadProgressDialog> {
   @override
   void initState() {
     super.initState();
-    // Yuklab olish davomida ekran uxlab (lock) qolmasin — foydalanuvchi
-    // qo'lini olib qo'ysa ham jarayon foreground'da davom etaveradi.
     WakelockPlus.enable();
     _sub =
         TileCacheService.downloadJobs(
@@ -301,12 +281,6 @@ class _DownloadProgressDialogState extends State<_DownloadProgressDialog> {
     _cancelToken.cancel();
     Navigator.of(context).pop();
 
-    // Bekor qilingan yuklab olish "yo'qolib" ketmasin — "Keyinroq" bosilgan
-    // holat bilan bir xil: hudud "rad etildi" deb belgilanadi (shu uchun
-    // xarita darhol qayta so'ramaydi) va bildirishnomalar sahifasida qayta
-    // urinish uchun karta qoladi. Keyinroq shu yerdan qayta boshlansa, hech
-    // qaysi tayl "yuklab olindi" deb belgilanmagani uchun (tile_cache_service
-    // ->downloadJobs) jarayon xuddi birinchi martadek 0% dan qayta boshlanadi.
     for (final job in widget.jobs) {
       TileCacheService.markRegionDeclined(job.regionId);
     }
@@ -442,9 +416,6 @@ class _DownloadProgressDialogState extends State<_DownloadProgressDialog> {
   }
 }
 
-/// A flat, iOS-style progress bar — Cupertino has no built-in determinate
-/// [LinearProgressIndicator] equivalent, so this mirrors the look of
-/// native iOS progress views (`UIProgressView`).
 class _CupertinoProgressBar extends StatelessWidget {
   const _CupertinoProgressBar({required this.value, required this.color});
 

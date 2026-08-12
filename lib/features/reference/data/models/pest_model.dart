@@ -1,10 +1,6 @@
 import '../../domain/entities/pest.dart';
 import 'reference_item_model.dart';
 
-/// Wire/cache format for [Pest]. The same `toJson`/`fromJson` pair parses
-/// the `/reference/pests/` response and round-trips through
-/// `HiveService.referenceDataBox` (stored as `jsonEncode(list of toJson)`),
-/// so keep both in sync when the shape changes.
 class PestModel extends Pest {
   const PestModel({
     required super.id,

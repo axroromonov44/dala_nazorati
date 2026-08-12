@@ -10,13 +10,8 @@ import '../datasources/reference_remote_datasource.dart';
 import '../models/pest_model.dart';
 import '../models/plant_model.dart';
 import '../models/reference_item_model.dart';
+import '../reference_image_cache.dart';
 
-/// Cache-first: the karantin.uz reference catalog is stable, public data
-/// (not user data, not the shaky dev field API), so every category is
-/// persisted to `HiveService.referenceDataBox` as a single `jsonEncode`d
-/// list and served from there until [forceRefresh] is requested — keeping
-/// the pest/plant encyclopedia usable offline in the field. Only URLs are
-/// cached, never image bytes.
 class ReferenceRepositoryImpl implements ReferenceRepository {
   ReferenceRepositoryImpl(this._remote, this._hiveService);
 
@@ -95,8 +90,6 @@ class ReferenceRepositoryImpl implements ReferenceRepository {
         forceRefresh: forceRefresh,
       );
 
-  /// Order the post-login sync dialog walks through, and the source of
-  /// truth for the cache keys used by [_cached] above.
   static const List<String> _catalogKeys = [
     'crop_types',
     'plant_types',
@@ -105,6 +98,7 @@ class ReferenceRepositoryImpl implements ReferenceRepository {
     'pest_distribution_zones',
     'plants',
     'pests',
+    'images',
   ];
 
   @override
@@ -148,9 +142,25 @@ class ReferenceRepositoryImpl implements ReferenceRepository {
         return getPlants(forceRefresh: forceRefresh);
       case 'pests':
         return getPests(forceRefresh: forceRefresh);
+      case 'images':
+        return _downloadImages(forceRefresh: forceRefresh);
       default:
         throw StateError('Unknown reference catalog key: $key');
     }
+  }
+
+  Future<void> _downloadImages({bool forceRefresh = false}) async {
+    if (!forceRefresh && _hiveService.referenceDataBox.containsKey('images')) {
+      return;
+    }
+    final plants = await getPlants(forceRefresh: forceRefresh);
+    final pests = await getPests(forceRefresh: forceRefresh);
+    final urls = {
+      for (final plant in plants) ...plant.images,
+      for (final pest in pests) ...pest.images,
+    };
+    await ReferenceImageCache.downloadAll(urls);
+    await _hiveService.referenceDataBox.put('images', 'done');
   }
 
   Future<List<M>> _cached<M>(

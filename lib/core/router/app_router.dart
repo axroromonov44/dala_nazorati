@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'package:go_router/go_router.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
-import '../../features/home/presentation/pages/home_page.dart';
+import '../../features/home/presentation/pages/main_page.dart';
 import '../../features/profile/presentation/pages/profile_page.dart';
 import '../constants/app_colors.dart';
 import '../storage/secure_storage_service.dart';
@@ -24,7 +24,10 @@ class AppRouter {
         builder: (context, state) => const _SplashPage(),
       ),
       GoRoute(path: '/login', builder: (context, state) => const LoginPage()),
-      GoRoute(path: '/home', builder: (context, state) => const HomePage()),
+      GoRoute(
+        path: '/home',
+        builder: (context, state) => const MainPage(),
+      ),
       GoRoute(
         path: '/profile',
         builder: (context, state) => const ProfilePage(),

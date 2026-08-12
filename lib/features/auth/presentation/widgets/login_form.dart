@@ -647,7 +647,6 @@ class _CircleProgressPainter extends CustomPainter {
     final radius = size.width / 2 - _strokeWidth / 2 - 1;
     final rect = Rect.fromCircle(center: center, radius: radius);
 
-    // Track
     canvas.drawArc(
       rect,
       -math.pi / 2,
@@ -660,7 +659,6 @@ class _CircleProgressPainter extends CustomPainter {
         ..strokeCap = StrokeCap.round,
     );
 
-    // Progress
     if (sweep > 0.01) {
       canvas.drawArc(
         rect,

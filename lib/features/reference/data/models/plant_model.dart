@@ -2,10 +2,6 @@ import '../../domain/entities/plant.dart';
 import '../../domain/entities/reference_item.dart';
 import 'reference_item_model.dart';
 
-/// Wire/cache format for [Plant]. The same `toJson`/`fromJson` pair parses
-/// the `/reference/plants/` response and round-trips through
-/// `HiveService.referenceDataBox` (stored as `jsonEncode(list of toJson)`),
-/// so keep both in sync when the shape changes.
 class PlantModel extends Plant {
   const PlantModel({
     required super.id,

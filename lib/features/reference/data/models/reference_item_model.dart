@@ -18,9 +18,6 @@ class ReferenceItemModel extends ReferenceItem {
 
   Map<String, dynamic> toJson() => toJsonOf(this);
 
-  /// Shared by [PlantModel]/[PestModel] to serialize their nested
-  /// `type`/`propagation_type`/`distribution_zone` fields, which are typed
-  /// as the plain [ReferenceItem] entity rather than this model.
   static Map<String, dynamic> toJsonOf(ReferenceItem item) => {
     'id': item.id,
     if (item.uniqueId != null) 'unique_id': item.uniqueId,

@@ -21,11 +21,6 @@ class UserModel extends User {
     super.districtName,
   });
 
-  /// Login javobida alohida foydalanuvchi obyekti kelmaydi — access token
-  /// ichidagi claim'lardan (user_id, username, full_name, roles va h.k.)
-  /// hosil qilinadi. JWT ham deyarli aynan `/users/me` bilan bir xil
-  /// maydonlarni olib yuradi, shuning uchun shaxsiy hujjat ma'lumotlari
-  /// ham shu yerdan (birinchi, tarmoqsiz) to'ldiriladi.
   factory UserModel.fromAccessToken(String accessToken) {
     final claims = decodeJwtPayload(accessToken);
     return UserModel(
@@ -52,13 +47,6 @@ class UserModel extends User {
     );
   }
 
-  /// `GET /users/me` — hujjatlashtirilgan namunada faqat
-  /// `username`/`full_name`/`phone` ko'rsatilgan bo'lsa-da, haqiqiy backend
-  /// ancha to'liq obyekt qaytaradi (pinfl, passport, tug'ilgan sana, manzil,
-  /// rasm va h.k. — quyida o'qiladi). `id`/`roles` bu yerda umuman
-  /// kelmaydi, shuning uchun ular [previous] (JWT-derived)dan olinadi;
-  /// qolgan maydonlar uchun ham — agar backend vaqtincha ba'zi kalitlarni
-  /// yubormasa — [previous] zaxira bo'lib xizmat qiladi.
   factory UserModel.fromMeResponse(
     Map<String, dynamic> json, {
     required User previous,
@@ -85,9 +73,6 @@ class UserModel extends User {
     districtName: _extractName(json['district']) ?? previous.districtName,
   );
 
-  /// `region`/`district` claim/maydoni ba'zan `{"name": "..."}` obyekti,
-  /// ba'zan (masalan tuman biriktirilmagan bo'lsa) `null` yoki bo'sh obyekt
-  /// bo'lib keladi — ikkalasini ham xavfsiz boshqaradi.
   static String? _extractName(dynamic value) {
     if (value is Map) {
       final name = value['name'];

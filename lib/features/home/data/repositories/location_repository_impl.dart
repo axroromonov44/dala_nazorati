@@ -14,16 +14,8 @@ class LocationException implements Exception {
 }
 
 class LocationRepositoryImpl implements LocationRepository {
-  // A raw GPS fix without A-GPS assistance data (no internet) takes longer
-  // to lock than a network-aided one, so this is more generous than the
-  // 15s used previously.
   static const _timeout = Duration(seconds: 30);
 
-  /// On Android, [AndroidSettings.forceLocationManager] bypasses Google's
-  /// FusedLocationProviderClient (which blends in network/Wi-Fi based
-  /// positioning and can silently return a stale or coarse fix when there is
-  /// no internet) and talks to the GPS chip directly via the legacy
-  /// LocationManager, so we still get a genuine satellite fix while offline.
   LocationSettings _locationSettings({int distanceFilter = 0}) {
     if (Platform.isAndroid) {
       return AndroidSettings(

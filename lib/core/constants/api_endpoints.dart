@@ -11,8 +11,6 @@ class ApiEndpoints {
   static const String refreshToken = '/users/token/refresh';
   static const String me = '/users/me';
 
-  // Fields ("dalalar") — exact path/query contract not yet confirmed with
-  // backend; isolated here so a change only touches FieldRemoteDataSource.
   static const String fields = '/fields';
   static String fieldDetail(String id) => '/fields/$id';
 }

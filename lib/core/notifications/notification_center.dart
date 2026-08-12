@@ -2,9 +2,6 @@ import 'package:flutter/foundation.dart';
 
 import 'app_notification.dart';
 
-/// Holds every [AppNotification] shown via the bell icon on the map page —
-/// a general-purpose notification list, not specific to any one feature.
-/// Session-scoped (in-memory only): does not survive an app restart.
 class NotificationCenter {
   const NotificationCenter._();
 

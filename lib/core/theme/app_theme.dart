@@ -16,18 +16,18 @@ class AppTheme {
     final textSecColor = isDark ? const Color(0xFF9CA3AF) : kTextSecondary;
 
     final textTheme = TextTheme(
-      displayMedium:  kBold28.copyWith(color: textColor, letterSpacing: -0.5),
-      headlineLarge:  kBold24.copyWith(color: textColor, letterSpacing: -0.3),
+      displayMedium: kBold28.copyWith(color: textColor, letterSpacing: -0.5),
+      headlineLarge: kBold24.copyWith(color: textColor, letterSpacing: -0.3),
       headlineMedium: kSemiBold20.copyWith(color: textColor),
-      titleLarge:     kSemiBold18.copyWith(color: textColor),
-      titleMedium:    kMedium16.copyWith(color: textColor),
-      titleSmall:     kMedium14.copyWith(color: textColor),
-      bodyLarge:      kRegular16.copyWith(color: textColor, height: 1.5),
-      bodyMedium:     kRegular14.copyWith(color: textColor, height: 1.5),
-      bodySmall:      kRegular12.copyWith(color: textSecColor, height: 1.4),
-      labelLarge:     kMedium14.copyWith(color: textColor),
-      labelMedium:    kMedium12.copyWith(color: textSecColor),
-      labelSmall:     kMedium11.copyWith(color: textSecColor, letterSpacing: 0.3),
+      titleLarge: kSemiBold18.copyWith(color: textColor),
+      titleMedium: kMedium16.copyWith(color: textColor),
+      titleSmall: kMedium14.copyWith(color: textColor),
+      bodyLarge: kRegular16.copyWith(color: textColor, height: 1.5),
+      bodyMedium: kRegular14.copyWith(color: textColor, height: 1.5),
+      bodySmall: kRegular12.copyWith(color: textSecColor, height: 1.4),
+      labelLarge: kMedium14.copyWith(color: textColor),
+      labelMedium: kMedium12.copyWith(color: textSecColor),
+      labelSmall: kMedium11.copyWith(color: textSecColor, letterSpacing: 0.3),
     );
 
     final softBorderColor = isDark
@@ -45,7 +45,9 @@ class AppTheme {
       borderRadius: BorderRadius.circular(14),
       borderSide: const BorderSide(color: kError, width: 1.4),
     );
-    final inputFill = isDark ? const Color(0xFF1A211A) : const Color(0xFFF5F8F5);
+    final inputFill = isDark
+        ? const Color(0xFF1A211A)
+        : const Color(0xFFF5F8F5);
 
     return ThemeData(
       useMaterial3: true,
@@ -66,8 +68,14 @@ class AppTheme {
         focusedErrorBorder: errorBorder.copyWith(
           borderSide: const BorderSide(color: kError, width: 2),
         ),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
-        labelStyle: TextStyle(color: isDark ? kGreenLight : kGreen, fontSize: 14),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 18,
+        ),
+        labelStyle: TextStyle(
+          color: isDark ? kGreenLight : kGreen,
+          fontSize: 14,
+        ),
         floatingLabelStyle: TextStyle(
           color: isDark ? kGreenLight : kGreen,
           fontSize: 13,
@@ -91,9 +99,7 @@ class AppTheme {
         elevation: 0,
         foregroundColor: fgColor,
       ),
-      drawerTheme: DrawerThemeData(
-        backgroundColor: appBarBg,
-      ),
+      drawerTheme: DrawerThemeData(backgroundColor: appBarBg),
     );
   }
 }

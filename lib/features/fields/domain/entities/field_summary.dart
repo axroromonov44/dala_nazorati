@@ -1,10 +1,6 @@
 import 'package:equatable/equatable.dart';
 import 'package:latlong2/latlong.dart';
 
-/// The lightweight "index" record for a single field ("dala") — just enough
-/// to draw its polygon and a label on the map. Cached for every field,
-/// unlike [FieldDetail] which carries the heavy stuff (photos, description)
-/// and is only fetched on demand.
 class FieldSummary extends Equatable {
   FieldSummary({
     required this.id,
@@ -22,8 +18,6 @@ class FieldSummary extends Equatable {
   final String status;
   final DateTime updatedAt;
 
-  /// Precomputed once at construction time — used as the bucketing key by
-  /// `FieldSpatialIndex`, so it isn't recomputed on every viewport query.
   final LatLng centroid;
 
   static LatLng _centroidOf(List<LatLng> points) {
