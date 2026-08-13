@@ -45,7 +45,6 @@ class FieldFormSheet extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bottom = MediaQuery.of(context).padding.bottom;
     final bg = isDark ? const Color(0xFF111111) : const Color(0xFFEEF1EE);
 
     return Container(
@@ -182,7 +181,7 @@ class FieldFormSheet extends StatelessWidget {
             ),
           ),
           Padding(
-            padding: EdgeInsets.fromLTRB(16, 10, 16, bottom + 16),
+            padding: EdgeInsets.fromLTRB(16, 10, 16, 16),
             child: Column(
               children: [
                 _MonitoringButton(

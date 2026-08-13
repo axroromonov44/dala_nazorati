@@ -728,7 +728,7 @@ class _LocationMapState extends State<LocationMap>
             ),
           ),
           Positioned(
-            bottom: kFloatingNavBarClearance,
+            bottom: 0,
             left: 0,
             right: 0,
             child: _DrawingBottomBar(
@@ -898,7 +898,7 @@ class _DrawingBottomBar extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 const Icon(Icons.touch_app_rounded, color: kGreen, size: 15),
-                const SizedBox(width: 6),
+               kHorizontalSpace8,
                 Text(
                   pointCount == 0
                       ? 'drawingPrompt'.tr()
@@ -914,7 +914,7 @@ class _DrawingBottomBar extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(height: 10),
+          kVerticalSpace12,
           SizedBox(
             width: double.infinity,
             child: OutlinedButton.icon(
@@ -934,6 +934,7 @@ class _DrawingBottomBar extends StatelessWidget {
               ),
             ),
           ),
+          kVerticalSpace24,
         ],
       ),
     );
@@ -1124,52 +1125,65 @@ class _ServerFieldDetailSheet extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final bottom = MediaQuery.of(context).padding.bottom;
 
-    return Container(
-      padding: EdgeInsets.fromLTRB(20, 14, 20, bottom + 20),
-      decoration: BoxDecoration(
-        color: colorScheme.surface,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+    return ConstrainedBox(
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.85,
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            field.name,
-            style: TextStyle(
-              fontSize: 17,
-              fontWeight: FontWeight.w800,
-              color: colorScheme.onSurface,
-            ),
+      child: Container(
+        padding: EdgeInsets.fromLTRB(20, 14, 20, bottom + 20),
+        decoration: BoxDecoration(
+          color: colorScheme.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                field.name,
+                style: TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w800,
+                  color: colorScheme.onSurface,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                field.cropType,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: 16),
+              FutureBuilder<FieldDetail>(
+                future: getIt<FieldRepository>().getFieldDetail(field.id),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 24),
+                      child: Center(child: CircularProgressIndicator()),
+                    );
+                  }
+                  if (snapshot.hasError) {
+                    return Text(
+                      'errorGeneric'.tr(),
+                      style: TextStyle(color: colorScheme.onSurfaceVariant),
+                    );
+                  }
+                  return Text(
+                    snapshot.data!.description,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: colorScheme.onSurface,
+                    ),
+                  );
+                },
+              ),
+            ],
           ),
-          const SizedBox(height: 4),
-          Text(
-            field.cropType,
-            style: TextStyle(fontSize: 13, color: colorScheme.onSurfaceVariant),
-          ),
-          const SizedBox(height: 16),
-          FutureBuilder<FieldDetail>(
-            future: getIt<FieldRepository>().getFieldDetail(field.id),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 24),
-                  child: Center(child: CircularProgressIndicator()),
-                );
-              }
-              if (snapshot.hasError) {
-                return Text(
-                  'errorGeneric'.tr(),
-                  style: TextStyle(color: colorScheme.onSurfaceVariant),
-                );
-              }
-              return Text(
-                snapshot.data!.description,
-                style: TextStyle(fontSize: 14, color: colorScheme.onSurface),
-              );
-            },
-          ),
-        ],
+        ),
       ),
     );
   }

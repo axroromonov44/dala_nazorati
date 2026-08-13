@@ -9,6 +9,7 @@ import 'package:go_router/go_router.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/constants/app_spacings.dart';
 import '../../../../core/di/injection.dart';
 import '../../../../core/map/tile_cache_service.dart';
 import '../../../../core/notifications/app_notification.dart';
@@ -43,7 +44,7 @@ class ProfilePage extends StatelessWidget {
           hPad,
           context.spaceMd,
           hPad,
-          context.spaceLg,
+          kFloatingNavBarClearance + MediaQuery.of(context).padding.bottom,
         ),
         children: [
           _IdentityCard(user: user, displayName: displayName),
@@ -635,29 +636,52 @@ class _LanguageTile extends StatelessWidget {
 
 void _showLanguagePicker(BuildContext context) {
   final current = context.locale.languageCode;
+  final langs = _LanguageTile._langs;
   showModalBottomSheet(
     context: context,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
     ),
     builder: (sheetContext) => SafeArea(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          for (final lang in _LanguageTile._langs)
-            ListTile(
-              leading: Text(lang.flag, style: const TextStyle(fontSize: 20)),
-              title: Text(lang.label),
-              trailing: lang.code == current
-                  ? const Icon(Icons.check_rounded, color: kGreen)
-                  : null,
-              onTap: () {
-                hapticSelect();
-                context.setLocale(Locale(lang.code));
-                Navigator.of(sheetContext).pop();
-              },
+      top: false,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Center(
+              child: Container(
+                width: 36,
+                height: 4,
+                margin: const EdgeInsets.symmetric(vertical: 12),
+                decoration: BoxDecoration(
+                  color: Theme.of(sheetContext).colorScheme.outlineVariant,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
             ),
-        ],
+            for (int i = 0; i < langs.length; i++) ...[
+              if (i > 0) const SizedBox(height: 8),
+              _BorderedTile(
+                child: ListTile(
+                  leading: Text(
+                    langs[i].flag,
+                    style: const TextStyle(fontSize: 20),
+                  ),
+                  title: Text(langs[i].label),
+                  trailing: langs[i].code == current
+                      ? const Icon(Icons.check_rounded, color: kGreen)
+                      : null,
+                  onTap: () {
+                    hapticSelect();
+                    context.setLocale(Locale(langs[i].code));
+                    Navigator.of(sheetContext).pop();
+                  },
+                ),
+              ),
+            ],
+          ],
+        ),
       ),
     ),
   );

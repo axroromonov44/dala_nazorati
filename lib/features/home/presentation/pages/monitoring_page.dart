@@ -729,64 +729,176 @@ class _PlantCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final url = plant.images.isEmpty ? null : plant.images.first;
     const imageSize = 64.0;
-    return Container(
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: isDark ? Colors.white.withAlpha(8) : Colors.grey.shade50,
+    return Material(
+      color: isDark ? Colors.white.withAlpha(8) : Colors.grey.shade50,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: colorScheme.outlineVariant.withAlpha(50)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: Material(
-              color: isDark ? Colors.white.withAlpha(10) : Colors.grey.shade100,
-              child: InkWell(
-                onTap: url == null
-                    ? null
-                    : () => _openImagePreview(context, url, plant.name),
-                child: SizedBox(
-                  width: imageSize,
-                  height: imageSize,
-                  child: url == null
-                      ? const _PlantImagePlaceholder()
-                      : _PlantImage(url: url, size: imageSize),
-                ),
-              ),
-            ),
+        onTap: () => _openPlantDetailSheet(context, plant, isDark),
+        child: Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: colorScheme.outlineVariant.withAlpha(50)),
           ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  plant.name,
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w700,
-                    color: colorScheme.onSurface,
-                  ),
-                ),
-                if (plant.description.trim().isNotEmpty) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    plant.description,
-                    maxLines: 4,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 11.5,
-                      color: colorScheme.onSurfaceVariant,
-                      height: 1.35,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: Material(
+                  color: isDark
+                      ? Colors.white.withAlpha(10)
+                      : Colors.grey.shade100,
+                  child: InkWell(
+                    onTap: url == null
+                        ? null
+                        : () => _openImagePreview(context, url, plant.name),
+                    child: SizedBox(
+                      width: imageSize,
+                      height: imageSize,
+                      child: url == null
+                          ? const _PlantImagePlaceholder()
+                          : _PlantImage(url: url, size: imageSize),
                     ),
                   ),
-                ],
-              ],
-            ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      plant.name,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: colorScheme.onSurface,
+                      ),
+                    ),
+                    if (plant.description.trim().isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        plant.description,
+                        maxLines: 4,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          color: colorScheme.onSurfaceVariant,
+                          height: 1.35,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'viewMore'.tr(),
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                          color: isDark ? kGreenLight : kGreen,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
+      ),
+    );
+  }
+}
+
+void _openPlantDetailSheet(BuildContext context, Plant plant, bool isDark) {
+  hapticLight();
+  showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    constraints: context.isTablet
+        ? BoxConstraints(maxWidth: context.sheetMaxWidth)
+        : null,
+    shape: const RoundedRectangleBorder(
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+    ),
+    builder: (_) => _PlantDetailSheet(plant: plant, isDark: isDark),
+  );
+}
+
+class _PlantDetailSheet extends StatelessWidget {
+  const _PlantDetailSheet({required this.plant, required this.isDark});
+
+  final Plant plant;
+  final bool isDark;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final bottom = MediaQuery.of(context).padding.bottom;
+    final url = plant.images.isEmpty ? null : plant.images.first;
+
+    return ConstrainedBox(
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.85,
+      ),
+      child: Container(
+        decoration: BoxDecoration(
+          color: colorScheme.surface,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: SingleChildScrollView(
+          padding: EdgeInsets.fromLTRB(20, 14, 20, bottom + 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 14),
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? Colors.white.withAlpha(50)
+                        : Colors.black.withAlpha(20),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              if (url != null)
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(14),
+                  child: GestureDetector(
+                    onTap: () => _openImagePreview(context, url, plant.name),
+                    child: AspectRatio(
+                      aspectRatio: 16 / 10,
+                      child: _PlantImage(url: url, fit: BoxFit.cover),
+                    ),
+                  ),
+                ),
+              if (url != null) const SizedBox(height: 16),
+              Text(
+                plant.name,
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  color: colorScheme.onSurface,
+                ),
+              ),
+              if (plant.description.trim().isNotEmpty) ...[
+                const SizedBox(height: 10),
+                Text(
+                  plant.description,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: colorScheme.onSurface,
+                    height: 1.5,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
       ),
     );
   }

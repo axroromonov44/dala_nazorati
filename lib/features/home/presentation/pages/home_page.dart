@@ -15,7 +15,15 @@ import '../widgets/location_map.dart';
 import 'fake_gps_page.dart';
 
 class HomePage extends StatelessWidget {
-  const HomePage({super.key});
+  const HomePage({super.key, required this.isDrawing});
+
+  /// Set to `true` while the user is drawing a field polygon on the map.
+  /// Owned by `MainPage`, which hides its own FAB and bottom nav bar for as
+  /// long as this is `true` — otherwise they'd sit on top of the map's own
+  /// drawing bottom bar, since that bar is just a `Positioned` widget inside
+  /// this page's body and can never paint above `MainPage`'s persistent
+  /// chrome on its own.
+  final ValueNotifier<bool> isDrawing;
 
   @override
   Widget build(BuildContext context) => MultiBlocProvider(
@@ -25,20 +33,20 @@ class HomePage extends StatelessWidget {
       ),
       BlocProvider(create: (_) => getIt<FieldsBloc>()),
     ],
-    child: const _HomeView(),
+    child: _HomeView(isDrawing: isDrawing),
   );
 }
 
 class _HomeView extends StatefulWidget {
-  const _HomeView();
+  const _HomeView({required this.isDrawing});
+
+  final ValueNotifier<bool> isDrawing;
 
   @override
   State<_HomeView> createState() => _HomeViewState();
 }
 
 class _HomeViewState extends State<_HomeView> {
-  final _drawingNotifier = ValueNotifier<bool>(false);
-
   @override
   void initState() {
     super.initState();
@@ -64,12 +72,6 @@ class _HomeViewState extends State<_HomeView> {
   }
 
   @override
-  void dispose() {
-    _drawingNotifier.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: BlocBuilder<MapBloc, MapState>(
@@ -78,7 +80,7 @@ class _HomeViewState extends State<_HomeView> {
           MapLocationLoading() => const _LoadingView(),
           MapLocationLoaded(:final location) => LocationMap(
             location: location,
-            drawingNotifier: _drawingNotifier,
+            drawingNotifier: widget.isDrawing,
           ),
           MapFakeGpsDetected() => const FakeGpsPage(),
           MapLocationFailure(:final message) => _ErrorView(message: message),
@@ -123,4 +125,3 @@ class _ErrorView extends StatelessWidget {
     ),
   );
 }
-
