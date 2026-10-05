@@ -304,8 +304,9 @@ class _KarantinFaceScannerState extends State<KarantinFaceScanner>
         return;
       }
 
+      // Display the full frame (natural framing); upload the face-focused crop.
+      if (mounted) setState(() => _mainPreview = mainBytes);
       final cropped = await _cropCenteredSquare(mainBytes);
-      if (mounted) setState(() => _mainPreview = cropped);
 
       final additional = <Uint8List>[];
       for (var i = 0; i < _targetAdditional; i++) {
@@ -489,9 +490,20 @@ class _KarantinFaceScannerState extends State<KarantinFaceScanner>
   }
 
   Widget _buildCameraOrImage(double diameter) {
+    // Selfie mirror, applied to both the live preview and the frozen frame so
+    // the framing never flips at capture.
+    final mirror = Matrix4.identity()..scaleByDouble(-1.0, 1.0, 1.0, 1.0);
+
     if (_mainPreview != null) {
-      return Image.memory(_mainPreview!, fit: BoxFit.cover);
+      // Show the full captured frame (same natural framing as the preview); the
+      // tighter face crop is only used for the upload payload.
+      return Transform(
+        alignment: Alignment.center,
+        transform: mirror,
+        child: Image.memory(_mainPreview!, fit: BoxFit.cover),
+      );
     }
+
     final controller = _controller;
     if (!_cameraReady || controller == null) {
       return const ColoredBox(
@@ -502,19 +514,21 @@ class _KarantinFaceScannerState extends State<KarantinFaceScanner>
       );
     }
 
-    // Cover-fit the preview inside the circle, mirrored like a selfie view.
+    // Cover-fit the preview using its real pixel size so the field of view
+    // matches the native camera (no extra zoom/stretch). previewSize is in the
+    // sensor's landscape orientation, so swap width/height for portrait display.
     final previewSize = controller.value.previewSize;
-    final aspect = previewSize == null
-        ? 1.0
-        : previewSize.height / previewSize.width;
+    final childWidth = previewSize?.height ?? diameter;
+    final childHeight = previewSize?.width ?? diameter;
     return Transform(
       alignment: Alignment.center,
-      transform: Matrix4.identity()..scaleByDouble(-1.0, 1.0, 1.0, 1.0),
+      transform: mirror,
       child: FittedBox(
         fit: BoxFit.cover,
+        clipBehavior: Clip.hardEdge,
         child: SizedBox(
-          width: diameter,
-          height: diameter / aspect,
+          width: childWidth,
+          height: childHeight,
           child: CameraPreview(controller),
         ),
       ),
