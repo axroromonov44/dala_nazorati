@@ -490,16 +490,13 @@ class _KarantinFaceScannerState extends State<KarantinFaceScanner>
   }
 
   Widget _buildCameraOrImage(double diameter) {
-    // Selfie mirror, applied to both the live preview and the frozen frame so
-    // the framing never flips at capture.
-    final mirror = Matrix4.identity()..scaleByDouble(-1.0, 1.0, 1.0, 1.0);
-
     if (_mainPreview != null) {
-      // Show the full captured frame (same natural framing as the preview); the
-      // tighter face crop is only used for the upload payload.
+      // The live preview is already selfie-mirrored by the platform, but the
+      // captured still is saved un-mirrored; mirror the frozen frame so the
+      // framing does not flip at capture.
       return Transform(
         alignment: Alignment.center,
-        transform: mirror,
+        transform: Matrix4.identity()..scaleByDouble(-1.0, 1.0, 1.0, 1.0),
         child: Image.memory(_mainPreview!, fit: BoxFit.cover),
       );
     }
@@ -528,17 +525,16 @@ class _KarantinFaceScannerState extends State<KarantinFaceScanner>
       childWidth = math.min(previewSize.width, previewSize.height);
       childHeight = math.max(previewSize.width, previewSize.height);
     }
-    return Transform(
-      alignment: Alignment.center,
-      transform: mirror,
-      child: FittedBox(
-        fit: BoxFit.cover,
-        clipBehavior: Clip.hardEdge,
-        child: SizedBox(
-          width: childWidth,
-          height: childHeight,
-          child: CameraPreview(controller),
-        ),
+    // No manual mirror here: the platform already shows the front camera as a
+    // natural selfie view. Adding a flip would reverse it relative to the
+    // native camera.
+    return FittedBox(
+      fit: BoxFit.cover,
+      clipBehavior: Clip.hardEdge,
+      child: SizedBox(
+        width: childWidth,
+        height: childHeight,
+        child: CameraPreview(controller),
       ),
     );
   }
