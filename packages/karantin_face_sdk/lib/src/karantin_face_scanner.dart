@@ -59,7 +59,7 @@ class _KarantinFaceScannerState extends State<KarantinFaceScanner>
   static const _countdownSeconds = 1;
   // Frames captured in a short burst; the best becomes the main image and the
   // rest (deduplicated) become the additional check images.
-  static const _burstCount = 5;
+  static const _burstCount = 3;
   static const _mainMaxDim = 720;
   static const _additionalMaxDim = 640;
 
@@ -357,20 +357,22 @@ class _KarantinFaceScannerState extends State<KarantinFaceScanner>
     try {
       await _stopStream();
 
-      // Burst-capture a few stills; the natural latency between shots gives
-      // slight variation (acts like collecting frames during the scan).
-      final frames = <Uint8List>[];
-      for (var i = 0; i < _burstCount; i++) {
-        final f = await _takePictureBytes(controller);
-        if (f != null) frames.add(f);
-      }
-      if (frames.isEmpty) {
+      // Take the first shot and freeze it on screen immediately, so the user
+      // never sees the live preview flicker while the remaining shots are taken.
+      final first = await _takePictureBytes(controller);
+      if (first == null) {
         _resetAfterFailure('Rasm olinmadi. Qaytadan urinib koʻring.');
         return;
       }
+      if (mounted) setState(() => _mainPreview = first);
 
-      // Show the first frame immediately for responsiveness.
-      if (mounted) setState(() => _mainPreview = frames.first);
+      // Burst the remaining frames behind the frozen image; the natural latency
+      // between shots gives slight variation (acts like scan-time collection).
+      final frames = <Uint8List>[first];
+      for (var i = 1; i < _burstCount; i++) {
+        final f = await _takePictureBytes(controller);
+        if (f != null) frames.add(f);
+      }
 
       // Score, crop and compress off the UI thread: pick the sharpest/brightest
       // frame as the main image, resize + JPEG-compress everything for upload.
@@ -520,11 +522,15 @@ class _KarantinFaceScannerState extends State<KarantinFaceScanner>
               ? _verifiedColor
               : _borderColor
         : Colors.transparent;
-    final glow = _cameraReady
-        ? (_countdown != null || _isVerified)
-              ? border
-              : (_isCentered ? _readyColor : _errorColor)
-        : Colors.transparent;
+    // Soft glow only for the positive states; no red halo when off-centre.
+    Color? glow;
+    if (_cameraReady) {
+      if (_isVerified) {
+        glow = _verifiedColor;
+      } else if (_countdown != null || (_isCentered && _step >= 2)) {
+        glow = _readyColor;
+      }
+    }
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
@@ -534,8 +540,8 @@ class _KarantinFaceScannerState extends State<KarantinFaceScanner>
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         border: Border.all(color: border, width: 3),
-        boxShadow: _cameraReady
-            ? [BoxShadow(color: glow, blurRadius: 16, spreadRadius: 1)]
+        boxShadow: glow != null
+            ? [BoxShadow(color: glow.withValues(alpha: 0.4), blurRadius: 12)]
             : null,
       ),
       child: ClipOval(
