@@ -1,36 +1,37 @@
 # karantin_face_sdk
 
-Native Flutter **Face ID login for Karantin ID**. Replaces the in-webview face
-scan with an on-device camera + ML Kit flow: it fetches the OAuth session,
-guides the user through a face scan, submits the images to the Karantin ID
-backend, follows the redirect chain and returns the authorization **`code`**.
+**Karantin ID uchun native Flutter Face ID kirish.** Webview ichidagi yuz
+skanerini on-device kamera + ML Kit oqimi bilan almashtiradi: OAuth sessiyasini
+ochadi, foydalanuvchini yuz skaneridan o'tkazadi, rasmlarni Karantin ID
+backendiga yuboradi, redirect zanjirini kuzatadi va ilovaga avtorizatsiya
+**`code`**ini qaytaradi.
 
-- On-device face detection (Google ML Kit) — no face data leaves the device
-  except the images sent to the official Karantin ID backend.
-- Passive liveness (natural movement / blink / head pose) — **never** asks the
-  user to turn or blink.
-- Best-frame selection + image compression (small uploads for weak networks).
-- Device binding (device id, fingerprint, GPS) for inspector anti-fraud.
-- Platform-native camera-permission dialogs (Cupertino on iOS, Material on
-  Android).
+- On-device yuz aniqlash (Google ML Kit) — yuz ma'lumoti rasmiy Karantin ID
+  backendiga yuborilgan rasmlardan boshqa hech qayerga ketmaydi.
+- Passiv liveness (tabiiy harakat / ko'z pirpirashi / bosh burchagi) —
+  foydalanuvchidan **hech qachon** burilish yoki ko'z pirpiratishni so'ramaydi.
+- Eng sifatli kadrni tanlash + rasm siqish (zaif internet uchun kichik yuklama).
+- Qurilma bog'lanishi (device id, fingerprint, GPS) — inspektor anti-fraud uchun.
+- Platformaga mos kamera-ruxsat dialoglari (iOS'da Cupertino, Android'da
+  Material).
 
-## Install
+## O'rnatish
 
-Add it as a path (or git) dependency:
+Paketni `pubspec.yaml`ga path (yoki git) dependency sifatida qo'shing:
 
 ```yaml
 dependencies:
   karantin_face_sdk:
     path: packages/karantin_face_sdk
-    # or:
+    # yoki git orqali:
     # git:
     #   url: https://github.com/axroromonov44/dala_nazorati.git
     #   path: packages/karantin_face_sdk
 ```
 
-Then `flutter pub get`.
+So'ng `flutter pub get`.
 
-### Platform setup
+### Platforma sozlamalari
 
 **Android** — `android/app/src/main/AndroidManifest.xml`:
 
@@ -40,7 +41,7 @@ Then `flutter pub get`.
 <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
 ```
 
-`minSdkVersion` must be **21+**.
+`minSdkVersion` **21+** bo'lishi shart.
 
 **iOS** — `ios/Runner/Info.plist`:
 
@@ -51,7 +52,7 @@ Then `flutter pub get`.
 <string>Tasdiqlash joyini qayd etish uchun joylashuv kerak</string>
 ```
 
-## Usage
+## Foydalanish
 
 ```dart
 import 'package:karantin_face_sdk/karantin_face_sdk.dart';
@@ -61,19 +62,19 @@ final code = await KarantinFace.authenticate(
   config: const KarantinFaceConfig(
     clientId: 'your_client_id',
     redirectUri: 'https://your.app/callback',
-    // baseUrl: 'https://id.karantin.uz', // default
-    // authType: 'login',                 // default
+    // baseUrl: 'https://id.karantin.uz', // standart
+    // authType: 'login',                 // standart
     primaryColor: Color(0xFF2E7D32),
     debugLogging: kDebugMode,
   ),
 );
 
 if (code != null) {
-  // Exchange `code` for tokens on your backend, as after a webview redirect.
+  // `code`ni backendingizda tokenlarga almashtiring (webview redirectidagidek).
 }
 ```
 
-Or push the page directly:
+Yoki sahifani to'g'ridan-to'g'ri oching:
 
 ```dart
 final code = await Navigator.of(context).push<String?>(
@@ -83,35 +84,34 @@ final code = await Navigator.of(context).push<String?>(
 );
 ```
 
-### Localising the UI
+### Matnlarni tarjima qilish
 
-Pass `strings:` on the config:
+Har bir matnning o'zbekcha standarti bor; `strings:` orqali o'zgartiring:
 
 ```dart
 KarantinFaceConfig(
   clientId: '…',
   redirectUri: '…',
   strings: KarantinFaceStrings(
-    formTitle: 'Login with your face',
-    continueButton: 'Continue',
-    // …
+    formTitle: 'Yuz orqali kirish',
+    continueButton: 'Davom etish',
   ),
 )
 ```
 
-## How it works
+## Qanday ishlaydi
 
-1. `GET /app/project/oauth/authorize` → parse the `token`/`name` (or
-   `code`/`state`) from the redirect.
-2. Collect passport / PNFL, then run the face scan.
-3. `POST /app/project/oauth/{login,register,verify-doc}` with `face_image` +
-   `check_image1..4` + device fields.
-4. Follow `redirect_to` until the configured `redirectUri?code=…` and return the
-   code.
+1. `GET /app/project/oauth/authorize` → redirectdan `token`/`name` (yoki
+   `code`/`state`) olinadi.
+2. Passport / PNFL kiritiladi, so'ng yuz skaneri ishga tushadi.
+3. `POST /app/project/oauth/{login,register,verify-doc}` — `face_image` +
+   `check_image1..4` + qurilma maydonlari yuboriladi.
+4. `redirect_to` kuzatilib `redirectUri?code=…` ga yetguncha boriladi va kod
+   qaytariladi.
 
-A single cookie jar is shared across the requests so the OAuth session behaves
-like a browser session.
+So'rovlar orasida bitta cookie jar ulashilади — OAuth sessiyasi brauzer
+sessiyasidek ishlaydi.
 
-## License
+## Litsenziya
 
-Internal use for the Nazorat AAT / Karantin ID project.
+Nazorat AAT / Karantin ID loyihasi uchun ichki foydalanish.
