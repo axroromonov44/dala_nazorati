@@ -94,6 +94,7 @@ class _KarantinPassportFormState extends State<KarantinPassportForm> {
 
   void _setMode(bool isPnfl) {
     if (_isPnfl == isPnfl) return;
+    HapticFeedback.selectionClick();
     setState(() {
       _isPnfl = isPnfl;
       _controller.clear();
@@ -102,6 +103,7 @@ class _KarantinPassportFormState extends State<KarantinPassportForm> {
   }
 
   void _submit() {
+    HapticFeedback.mediumImpact();
     if (!(_formKey.currentState?.validate() ?? false)) return;
     final value = _controller.text.trim();
     widget.onSubmit(_isPnfl ? value : value.toUpperCase(), _isPnfl);

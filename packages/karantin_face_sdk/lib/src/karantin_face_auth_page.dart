@@ -3,6 +3,7 @@ import 'dart:io' show Platform;
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show HapticFeedback;
 import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
 
@@ -158,12 +159,18 @@ class _KarantinFaceAuthPageState extends State<KarantinFaceAuthPage> {
               ),
               actions: [
                 CupertinoDialogAction(
-                  onPressed: () => Navigator.of(ctx).pop(false),
+                  onPressed: () {
+                    HapticFeedback.selectionClick();
+                    Navigator.of(ctx).pop(false);
+                  },
                   child: Text(_strings.cancelAction),
                 ),
                 CupertinoDialogAction(
                   isDefaultAction: true,
-                  onPressed: () => Navigator.of(ctx).pop(true),
+                  onPressed: () {
+                    HapticFeedback.selectionClick();
+                    Navigator.of(ctx).pop(true);
+                  },
                   child: Text(_strings.openSettings),
                 ),
               ],
@@ -176,14 +183,20 @@ class _KarantinFaceAuthPageState extends State<KarantinFaceAuthPage> {
               content: Text(_strings.cameraPermissionBody),
               actions: [
                 TextButton(
-                  onPressed: () => Navigator.of(ctx).pop(false),
+                  onPressed: () {
+                    HapticFeedback.selectionClick();
+                    Navigator.of(ctx).pop(false);
+                  },
                   child: Text(_strings.cancelAction),
                 ),
                 FilledButton(
                   style: FilledButton.styleFrom(
                     backgroundColor: _config.primaryColor,
                   ),
-                  onPressed: () => Navigator.of(ctx).pop(true),
+                  onPressed: () {
+                    HapticFeedback.selectionClick();
+                    Navigator.of(ctx).pop(true);
+                  },
                   child: Text(_strings.openSettings),
                 ),
               ],
@@ -236,6 +249,7 @@ class _KarantinFaceAuthPageState extends State<KarantinFaceAuthPage> {
 
       final code = await _dataSource.followToCode(redirectTo);
       if (!mounted) return;
+      HapticFeedback.heavyImpact();
       setState(() {
         _isUploaded = true;
         _phase = _Phase.success;
@@ -280,7 +294,10 @@ class _KarantinFaceAuthPageState extends State<KarantinFaceAuthPage> {
         foregroundColor: Colors.white,
         leading: IconButton(
           icon: const Icon(Icons.close_rounded),
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: () {
+            HapticFeedback.lightImpact();
+            Navigator.of(context).pop();
+          },
         ),
       ),
       body: SafeArea(
@@ -289,7 +306,29 @@ class _KarantinFaceAuthPageState extends State<KarantinFaceAuthPage> {
             padding: const EdgeInsets.all(20),
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 420),
-              child: _buildBody(),
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 320),
+                switchInCurve: Curves.easeOut,
+                switchOutCurve: Curves.easeIn,
+                transitionBuilder: (child, anim) => FadeTransition(
+                  opacity: anim,
+                  child: SlideTransition(
+                    position: Tween(
+                      begin: const Offset(0, 0.04),
+                      end: Offset.zero,
+                    ).animate(anim),
+                    child: child,
+                  ),
+                ),
+                // face and success share one key so the live scanner (and its
+                // camera) is never torn down between those phases.
+                child: KeyedSubtree(
+                  key: ValueKey(
+                    _phase == _Phase.success ? _Phase.face : _phase,
+                  ),
+                  child: _buildBody(),
+                ),
+              ),
             ),
           ),
         ),
@@ -362,7 +401,10 @@ class _ErrorView extends StatelessWidget {
           ),
           const SizedBox(height: 24),
           FilledButton.icon(
-            onPressed: onRetry,
+            onPressed: () {
+              HapticFeedback.mediumImpact();
+              onRetry();
+            },
             style: FilledButton.styleFrom(backgroundColor: color),
             icon: const Icon(Icons.refresh),
             label: Text(retryLabel),

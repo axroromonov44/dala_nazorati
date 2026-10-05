@@ -470,22 +470,41 @@ class _KarantinFaceScannerState extends State<KarantinFaceScanner>
           width: 220,
           child: ClipRRect(
             borderRadius: BorderRadius.circular(999),
-            child: LinearProgressIndicator(
-              value: (_progress / 100).clamp(0.0, 1.0),
-              minHeight: 8,
-              backgroundColor: const Color(0xFFE9ECEF),
-              valueColor: AlwaysStoppedAnimation(statusColor),
+            child: TweenAnimationBuilder<double>(
+              tween: Tween(end: (_progress / 100).clamp(0.0, 1.0)),
+              duration: const Duration(milliseconds: 300),
+              curve: Curves.easeOut,
+              builder: (context, value, _) => LinearProgressIndicator(
+                value: value,
+                minHeight: 8,
+                backgroundColor: const Color(0xFFE9ECEF),
+                valueColor: AlwaysStoppedAnimation(statusColor),
+              ),
             ),
           ),
         ),
         const SizedBox(height: 12),
-        Text(
-          _statusText,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w500,
-            color: statusColor,
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 280),
+          transitionBuilder: (child, anim) => FadeTransition(
+            opacity: anim,
+            child: SlideTransition(
+              position: Tween(
+                begin: const Offset(0, 0.3),
+                end: Offset.zero,
+              ).animate(anim),
+              child: child,
+            ),
+          ),
+          child: Text(
+            _statusText,
+            key: ValueKey(_statusText),
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              color: statusColor,
+            ),
           ),
         ),
       ],
@@ -507,7 +526,9 @@ class _KarantinFaceScannerState extends State<KarantinFaceScanner>
               : (_isCentered ? _readyColor : _errorColor)
         : Colors.transparent;
 
-    return Container(
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOut,
       width: diameter,
       height: diameter,
       decoration: BoxDecoration(
@@ -521,7 +542,19 @@ class _KarantinFaceScannerState extends State<KarantinFaceScanner>
         child: Stack(
           fit: StackFit.expand,
           children: [
-            _buildCameraOrImage(diameter),
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 350),
+              child: KeyedSubtree(
+                key: ValueKey(
+                  _mainPreview != null
+                      ? 'image'
+                      : _cameraReady
+                      ? 'camera'
+                      : 'loading',
+                ),
+                child: _buildCameraOrImage(diameter),
+              ),
+            ),
             if (_countdown != null && _mainPreview == null)
               _buildCountdown(_countdown!),
             if (_mainPreview != null) _buildScanOverlay(),

@@ -32,8 +32,27 @@ abstract final class KarantinFace {
     bool rootNavigator = true,
   }) {
     return Navigator.of(context, rootNavigator: rootNavigator).push<String?>(
-      MaterialPageRoute(
-        builder: (_) => KarantinFaceAuthPage(config: config),
+      PageRouteBuilder<String?>(
+        transitionDuration: const Duration(milliseconds: 360),
+        reverseTransitionDuration: const Duration(milliseconds: 280),
+        pageBuilder: (_, __, ___) => KarantinFaceAuthPage(config: config),
+        transitionsBuilder: (_, animation, __, child) {
+          final curved = CurvedAnimation(
+            parent: animation,
+            curve: Curves.easeOutCubic,
+            reverseCurve: Curves.easeInCubic,
+          );
+          return FadeTransition(
+            opacity: curved,
+            child: SlideTransition(
+              position: Tween(
+                begin: const Offset(0, 0.03),
+                end: Offset.zero,
+              ).animate(curved),
+              child: child,
+            ),
+          );
+        },
       ),
     );
   }

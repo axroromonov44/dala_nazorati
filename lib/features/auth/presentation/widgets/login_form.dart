@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math' as math;
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -344,30 +343,33 @@ class _RedirectDialog extends StatefulWidget {
   State<_RedirectDialog> createState() => _RedirectDialogState();
 }
 
-class _RedirectDialogState extends State<_RedirectDialog> {
-  int _countdown = 3;
-  Timer? _timer;
+class _RedirectDialogState extends State<_RedirectDialog>
+    with SingleTickerProviderStateMixin {
+  static const _totalSeconds = 3;
+  late final AnimationController _ctrl;
+  bool _completed = false;
 
   @override
   void initState() {
     super.initState();
-    _timer = Timer.periodic(const Duration(seconds: 1), (t) {
-      if (_countdown == 0) {
-        t.cancel();
-        _complete();
-      } else {
-        setState(() => _countdown--);
-      }
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: _totalSeconds * 1000),
+    )..addStatusListener((status) {
+      if (status == AnimationStatus.completed) _complete();
     });
+    _ctrl.forward();
   }
 
   @override
   void dispose() {
-    _timer?.cancel();
+    _ctrl.dispose();
     super.dispose();
   }
 
   void _complete() {
+    if (_completed) return;
+    _completed = true;
     if (mounted) Navigator.pop(context);
     widget.onComplete();
   }
@@ -417,16 +419,31 @@ class _RedirectDialogState extends State<_RedirectDialog> {
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 28),
-            _SegmentedCountdown(count: _countdown, color: accentColor),
-            const SizedBox(height: 18),
-            Text(
-              'redirectInSec'.tr(namedArgs: {'count': '$_countdown'}),
-              style: TextStyle(
-                fontSize: 14,
-                color: colorScheme.onSurfaceVariant,
-                fontWeight: FontWeight.w500,
-              ),
-              textAlign: TextAlign.center,
+            AnimatedBuilder(
+              animation: _ctrl,
+              builder: (context, _) {
+                final remaining =
+                    (_totalSeconds * (1 - _ctrl.value)).ceil().clamp(0, _totalSeconds);
+                return Column(
+                  children: [
+                    _SlideCountdownBar(
+                      progress: 1 - _ctrl.value,
+                      color: accentColor,
+                      colorLight: accentLight,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'redirectInSec'.tr(namedArgs: {'count': '$remaining'}),
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                );
+              },
             ),
           ],
         ),
@@ -547,141 +564,44 @@ class _RedirectDialogHeader extends StatelessWidget {
   }
 }
 
-class _SegmentedCountdown extends StatefulWidget {
-  const _SegmentedCountdown({required this.count, required this.color});
+class _SlideCountdownBar extends StatelessWidget {
+  const _SlideCountdownBar({
+    required this.progress,
+    required this.color,
+    required this.colorLight,
+  });
 
-  final int count;
+  /// 1.0 = full (just started), 0.0 = empty (about to continue).
+  final double progress;
   final Color color;
-
-  @override
-  State<_SegmentedCountdown> createState() => _SegmentedCountdownState();
-}
-
-class _SegmentedCountdownState extends State<_SegmentedCountdown>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _ctrl;
-  late final Animation<double> _anim;
-  int _prevCount = 3;
-
-  @override
-  void initState() {
-    super.initState();
-    _prevCount = widget.count;
-    _ctrl = AnimationController(
-      duration: const Duration(milliseconds: 450),
-      vsync: this,
-    );
-    _anim = CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut);
-  }
-
-  @override
-  void didUpdateWidget(_SegmentedCountdown old) {
-    super.didUpdateWidget(old);
-    if (old.count != widget.count) {
-      _prevCount = old.count;
-      _ctrl.forward(from: 0);
-    }
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
+  final Color colorLight;
 
   @override
   Widget build(BuildContext context) {
+    final track = color.withAlpha(28);
     return SizedBox(
-      width: 100,
-      height: 100,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          AnimatedBuilder(
-            animation: _anim,
-            builder: (_, child) {
-              final prevSweep = _prevCount / 3 * 2 * math.pi;
-              final targetSweep = widget.count / 3 * 2 * math.pi;
-              final sweep = prevSweep + (targetSweep - prevSweep) * _anim.value;
-              return CustomPaint(
-                size: const Size(100, 100),
-                painter: _CircleProgressPainter(
-                  sweep: sweep,
-                  color: widget.color,
-                ),
-              );
-            },
-          ),
-          AnimatedSwitcher(
-            duration: const Duration(milliseconds: 250),
-            transitionBuilder: (child, animation) => SlideTransition(
-              position:
-                  Tween<Offset>(
-                    begin: const Offset(0, 0.4),
-                    end: Offset.zero,
-                  ).animate(
-                    CurvedAnimation(parent: animation, curve: Curves.easeOut),
+      width: 240,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(999),
+        child: Stack(
+          children: [
+            Container(height: 8, color: track),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: FractionallySizedBox(
+                widthFactor: progress.clamp(0.0, 1.0),
+                child: Container(
+                  height: 8,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(colors: [color, colorLight]),
+                    borderRadius: BorderRadius.circular(999),
                   ),
-              child: FadeTransition(opacity: animation, child: child),
-            ),
-            child: Text(
-              '${widget.count}',
-              key: ValueKey(widget.count),
-              style: TextStyle(
-                fontSize: 46,
-                fontWeight: FontWeight.w900,
-                color: widget.color,
-                height: 1,
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
-}
-
-class _CircleProgressPainter extends CustomPainter {
-  const _CircleProgressPainter({required this.sweep, required this.color});
-
-  final double sweep;
-  final Color color;
-
-  static const _strokeWidth = 5.0;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height / 2);
-    final radius = size.width / 2 - _strokeWidth / 2 - 1;
-    final rect = Rect.fromCircle(center: center, radius: radius);
-
-    canvas.drawArc(
-      rect,
-      -math.pi / 2,
-      2 * math.pi,
-      false,
-      Paint()
-        ..color = color.withAlpha(30)
-        ..strokeWidth = _strokeWidth
-        ..style = PaintingStyle.stroke
-        ..strokeCap = StrokeCap.round,
-    );
-
-    if (sweep > 0.01) {
-      canvas.drawArc(
-        rect,
-        -math.pi / 2,
-        sweep,
-        false,
-        Paint()
-          ..color = color
-          ..strokeWidth = _strokeWidth
-          ..style = PaintingStyle.stroke
-          ..strokeCap = StrokeCap.round,
-      );
-    }
-  }
-
-  @override
-  bool shouldRepaint(_CircleProgressPainter old) => old.sweep != sweep;
 }
