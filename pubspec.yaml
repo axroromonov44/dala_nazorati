@@ -1,5 +1,5 @@
 name: dala_nazorati
-description: "Dala nazorati - field monitoring application"
+description: "Nazorat AAT - karantin, veterinariya va SES inspektorlari uchun nazorat tizimi"
 publish_to: 'none'
 
 version: 1.0.0+14
@@ -73,6 +73,18 @@ dependencies:
   webview_flutter_android: ^4.12.0
   webview_flutter_wkwebview: ^3.25.0
   permission_handler: ^12.0.1
+
+  # Native karantin-id face verification (replaces the in-webview face scan)
+  camera: ^0.11.0+2
+  google_mlkit_face_detection: ^0.13.1
+  device_info_plus: ^11.5.0
+  crypto: ^3.0.6
+  image: ^4.3.0
+  # Shared cookie jar so the OAuth session survives the authorize -> submit ->
+  # redirect chain the same way a browser session would.
+  cookie_jar: ^4.0.8
+  dio_cookie_manager: ^3.1.1
+
   wakelock_plus: ^1.5.2
   package_info_plus: ^9.0.1
   animated_bottom_navigation_bar: ^1.4.1
@@ -101,7 +113,10 @@ flutter_launcher_icons:
   ios: true
   image_path: "assets/images/app_icon.png"
   remove_alpha_ios: true
-  background_color_ios: "#FFFFFF"
-  adaptive_icon_background: "#FFFFFF"
-  adaptive_icon_foreground: "assets/images/app_icon.png"
+  background_color_ios: "#2E7D32"
+  # The adaptive foreground is the white shield on its own; the launcher
+  # supplies the green field behind it, so the two must not both carry it.
+  adaptive_icon_background: "#2E7D32"
+  adaptive_icon_foreground: "assets/images/app_icon_foreground.png"
+  adaptive_icon_monochrome: "assets/images/app_icon_monochrome.png"
   min_sdk_android: 21

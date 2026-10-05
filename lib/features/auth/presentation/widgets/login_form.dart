@@ -7,7 +7,7 @@ import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_spacings.dart';
 import '../../../../core/utils/haptic.dart';
 import '../bloc/auth_bloc.dart';
-import '../pages/karantin_webview_page.dart';
+import '../pages/karantin_face_auth_page.dart';
 import '../pages/oneid_webview_page.dart';
 
 class LoginForm extends StatefulWidget {
@@ -61,9 +61,9 @@ class _LoginFormState extends State<LoginForm> {
   Future<void> _openKarantinWebView() async {
     final authBloc = context.read<AuthBloc>();
     final code = await Navigator.of(context, rootNavigator: true).push<String?>(
-      MaterialPageRoute(builder: (_) => const KarantinWebViewPage()),
+      MaterialPageRoute(builder: (_) => const KarantinFaceAuthPage()),
     );
-    debugPrint('[KarantinID] webview returned code=$code');
+    debugPrint('[KarantinID] native face auth returned code=$code');
     if (code != null && code.isNotEmpty) {
       authBloc.add(AuthKarantinLoginRequested(code: code));
     } else {

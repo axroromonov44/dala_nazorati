@@ -1,5 +1,5 @@
 {
-  "appTitle": "Dala Nazorati",
+  "appTitle": "Nazorat AAT",
   "loginTitle": "Tizimga kiring",
   "phoneLabel": "Foydalanuvchi nomi",
   "passwordLabel": "Parol",
@@ -77,6 +77,7 @@
   "minPointsRequired": "Kamida 3 ta nuqta qo'ying",
   "cancel": "Bekor",
   "cancelAction": "Bekor qilish",
+  "retryAction": "Qayta urinish",
   "done": "Tayyor",
   "deleteLabel": "O'chirish",
   "redraw": "Qayta chizish",
@@ -166,7 +167,7 @@
   "redirectInSec": "{count} sekunddan keyin yo'naltirilasiz",
   "karantinRedirectDesc": "Davlat karantin nazorati tizimiga o'tasiz",
   "oneIdRedirectDesc": "Yagona identifikatsiya tizimiga o'tasiz",
-  "appTagline": "Dala monitoringi",
+  "appTagline": "Karantin • Veterinariya • SES",
   "errorTimeout": "So'rov vaqti tugadi. Internet aloqasini tekshiring.",
   "errorConnection": "Internetga ulanib bo'lmadi. Aloqani tekshiring.",
   "errorBadCertificate": "Xavfsiz aloqa o'rnatib bo'lmadi.",
@@ -207,5 +208,10 @@
   "genderMale": "Erkak",
   "genderFemale": "Ayol",
   "copiedToClipboard": "{label} nusxalandi",
-  "tapForDetails": "Shaxsiy ma'lumotlar"
+  "tapForDetails": "Shaxsiy ma'lumotlar",
+  "roleInspector": "Inspektor",
+  "roleKarantinInspector": "Karantin inspektor",
+  "roleVetInspector": "Vet inspektor",
+  "roleSesInspector": "SES inspektor",
+  "roleSectionLabel": "Rol"
 }

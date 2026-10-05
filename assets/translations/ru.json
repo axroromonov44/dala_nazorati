@@ -1,5 +1,5 @@
 {
-  "appTitle": "Мониторинг поля",
+  "appTitle": "Nazorat AAT",
   "loginTitle": "Вход",
   "phoneLabel": "Имя пользователя",
   "passwordLabel": "Пароль",
@@ -77,6 +77,7 @@
   "minPointsRequired": "Добавьте минимум 3 точки",
   "cancel": "Отмена",
   "cancelAction": "Отменить",
+  "retryAction": "Повторить",
   "done": "Готово",
   "deleteLabel": "Удалить",
   "redraw": "Перерисовать",
@@ -166,7 +167,7 @@
   "redirectInSec": "Перенаправление через {count} сек.",
   "karantinRedirectDesc": "Государственная система карантинного контроля",
   "oneIdRedirectDesc": "Единая система идентификации",
-  "appTagline": "Мониторинг полей",
+  "appTagline": "Карантин • Ветеринария • СЭС",
   "errorTimeout": "Время ожидания истекло. Проверьте интернет-соединение.",
   "errorConnection": "Не удалось подключиться к интернету. Проверьте соединение.",
   "errorBadCertificate": "Не удалось установить безопасное соединение.",
@@ -207,5 +208,10 @@
   "genderMale": "Мужской",
   "genderFemale": "Женский",
   "copiedToClipboard": "{label} скопировано",
-  "tapForDetails": "Нажмите для подробностей"
+  "tapForDetails": "Нажмите для подробностей",
+  "roleInspector": "Инспектор",
+  "roleKarantinInspector": "Карантинный инспектор",
+  "roleVetInspector": "Вет-инспектор",
+  "roleSesInspector": "СЭС-инспектор",
+  "roleSectionLabel": "Роль"
 }
