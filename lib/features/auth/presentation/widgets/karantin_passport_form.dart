@@ -40,34 +40,50 @@ class _KarantinPassportFormState extends State<KarantinPassportForm> {
   @override
   void initState() {
     super.initState();
-    _controller.addListener(_syncPassportKeyboard);
+    _controller.addListener(_onInputChanged);
   }
 
   @override
   void dispose() {
-    _controller.removeListener(_syncPassportKeyboard);
+    _controller.removeListener(_onInputChanged);
     _controller.dispose();
     _focusNode.dispose();
     super.dispose();
   }
 
-  void _syncPassportKeyboard() {
-    if (_isPnfl) return;
-    final next = _controller.text.length >= 2
-        ? TextInputType.number
-        : TextInputType.text;
-    if (next == _passportKeyboard) return;
+  void _onInputChanged() {
+    final length = _controller.text.length;
 
-    setState(() => _passportKeyboard = next);
-    // Changing keyboardType does not re-open an already-visible keyboard, so
-    // briefly drop and restore focus to force the platform to swap it.
-    if (_focusNode.hasFocus) {
-      _focusNode.unfocus();
+    // Passport only: switch to the number keyboard once the two letters are in,
+    // and back if they are deleted.
+    if (!_isPnfl) {
+      final next = length >= 2 ? TextInputType.number : TextInputType.text;
+      if (next != _passportKeyboard) {
+        setState(() => _passportKeyboard = next);
+        // Changing keyboardType does not re-open a visible keyboard, so briefly
+        // drop and restore focus to force the platform to swap it.
+        if (_focusNode.hasFocus) {
+          _focusNode.unfocus();
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted && _controller.text.length < _fullLength) {
+              _focusNode.requestFocus();
+            }
+          });
+        }
+      }
+    }
+
+    // Once the full number is entered (passport 9, PNFL 14), dismiss the keyboard.
+    if (length >= _fullLength && _focusNode.hasFocus) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _focusNode.requestFocus();
+        if (mounted && _controller.text.length >= _fullLength) {
+          _focusNode.unfocus();
+        }
       });
     }
   }
+
+  int get _fullLength => _isPnfl ? 14 : 9;
 
   void _setMode(bool isPnfl) {
     if (_isPnfl == isPnfl) return;
@@ -156,6 +172,7 @@ class _KarantinPassportFormState extends State<KarantinPassportForm> {
     if (_isPnfl) {
       return TextFormField(
         controller: _controller,
+        focusNode: _focusNode,
         keyboardType: TextInputType.number,
         inputFormatters: [
           FilteringTextInputFormatter.digitsOnly,
