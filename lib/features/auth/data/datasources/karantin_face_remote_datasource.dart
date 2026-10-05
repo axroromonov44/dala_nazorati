@@ -7,6 +7,7 @@ import 'package:dio_cookie_manager/dio_cookie_manager.dart';
 import '../../../../core/constants/karantin_config.dart';
 import '../../../../core/device/karantin_device_data.dart';
 import '../../../../core/network/api_exception.dart';
+import '../../../../core/network/dio_debug_logger.dart';
 import '../face/karantin_face_session.dart';
 
 /// A captured face payload ready to upload: the primary (cropped) image plus up
@@ -55,6 +56,11 @@ class KarantinFaceRemoteDataSource {
     final jar = cookieJar ?? CookieJar();
     _dio.interceptors.add(CookieManager(jar));
     _redirectDio.interceptors.add(CookieManager(jar));
+
+    // In debug builds, log every karantin-id request/response (headers + body)
+    // so the authorize -> submit -> redirect chain can be inspected.
+    attachDebugLogger(_dio);
+    attachDebugLogger(_redirectDio);
   }
 
   final Dio _dio;

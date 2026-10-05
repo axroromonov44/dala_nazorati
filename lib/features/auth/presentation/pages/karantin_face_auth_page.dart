@@ -112,12 +112,14 @@ class _KarantinFaceAuthPageState extends State<KarantinFaceAuthPage> {
       );
     }
 
+    // Prompt for location up front (awaited) so the GPS coordinates are ready by
+    // the time the face is captured — they are part of the inspector anti-fraud
+    // data sent to the backend.
+    await _ensureLocationPermission();
+
     // The camera plugin itself triggers the native OS permission prompt on
     // initialize(), which is the reliable path on both platforms (and makes the
     // app appear under Settings). We no longer pre-gate with permission_handler.
-    // Best-effort location prompt so device GPS can be attached to the submit.
-    unawaited(_ensureLocationPermission());
-
     if (!mounted) return;
     setState(() => _phase = _Phase.face);
   }

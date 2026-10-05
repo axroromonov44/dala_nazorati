@@ -30,12 +30,43 @@ class _KarantinPassportFormState extends State<KarantinPassportForm> {
 
   final _formKey = GlobalKey<FormState>();
   final _controller = TextEditingController();
+  final _focusNode = FocusNode();
   bool _isPnfl = false;
+
+  // Passport is 2 letters + 7 digits: start on the text keyboard, switch to the
+  // number pad after the two letters, and switch back if they are deleted.
+  TextInputType _passportKeyboard = TextInputType.text;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller.addListener(_syncPassportKeyboard);
+  }
 
   @override
   void dispose() {
+    _controller.removeListener(_syncPassportKeyboard);
     _controller.dispose();
+    _focusNode.dispose();
     super.dispose();
+  }
+
+  void _syncPassportKeyboard() {
+    if (_isPnfl) return;
+    final next = _controller.text.length >= 2
+        ? TextInputType.number
+        : TextInputType.text;
+    if (next == _passportKeyboard) return;
+
+    setState(() => _passportKeyboard = next);
+    // Changing keyboardType does not re-open an already-visible keyboard, so
+    // briefly drop and restore focus to force the platform to swap it.
+    if (_focusNode.hasFocus) {
+      _focusNode.unfocus();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _focusNode.requestFocus();
+      });
+    }
   }
 
   void _setMode(bool isPnfl) {
@@ -43,6 +74,7 @@ class _KarantinPassportFormState extends State<KarantinPassportForm> {
     setState(() {
       _isPnfl = isPnfl;
       _controller.clear();
+      _passportKeyboard = TextInputType.text;
     });
   }
 
@@ -138,10 +170,12 @@ class _KarantinPassportFormState extends State<KarantinPassportForm> {
     }
     return TextFormField(
       controller: _controller,
+      focusNode: _focusNode,
+      keyboardType: _passportKeyboard,
       textCapitalization: TextCapitalization.characters,
       inputFormatters: [
         LengthLimitingTextInputFormatter(9),
-        _UpperCaseFormatter(),
+        _PassportFormatter(),
       ],
       validator: _validate,
       decoration: _decoration(
@@ -285,12 +319,29 @@ class _InfoAlert extends StatelessWidget {
   }
 }
 
-class _UpperCaseFormatter extends TextInputFormatter {
+/// Enforces the passport shape AA1234567: the first two characters are letters,
+/// the rest are digits, everything upper-cased. Invalid characters per position
+/// are dropped so the number keyboard (shown after the two letters) can only add
+/// digits and a stray letter/number cannot land in the wrong slot.
+class _PassportFormatter extends TextInputFormatter {
   @override
   TextEditingValue formatEditUpdate(
     TextEditingValue oldValue,
     TextEditingValue newValue,
   ) {
-    return newValue.copyWith(text: newValue.text.toUpperCase());
+    final raw = newValue.text.toUpperCase();
+    final buffer = StringBuffer();
+    for (final ch in raw.split('')) {
+      final pos = buffer.length;
+      if (pos >= 9) break;
+      final isLetter = RegExp(r'[A-Z]').hasMatch(ch);
+      final isDigit = RegExp(r'[0-9]').hasMatch(ch);
+      if (pos < 2 ? isLetter : isDigit) buffer.write(ch);
+    }
+    final text = buffer.toString();
+    return TextEditingValue(
+      text: text,
+      selection: TextSelection.collapsed(offset: text.length),
+    );
   }
 }
