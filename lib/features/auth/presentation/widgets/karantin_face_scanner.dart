@@ -28,6 +28,7 @@ class KarantinFaceScanner extends StatefulWidget {
     required this.isUploading,
     required this.isUploaded,
     this.onError,
+    this.onPermissionDenied,
   });
 
   /// Called once a payload has been captured. The parent performs the upload;
@@ -36,6 +37,10 @@ class KarantinFaceScanner extends StatefulWidget {
   final bool isUploading;
   final bool isUploaded;
   final void Function(String message)? onError;
+
+  /// Called when the OS reports the camera permission was denied, so the parent
+  /// can show a platform-native "open settings" dialog.
+  final VoidCallback? onPermissionDenied;
 
   @override
   State<KarantinFaceScanner> createState() => _KarantinFaceScannerState();
@@ -139,11 +144,22 @@ class _KarantinFaceScannerState extends State<KarantinFaceScanner>
       _controller = controller;
       setState(() => _cameraReady = true);
       await _startStream();
-    } catch (e) {
-      widget.onError?.call(
-        'Kamerani ochib boʻlmadi. Ruxsatlarni tekshiring.',
-      );
+    } on CameraException catch (e) {
+      if (_isPermissionDenied(e)) {
+        widget.onPermissionDenied?.call();
+      } else {
+        widget.onError?.call('Kamerani ochib boʻlmadi. Qaytadan urinib koʻring.');
+      }
+    } catch (_) {
+      widget.onError?.call('Kamerani ochib boʻlmadi. Qaytadan urinib koʻring.');
     }
+  }
+
+  bool _isPermissionDenied(CameraException e) {
+    final code = e.code.toLowerCase();
+    return code.contains('denied') ||
+        code.contains('permission') ||
+        code.contains('restricted');
   }
 
   Future<void> _startStream() async {

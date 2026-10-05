@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../../core/constants/app_colors.dart';
+
 /// Passport / PNFL entry form, a native port of the web login `FormComponent`.
 ///
 /// Emits the chosen identifier and whether it is a PNFL once validated, matching
@@ -23,7 +25,8 @@ class KarantinPassportForm extends StatefulWidget {
 }
 
 class _KarantinPassportFormState extends State<KarantinPassportForm> {
-  static const _accent = Color(0xFF228BE6);
+  // App theme green; the "Davom etish" button and field accents follow it.
+  static const _accent = kGreen;
 
   final _formKey = GlobalKey<FormState>();
   final _controller = TextEditingController();

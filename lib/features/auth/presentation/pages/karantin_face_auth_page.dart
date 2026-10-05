@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 
 import 'package:easy_localization/easy_localization.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -110,25 +112,14 @@ class _KarantinFaceAuthPageState extends State<KarantinFaceAuthPage> {
       );
     }
 
-    final granted = await _ensureCameraPermission();
-    if (!granted) return;
+    // The camera plugin itself triggers the native OS permission prompt on
+    // initialize(), which is the reliable path on both platforms (and makes the
+    // app appear under Settings). We no longer pre-gate with permission_handler.
     // Best-effort location prompt so device GPS can be attached to the submit.
     unawaited(_ensureLocationPermission());
 
     if (!mounted) return;
     setState(() => _phase = _Phase.face);
-  }
-
-  Future<bool> _ensureCameraPermission() async {
-    final status = await Permission.camera.request();
-    if (status.isGranted || status.isLimited) return true;
-    if (!mounted) return false;
-    if (status.isPermanentlyDenied) {
-      await _showPermissionDialog();
-    } else {
-      _showError('Kameradan foydalanishga ruxsat berilmadi.');
-    }
-    return false;
   }
 
   Future<void> _ensureLocationPermission() async {
@@ -142,27 +133,69 @@ class _KarantinFaceAuthPageState extends State<KarantinFaceAuthPage> {
     }
   }
 
-  Future<void> _showPermissionDialog() {
-    return showDialog<void>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: Text('cameraPermissionTitle'.tr()),
-        content: Text('cameraPermissionBody'.tr()),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text('cancelAction'.tr()),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.of(context).pop();
-              openAppSettings();
-            },
-            child: Text('openSettings'.tr()),
-          ),
-        ],
-      ),
-    );
+  bool _permissionDialogOpen = false;
+
+  /// Shown when the camera plugin reports the permission was denied. Uses a
+  /// Cupertino-style dialog on iOS and a Material dialog on Android so each
+  /// platform gets its native look.
+  Future<void> _onCameraPermissionDenied() async {
+    if (!mounted || _permissionDialogOpen) return;
+    _permissionDialogOpen = true;
+
+    final title = 'cameraPermissionTitle'.tr();
+    final body = 'cameraPermissionBody'.tr();
+    final cancel = 'cancelAction'.tr();
+    final open = 'openSettings'.tr();
+
+    final goSettings = Platform.isIOS
+        ? await showCupertinoDialog<bool>(
+            context: context,
+            builder: (ctx) => CupertinoAlertDialog(
+              title: Text(title),
+              content: Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(body),
+              ),
+              actions: [
+                CupertinoDialogAction(
+                  onPressed: () => Navigator.of(ctx).pop(false),
+                  child: Text(cancel),
+                ),
+                CupertinoDialogAction(
+                  isDefaultAction: true,
+                  onPressed: () => Navigator.of(ctx).pop(true),
+                  child: Text(open),
+                ),
+              ],
+            ),
+          )
+        : await showDialog<bool>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: Text(title),
+              content: Text(body),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(false),
+                  child: Text(cancel),
+                ),
+                FilledButton(
+                  style: FilledButton.styleFrom(backgroundColor: kGreen),
+                  onPressed: () => Navigator.of(ctx).pop(true),
+                  child: Text(open),
+                ),
+              ],
+            ),
+          );
+
+    _permissionDialogOpen = false;
+    if (!mounted) return;
+
+    if (goSettings == true) {
+      await openAppSettings();
+    }
+    // Either way, step back to the form so the user isn't stuck on a black camera.
+    if (mounted) setState(() => _phase = _Phase.form);
   }
 
   Future<void> _onCapture(KarantinFacePayload payload) async {
@@ -286,6 +319,7 @@ class _KarantinFaceAuthPageState extends State<KarantinFaceAuthPage> {
           isUploading: _isUploading,
           isUploaded: _isUploaded,
           onError: _showError,
+          onPermissionDenied: _onCameraPermissionDenied,
         );
     }
   }
