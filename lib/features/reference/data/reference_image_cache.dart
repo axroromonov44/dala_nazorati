@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:dio/dio.dart';
+import 'package:dio/io.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../../../core/network/dio_debug_logger.dart';
@@ -20,13 +21,27 @@ class ReferenceImageCache {
     ),
   );
 
-  static const _concurrency = 6;
+  // Number of images downloaded in parallel. A continuous worker pool keeps this
+  // many requests in flight at all times (no batch barrier).
+  static const _concurrency = 10;
 
   static Future<void> init() async {
     final docs = await getApplicationDocumentsDirectory();
     final dir = Directory('${docs.path}/reference_images');
     if (!await dir.exists()) await dir.create(recursive: true);
     _dir = dir;
+
+    // Reuse TCP/TLS connections across the parallel downloads (keep-alive), so
+    // each image doesn't pay a fresh handshake to the same host.
+    _dio.httpClientAdapter = IOHttpClientAdapter(
+      createHttpClient: () {
+        final client = HttpClient();
+        client.maxConnectionsPerHost = _concurrency;
+        client.idleTimeout = const Duration(seconds: 20);
+        return client;
+      },
+    );
+
     attachDebugLogger(_dio, logBody: false);
   }
 
@@ -37,24 +52,38 @@ class ReferenceImageCache {
     return file.existsSync() ? file : null;
   }
 
-  static Future<void> downloadAll(Iterable<String> urls) async {
+  static Future<void> downloadAll(
+    Iterable<String> urls, {
+    void Function(int done, int total)? onProgress,
+  }) async {
     final pending = urls
         .toSet()
         .where((url) => cachedFile(url) == null)
         .toList();
     if (pending.isEmpty) return;
 
+    final total = pending.length;
+    var next = 0;
+    var done = 0;
     var succeeded = 0;
-    for (var i = 0; i < pending.length; i += _concurrency) {
-      final batch = pending.sublist(
-        i,
-        (i + _concurrency).clamp(0, pending.length),
-      );
-      final results = await Future.wait([
-        for (final url in batch) _download(url),
-      ]);
-      succeeded += results.where((ok) => ok).length;
+
+    // Worker pool: each worker pulls the next URL as soon as it frees up, so
+    // [_concurrency] downloads stay in flight the whole time — a slow image no
+    // longer blocks the others behind a batch barrier.
+    Future<void> worker() async {
+      while (true) {
+        final index = next++;
+        if (index >= total) break;
+        if (await _download(pending[index])) succeeded++;
+        done++;
+        onProgress?.call(done, total);
+      }
     }
+
+    await Future.wait([
+      for (var w = 0; w < _concurrency && w < total; w++) worker(),
+    ]);
+
     if (succeeded == 0) throw const ReferenceImageDownloadException();
   }
 
