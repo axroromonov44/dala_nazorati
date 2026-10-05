@@ -18,13 +18,16 @@ const List<String> kFaceInstructions = [
   'Telefonni biroz uzoqroq tuting',
 ];
 
-const double _faceRatioMin = 0.18;
-const double _faceRatioMax = 0.82;
-const double _faceRatioClose = 0.12;
-const double _centerThreshold = 0.38;
+// Thresholds tuned to be forgiving: the face only needs to be roughly centered
+// and at a reasonable distance before capture, so a slightly off-centre face is
+// still accepted.
+const double _faceRatioMin = 0.14;
+const double _faceRatioMax = 0.88;
+const double _faceRatioClose = 0.10;
+const double _centerThreshold = 0.50;
 const int _livenessMinFrames = 1;
 const double _livenessMovementThreshold = 0.02;
-const int kReadyFrameCount = 5;
+const int kReadyFrameCount = 3;
 
 enum FaceReadinessReason {
   notCentered,
