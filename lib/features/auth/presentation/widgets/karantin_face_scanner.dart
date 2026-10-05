@@ -514,12 +514,20 @@ class _KarantinFaceScannerState extends State<KarantinFaceScanner>
       );
     }
 
-    // Cover-fit the preview using its real pixel size so the field of view
-    // matches the native camera (no extra zoom/stretch). previewSize is in the
-    // sensor's landscape orientation, so swap width/height for portrait display.
+    // Cover-fit the preview without distortion. The scanner is portrait-locked,
+    // so build a portrait box from the camera's own aspect (shorter x longer)
+    // regardless of how the platform reports previewSize orientation; FittedBox
+    // then crops it to the square circle with a uniform (non-stretching) scale.
     final previewSize = controller.value.previewSize;
-    final childWidth = previewSize?.height ?? diameter;
-    final childHeight = previewSize?.width ?? diameter;
+    final double childWidth;
+    final double childHeight;
+    if (previewSize == null) {
+      childWidth = diameter;
+      childHeight = diameter;
+    } else {
+      childWidth = math.min(previewSize.width, previewSize.height);
+      childHeight = math.max(previewSize.width, previewSize.height);
+    }
     return Transform(
       alignment: Alignment.center,
       transform: mirror,
