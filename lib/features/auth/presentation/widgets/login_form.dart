@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -426,8 +427,9 @@ class _RedirectDialogState extends State<_RedirectDialog>
                     (_totalSeconds * (1 - _ctrl.value)).ceil().clamp(0, _totalSeconds);
                 return Column(
                   children: [
-                    _SlideCountdownBar(
+                    _CircleCountdown(
                       progress: 1 - _ctrl.value,
+                      remaining: remaining,
                       color: accentColor,
                       colorLight: accentLight,
                     ),
@@ -564,44 +566,111 @@ class _RedirectDialogHeader extends StatelessWidget {
   }
 }
 
-class _SlideCountdownBar extends StatelessWidget {
-  const _SlideCountdownBar({
+class _CircleCountdown extends StatelessWidget {
+  const _CircleCountdown({
     required this.progress,
+    required this.remaining,
     required this.color,
     required this.colorLight,
   });
 
   /// 1.0 = full (just started), 0.0 = empty (about to continue).
   final double progress;
+  final int remaining;
   final Color color;
   final Color colorLight;
 
   @override
   Widget build(BuildContext context) {
-    final track = color.withAlpha(28);
     return SizedBox(
-      width: 240,
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(999),
-        child: Stack(
-          children: [
-            Container(height: 8, color: track),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: FractionallySizedBox(
-                widthFactor: progress.clamp(0.0, 1.0),
-                child: Container(
-                  height: 8,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(colors: [color, colorLight]),
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                ),
+      width: 96,
+      height: 96,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          CustomPaint(
+            size: const Size(96, 96),
+            painter: _RingPainter(
+              progress: progress.clamp(0.0, 1.0),
+              color: color,
+              colorLight: colorLight,
+            ),
+          ),
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 260),
+            transitionBuilder: (child, anim) => FadeTransition(
+              opacity: anim,
+              child: ScaleTransition(
+                scale: Tween(begin: 0.7, end: 1.0).animate(anim),
+                child: child,
               ),
             ),
-          ],
-        ),
+            child: Text(
+              '$remaining',
+              key: ValueKey(remaining),
+              style: TextStyle(
+                fontSize: 40,
+                fontWeight: FontWeight.w800,
+                color: color,
+                height: 1,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
+}
+
+class _RingPainter extends CustomPainter {
+  const _RingPainter({
+    required this.progress,
+    required this.color,
+    required this.colorLight,
+  });
+
+  final double progress;
+  final Color color;
+  final Color colorLight;
+
+  static const _stroke = 6.0;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final radius = size.width / 2 - _stroke / 2 - 1;
+    final rect = Rect.fromCircle(center: center, radius: radius);
+
+    canvas.drawCircle(
+      center,
+      radius,
+      Paint()
+        ..color = color.withAlpha(28)
+        ..strokeWidth = _stroke
+        ..style = PaintingStyle.stroke,
+    );
+
+    if (progress > 0.001) {
+      canvas.drawArc(
+        rect,
+        -math.pi / 2,
+        progress * 2 * math.pi,
+        false,
+        Paint()
+          ..shader = SweepGradient(
+            colors: [color, colorLight],
+            startAngle: 0,
+            endAngle: 2 * math.pi,
+            transform: const GradientRotation(-math.pi / 2),
+          ).createShader(rect)
+          ..strokeWidth = _stroke
+          ..style = PaintingStyle.stroke
+          ..strokeCap = StrokeCap.round,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_RingPainter old) =>
+      old.progress != progress || old.color != color;
 }
