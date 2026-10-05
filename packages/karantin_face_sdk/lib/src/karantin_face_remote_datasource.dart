@@ -4,15 +4,12 @@ import 'package:cookie_jar/cookie_jar.dart';
 import 'package:dio/dio.dart';
 import 'package:dio_cookie_manager/dio_cookie_manager.dart';
 
-import '../../../../core/constants/karantin_config.dart';
-import '../../../../core/device/karantin_device_data.dart';
-import '../../../../core/network/api_exception.dart';
-import '../../../../core/network/dio_debug_logger.dart';
-import '../face/karantin_face_session.dart';
+import 'karantin_face_config.dart';
+import 'karantin_face_exception.dart';
+import 'karantin_face_session.dart';
 
 /// A captured face payload ready to upload: the primary (cropped) image plus up
-/// to four additional "check" frames, mirroring the web client's
-/// `face_image` + `check_image1..4` multipart fields.
+/// to four additional "check" frames.
 class KarantinFacePayload {
   const KarantinFacePayload({required this.faceImage, required this.checkImages});
 
@@ -20,49 +17,50 @@ class KarantinFacePayload {
   final List<Uint8List> checkImages;
 }
 
-/// Native client for the karantin-id OAuth endpoints under `https://id.karantin.uz/app`.
+/// Native client for the Karantin ID OAuth endpoints under `<baseUrl>/app`.
 ///
-/// This replaces the in-webview React SPA: it fetches the session token from
-/// `authorize`, submits the face verification multipart request, and follows
-/// the resulting redirect chain until the `code` lands on the configured
-/// redirect_uri — the exact value the webview used to capture.
+/// Fetches the session token from `authorize`, submits the face verification
+/// multipart request, and follows the resulting redirect chain until the `code`
+/// lands on the configured redirect URI.
 class KarantinFaceRemoteDataSource {
-  KarantinFaceRemoteDataSource({Dio? dio, Dio? redirectDio, CookieJar? cookieJar})
-    : _dio =
-          dio ??
-          Dio(
-            BaseOptions(
-              baseUrl: '${KarantinIdConfig.baseUrl}/app',
-              connectTimeout: const Duration(seconds: 30),
-              receiveTimeout: const Duration(seconds: 30),
-              sendTimeout: const Duration(seconds: 30),
-              headers: {'Accept-Language': 'uz'},
-            ),
-          ),
-      // A bare client used only to walk redirect chains manually.
-      _redirectDio =
-          redirectDio ??
-          Dio(
-            BaseOptions(
-              followRedirects: false,
-              connectTimeout: const Duration(seconds: 30),
-              receiveTimeout: const Duration(seconds: 30),
-              validateStatus: (status) => status != null && status < 400,
-            ),
-          ) {
-    // Share one cookie jar across both clients so any session cookie the
-    // `authorize` step sets is replayed through submit and the redirect walk,
-    // exactly as a browser would within one login session.
+  KarantinFaceRemoteDataSource({
+    required KarantinFaceConfig config,
+    Dio? dio,
+    Dio? redirectDio,
+    CookieJar? cookieJar,
+  }) : _config = config,
+       _dio =
+           dio ??
+           Dio(
+             BaseOptions(
+               baseUrl: config.apiBaseUrl,
+               connectTimeout: const Duration(seconds: 30),
+               receiveTimeout: const Duration(seconds: 30),
+               sendTimeout: const Duration(seconds: 30),
+               headers: {'Accept-Language': 'uz'},
+             ),
+           ),
+       _redirectDio =
+           redirectDio ??
+           Dio(
+             BaseOptions(
+               followRedirects: false,
+               connectTimeout: const Duration(seconds: 30),
+               receiveTimeout: const Duration(seconds: 30),
+               validateStatus: (status) => status != null && status < 400,
+             ),
+           ) {
     final jar = cookieJar ?? CookieJar();
     _dio.interceptors.add(CookieManager(jar));
     _redirectDio.interceptors.add(CookieManager(jar));
 
-    // In debug builds, log every karantin-id request/response (headers + body)
-    // so the authorize -> submit -> redirect chain can be inspected.
-    attachDebugLogger(_dio);
-    attachDebugLogger(_redirectDio);
+    if (config.debugLogging) {
+      _dio.interceptors.add(LogInterceptor(requestBody: true, responseBody: true));
+      _redirectDio.interceptors.add(LogInterceptor());
+    }
   }
 
+  final KarantinFaceConfig _config;
   final Dio _dio;
   final Dio _redirectDio;
 
@@ -71,13 +69,11 @@ class KarantinFaceRemoteDataSource {
   /// Hits `authorize` and parses the SPA route it redirects to, yielding the
   /// token/name (login, verify-document) or code/state (register).
   Future<KarantinFaceSession> startSession() async {
-    final authUrl = KarantinIdConfig.buildAuthorizationUrl();
-
     final Response response;
     try {
-      response = await _redirectDio.getUri<void>(Uri.parse(authUrl));
+      response = await _redirectDio.getUri<void>(_config.authorizeUri);
     } on DioException catch (e) {
-      throw ApiException(
+      throw KarantinFaceException(
         'Karantin ID bilan bogʻlanib boʻlmadi. Qayta urinib koʻring.',
         statusCode: e.response?.statusCode,
       );
@@ -85,7 +81,7 @@ class KarantinFaceRemoteDataSource {
 
     final location = _locationHeader(response);
     if (location == null) {
-      throw ApiException('Karantin ID sessiyasini ochib boʻlmadi.');
+      throw const KarantinFaceException('Karantin ID sessiyasini ochib boʻlmadi.');
     }
 
     final uri = _resolve(location);
@@ -114,8 +110,8 @@ class KarantinFaceRemoteDataSource {
     );
   }
 
-  /// `sendPassport` — notifies the backend which identifier is attempting login
-  /// before the face scan. Best-effort: failures here must not block the scan.
+  /// Notifies the backend which identifier is attempting login before the face
+  /// scan. Best-effort: failures here must not block the scan.
   Future<void> notifyLogin({
     required String token,
     required String passportNumber,
@@ -126,57 +122,54 @@ class KarantinFaceRemoteDataSource {
         data: {'token': token, 'passport_number': passportNumber},
       );
     } on DioException {
-      // Non-fatal, mirror the web client which ignores notify failures.
+      // Non-fatal.
     }
   }
 
-  /// Submits the login face verification and returns `redirect_to`.
   Future<String> submitLogin({
     required String token,
     required String identifier,
     required bool isPnfl,
     required bool includeScreens,
     required KarantinFacePayload payload,
-    required KarantinDeviceData device,
+    required Map<String, String> deviceFields,
   }) {
     return _submitFace(
       '/project/oauth/login',
       payload: payload,
       includeScreens: includeScreens,
-      device: device,
+      deviceFields: deviceFields,
       fields: {isPnfl ? 'pinfl' : 'passport_number': identifier, 'token': token},
     );
   }
 
-  /// Submits the register face verification and returns `redirect_to`.
   Future<String> submitRegister({
     required String oneCode,
     required String? token,
     required bool includeScreens,
     required KarantinFacePayload payload,
-    required KarantinDeviceData device,
+    required Map<String, String> deviceFields,
   }) {
     return _submitFace(
       '/project/oauth/register',
       payload: payload,
       includeScreens: includeScreens,
-      device: device,
-      fields: {'one_code': oneCode, 'token': ?token},
+      deviceFields: deviceFields,
+      fields: {'one_code': oneCode, if (token != null) 'token': token},
     );
   }
 
-  /// Submits the verify-document face verification and returns `redirect_to`.
   Future<String> submitVerifyDocument({
     required String token,
     required bool includeScreens,
     required KarantinFacePayload payload,
-    required KarantinDeviceData device,
+    required Map<String, String> deviceFields,
   }) {
     return _submitFace(
       '/project/oauth/verify-doc',
       payload: payload,
       includeScreens: includeScreens,
-      device: device,
+      deviceFields: deviceFields,
       fields: {'token': token},
     );
   }
@@ -185,13 +178,13 @@ class KarantinFaceRemoteDataSource {
     String path, {
     required KarantinFacePayload payload,
     required bool includeScreens,
-    required KarantinDeviceData device,
+    required Map<String, String> deviceFields,
     required Map<String, String> fields,
   }) async {
     final form = FormData();
 
-    device.toBackendFields().forEach((key, value) {
-      form.fields.add(MapEntry(key, value));
+    deviceFields.forEach((key, value) {
+      if (value.isNotEmpty) form.fields.add(MapEntry(key, value));
     });
     fields.forEach((key, value) {
       if (value.isNotEmpty) form.fields.add(MapEntry(key, value));
@@ -228,7 +221,7 @@ class KarantinFaceRemoteDataSource {
     try {
       response = await _dio.post<Map<String, dynamic>>(path, data: form);
     } on DioException catch (e) {
-      throw ApiException(
+      throw KarantinFaceException(
         _faceErrorMessage(e),
         statusCode: e.response?.statusCode,
       );
@@ -236,29 +229,28 @@ class KarantinFaceRemoteDataSource {
 
     final redirectTo = response.data?['redirect_to'];
     if (redirectTo is! String || redirectTo.isEmpty) {
-      throw ApiException('Serverdan yoʻnaltirish manzili kelmadi.');
+      throw const KarantinFaceException('Serverdan yoʻnaltirish manzili kelmadi.');
     }
     return redirectTo;
   }
 
   /// Walks the redirect chain starting at [redirectTo] until it reaches the
-  /// configured redirect_uri and returns its `code` query parameter — the same
-  /// value the webview's navigation delegate used to intercept.
+  /// configured redirect URI and returns its `code` query parameter.
   Future<String> followToCode(String redirectTo) async {
     var current = _resolve(redirectTo);
 
     for (var i = 0; i < _maxRedirects; i++) {
-      if (current.toString().startsWith(KarantinIdConfig.redirectUri)) {
+      if (current.toString().startsWith(_config.redirectUri)) {
         final code = current.queryParameters['code'];
         if (code != null && code.isNotEmpty) return code;
-        throw ApiException('Yakuniy manzilda kod topilmadi.');
+        throw const KarantinFaceException('Yakuniy manzilda kod topilmadi.');
       }
 
       final Response response;
       try {
         response = await _redirectDio.getUri<void>(current);
       } on DioException catch (e) {
-        throw ApiException(
+        throw KarantinFaceException(
           'Yoʻnaltirishni kuzatib boʻlmadi.',
           statusCode: e.response?.statusCode,
         );
@@ -266,19 +258,18 @@ class KarantinFaceRemoteDataSource {
 
       final location = _locationHeader(response);
       if (location == null) {
-        // No further redirect: inspect the final URL for a code anyway.
         final finalUri = response.realUri;
-        if (finalUri.toString().startsWith(KarantinIdConfig.redirectUri)) {
+        if (finalUri.toString().startsWith(_config.redirectUri)) {
           final code = finalUri.queryParameters['code'];
           if (code != null && code.isNotEmpty) return code;
         }
-        throw ApiException('Avtorizatsiya kodini olib boʻlmadi.');
+        throw const KarantinFaceException('Avtorizatsiya kodini olib boʻlmadi.');
       }
 
       current = _resolve(location, base: current);
     }
 
-    throw ApiException('Juda koʻp yoʻnaltirish. Qayta urinib koʻring.');
+    throw const KarantinFaceException('Juda koʻp yoʻnaltirish. Qayta urinib koʻring.');
   }
 
   String? _locationHeader(Response response) {
@@ -292,7 +283,7 @@ class KarantinFaceRemoteDataSource {
   Uri _resolve(String location, {Uri? base}) {
     final uri = Uri.parse(location);
     if (uri.hasScheme) return uri;
-    final root = base ?? Uri.parse(KarantinIdConfig.baseUrl);
+    final root = base ?? Uri.parse(_config.baseUrl);
     return root.resolveUri(uri);
   }
 

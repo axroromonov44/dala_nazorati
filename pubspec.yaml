@@ -74,7 +74,11 @@ dependencies:
   webview_flutter_wkwebview: ^3.25.0
   permission_handler: ^12.0.1
 
-  # Native karantin-id face verification (replaces the in-webview face scan)
+  # Native karantin-id face verification (replaces the in-webview face scan).
+  # The flow itself lives in the local SDK package; the direct deps below are
+  # kept because other parts of the app also use some of them.
+  karantin_face_sdk:
+    path: packages/karantin_face_sdk
   camera: ^0.11.0+2
   google_mlkit_face_detection: ^0.13.1
   device_info_plus: ^11.5.0

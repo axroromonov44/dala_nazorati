@@ -1,28 +1,41 @@
 import 'dart:async';
 import 'dart:io' show Platform;
 
-import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
 
-import '../../../../core/constants/app_colors.dart';
-import '../../../../core/device/karantin_device_data.dart';
-import '../../../../core/network/api_exception.dart';
-import '../../data/datasources/karantin_face_remote_datasource.dart';
-import '../../data/face/karantin_face_session.dart';
-import '../widgets/karantin_face_scanner.dart';
-import '../widgets/karantin_passport_form.dart';
+import 'karantin_device_data.dart';
+import 'karantin_face_config.dart';
+import 'karantin_face_exception.dart';
+import 'karantin_face_remote_datasource.dart';
+import 'karantin_face_scanner.dart';
+import 'karantin_face_session.dart';
+import 'karantin_passport_form.dart';
 
-/// Native karantin-id face login page. Drop-in replacement for
-/// [KarantinWebViewPage]: it collects the passport/PNFL and face entirely in
-/// Flutter, submits them to the karantin-id backend, follows the OAuth redirect
-/// chain, and returns the authorization `code` via `Navigator.pop` — the same
-/// contract the webview honored.
+/// The Karantin ID native face-login screen.
+///
+/// Push it and await its result: it returns the OAuth `code` string (or `null`
+/// if the user cancelled) via `Navigator.pop`. Exchange that code for tokens on
+/// your own backend, exactly as you would after a webview redirect.
+///
+/// ```dart
+/// final code = await Navigator.of(context).push<String?>(
+///   MaterialPageRoute(
+///     builder: (_) => KarantinFaceAuthPage(config: myConfig),
+///   ),
+/// );
+/// ```
 class KarantinFaceAuthPage extends StatefulWidget {
-  const KarantinFaceAuthPage({super.key, this.dataSource, this.collector});
+  const KarantinFaceAuthPage({
+    super.key,
+    required this.config,
+    this.dataSource,
+    this.collector,
+  });
 
+  final KarantinFaceConfig config;
   final KarantinFaceRemoteDataSource? dataSource;
   final KarantinDeviceDataCollector? collector;
 
@@ -32,9 +45,6 @@ class KarantinFaceAuthPage extends StatefulWidget {
 
 enum _Phase { loading, form, face, success, error }
 
-/// Terms that indicate a non-face problem (bad passport/token/expired link),
-/// in which case the user should go back to the form rather than rescan.
-/// Mirrors `NON_FACE_TERMS` in the web client's `apiError.ts`.
 const _nonFaceTerms = [
   'passport',
   'pasport',
@@ -49,11 +59,16 @@ const _nonFaceTerms = [
   'code',
 ];
 
+const _errorColor = Color(0xFFD32F2F);
+
 class _KarantinFaceAuthPageState extends State<KarantinFaceAuthPage> {
   late final KarantinFaceRemoteDataSource _dataSource =
-      widget.dataSource ?? KarantinFaceRemoteDataSource();
+      widget.dataSource ?? KarantinFaceRemoteDataSource(config: widget.config);
   late final KarantinDeviceDataCollector _collector =
       widget.collector ?? KarantinDeviceDataCollector();
+
+  KarantinFaceConfig get _config => widget.config;
+  KarantinFaceStrings get _strings => widget.config.strings;
 
   _Phase _phase = _Phase.loading;
   String _errorMessage = '';
@@ -64,6 +79,7 @@ class _KarantinFaceAuthPageState extends State<KarantinFaceAuthPage> {
 
   bool _isUploading = false;
   bool _isUploaded = false;
+  bool _permissionDialogOpen = false;
 
   @override
   void initState() {
@@ -85,7 +101,7 @@ class _KarantinFaceAuthPageState extends State<KarantinFaceAuthPage> {
         _session = session;
         _phase = _Phase.form;
       });
-    } on ApiException catch (e) {
+    } on KarantinFaceException catch (e) {
       _fail(e.message);
     } catch (_) {
       _fail('Karantin ID bilan bogʻlanib boʻlmadi. Qayta urinib koʻring.');
@@ -106,20 +122,12 @@ class _KarantinFaceAuthPageState extends State<KarantinFaceAuthPage> {
 
     final token = _session?.token;
     if (token != null && token.isNotEmpty) {
-      // Fire-and-forget, like the web client's sendPassport.
       unawaited(
         _dataSource.notifyLogin(token: token, passportNumber: identifier),
       );
     }
 
-    // Prompt for location up front (awaited) so the GPS coordinates are ready by
-    // the time the face is captured — they are part of the inspector anti-fraud
-    // data sent to the backend.
     await _ensureLocationPermission();
-
-    // The camera plugin itself triggers the native OS permission prompt on
-    // initialize(), which is the reliable path on both platforms (and makes the
-    // app appear under Settings). We no longer pre-gate with permission_handler.
     if (!mounted) return;
     setState(() => _phase = _Phase.face);
   }
@@ -131,42 +139,32 @@ class _KarantinFaceAuthPageState extends State<KarantinFaceAuthPage> {
         permission = await Geolocator.requestPermission();
       }
     } catch (_) {
-      // Non-fatal: submit proceeds without coordinates.
+      // Non-fatal.
     }
   }
 
-  bool _permissionDialogOpen = false;
-
-  /// Shown when the camera plugin reports the permission was denied. Uses a
-  /// Cupertino-style dialog on iOS and a Material dialog on Android so each
-  /// platform gets its native look.
   Future<void> _onCameraPermissionDenied() async {
     if (!mounted || _permissionDialogOpen) return;
     _permissionDialogOpen = true;
-
-    final title = 'cameraPermissionTitle'.tr();
-    final body = 'cameraPermissionBody'.tr();
-    final cancel = 'cancelAction'.tr();
-    final open = 'openSettings'.tr();
 
     final goSettings = Platform.isIOS
         ? await showCupertinoDialog<bool>(
             context: context,
             builder: (ctx) => CupertinoAlertDialog(
-              title: Text(title),
+              title: Text(_strings.cameraPermissionTitle),
               content: Padding(
                 padding: const EdgeInsets.only(top: 8),
-                child: Text(body),
+                child: Text(_strings.cameraPermissionBody),
               ),
               actions: [
                 CupertinoDialogAction(
                   onPressed: () => Navigator.of(ctx).pop(false),
-                  child: Text(cancel),
+                  child: Text(_strings.cancelAction),
                 ),
                 CupertinoDialogAction(
                   isDefaultAction: true,
                   onPressed: () => Navigator.of(ctx).pop(true),
-                  child: Text(open),
+                  child: Text(_strings.openSettings),
                 ),
               ],
             ),
@@ -174,17 +172,19 @@ class _KarantinFaceAuthPageState extends State<KarantinFaceAuthPage> {
         : await showDialog<bool>(
             context: context,
             builder: (ctx) => AlertDialog(
-              title: Text(title),
-              content: Text(body),
+              title: Text(_strings.cameraPermissionTitle),
+              content: Text(_strings.cameraPermissionBody),
               actions: [
                 TextButton(
                   onPressed: () => Navigator.of(ctx).pop(false),
-                  child: Text(cancel),
+                  child: Text(_strings.cancelAction),
                 ),
                 FilledButton(
-                  style: FilledButton.styleFrom(backgroundColor: kGreen),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: _config.primaryColor,
+                  ),
                   onPressed: () => Navigator.of(ctx).pop(true),
-                  child: Text(open),
+                  child: Text(_strings.openSettings),
                 ),
               ],
             ),
@@ -192,11 +192,7 @@ class _KarantinFaceAuthPageState extends State<KarantinFaceAuthPage> {
 
     _permissionDialogOpen = false;
     if (!mounted) return;
-
-    if (goSettings == true) {
-      await openAppSettings();
-    }
-    // Either way, step back to the form so the user isn't stuck on a black camera.
+    if (goSettings == true) await openAppSettings();
     if (mounted) setState(() => _phase = _Phase.form);
   }
 
@@ -207,6 +203,7 @@ class _KarantinFaceAuthPageState extends State<KarantinFaceAuthPage> {
     setState(() => _isUploading = true);
     try {
       final device = await _collector.collect();
+      final deviceFields = device.toBackendFields();
       final includeScreens = !session.registerState.isNotDeepened;
 
       final String redirectTo;
@@ -217,14 +214,14 @@ class _KarantinFaceAuthPageState extends State<KarantinFaceAuthPage> {
             token: session.registerState.token,
             includeScreens: includeScreens,
             payload: payload,
-            device: device,
+            deviceFields: deviceFields,
           );
         case KarantinFaceFlow.verifyDocument:
           redirectTo = await _dataSource.submitVerifyDocument(
             token: session.token ?? '',
             includeScreens: includeScreens,
             payload: payload,
-            device: device,
+            deviceFields: deviceFields,
           );
         case KarantinFaceFlow.login:
           redirectTo = await _dataSource.submitLogin(
@@ -233,7 +230,7 @@ class _KarantinFaceAuthPageState extends State<KarantinFaceAuthPage> {
             isPnfl: _isPnfl,
             includeScreens: includeScreens,
             payload: payload,
-            device: device,
+            deviceFields: deviceFields,
           );
       }
 
@@ -245,7 +242,7 @@ class _KarantinFaceAuthPageState extends State<KarantinFaceAuthPage> {
       });
       await Future.delayed(const Duration(milliseconds: 1200));
       if (mounted) Navigator.of(context).pop(code);
-    } on ApiException catch (e) {
+    } on KarantinFaceException catch (e) {
       if (!mounted) return;
       setState(() => _isUploading = false);
       _showError(e.message);
@@ -253,7 +250,7 @@ class _KarantinFaceAuthPageState extends State<KarantinFaceAuthPage> {
         setState(() => _phase = _Phase.form);
         return;
       }
-      rethrow; // keep the scanner, which resets for another attempt
+      rethrow;
     } catch (_) {
       if (!mounted) return;
       setState(() => _isUploading = false);
@@ -270,7 +267,7 @@ class _KarantinFaceAuthPageState extends State<KarantinFaceAuthPage> {
   void _showError(String message) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: kError),
+      SnackBar(content: Text(message), backgroundColor: _errorColor),
     );
   }
 
@@ -278,9 +275,9 @@ class _KarantinFaceAuthPageState extends State<KarantinFaceAuthPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('karantinIdPageTitle'.tr()),
-        backgroundColor: kGreen,
-        foregroundColor: kWhite,
+        title: Text(_strings.appBarTitle),
+        backgroundColor: _config.primaryColor,
+        foregroundColor: Colors.white,
         leading: IconButton(
           icon: const Icon(Icons.close_rounded),
           onPressed: () => Navigator.of(context).pop(),
@@ -303,15 +300,24 @@ class _KarantinFaceAuthPageState extends State<KarantinFaceAuthPage> {
   Widget _buildBody() {
     switch (_phase) {
       case _Phase.loading:
-        return const Padding(
-          padding: EdgeInsets.symmetric(vertical: 80),
-          child: Center(child: CircularProgressIndicator(color: kGreen)),
+        return Padding(
+          padding: const EdgeInsets.symmetric(vertical: 80),
+          child: Center(
+            child: CircularProgressIndicator(color: _config.primaryColor),
+          ),
         );
       case _Phase.error:
-        return _ErrorView(message: _errorMessage, onRetry: _loadSession);
+        return _ErrorView(
+          message: _errorMessage,
+          onRetry: _loadSession,
+          color: _config.primaryColor,
+          retryLabel: _strings.retryAction,
+        );
       case _Phase.form:
         return KarantinPassportForm(
           systemName: _session?.name,
+          primaryColor: _config.primaryColor,
+          strings: _strings,
           onSubmit: _onFormSubmit,
         );
       case _Phase.face:
@@ -328,10 +334,17 @@ class _KarantinFaceAuthPageState extends State<KarantinFaceAuthPage> {
 }
 
 class _ErrorView extends StatelessWidget {
-  const _ErrorView({required this.message, required this.onRetry});
+  const _ErrorView({
+    required this.message,
+    required this.onRetry,
+    required this.color,
+    required this.retryLabel,
+  });
 
   final String message;
   final VoidCallback onRetry;
+  final Color color;
+  final String retryLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -340,7 +353,7 @@ class _ErrorView extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(Icons.error_outline, color: kError, size: 56),
+          const Icon(Icons.error_outline, color: _errorColor, size: 56),
           const SizedBox(height: 16),
           Text(
             message,
@@ -350,9 +363,9 @@ class _ErrorView extends StatelessWidget {
           const SizedBox(height: 24),
           FilledButton.icon(
             onPressed: onRetry,
-            style: FilledButton.styleFrom(backgroundColor: kGreen),
+            style: FilledButton.styleFrom(backgroundColor: color),
             icon: const Icon(Icons.refresh),
-            label: Text('retryAction'.tr()),
+            label: Text(retryLabel),
           ),
         ],
       ),

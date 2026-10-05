@@ -9,10 +9,10 @@ import 'package:flutter/material.dart';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import 'package:image/image.dart' as img;
 
-import '../../data/datasources/karantin_face_remote_datasource.dart';
-import '../../data/face/face_readiness.dart';
 import 'camera_input_image.dart';
+import 'face_readiness.dart';
 import 'face_scan_animation.dart';
+import 'karantin_face_remote_datasource.dart';
 
 /// Native face scanner, a faithful port of the web client's `FaceDetection`
 /// component + `useFaceDetection` hook.

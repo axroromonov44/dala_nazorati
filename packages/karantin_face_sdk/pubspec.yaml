@@ -1,0 +1,41 @@
+name: karantin_face_sdk
+description: >-
+  Native Flutter face (Face ID) login for the Karantin ID OAuth system —
+  on-device face detection, capture and the full authorize → verify → code flow.
+version: 0.1.0
+publish_to: 'none'
+homepage: https://github.com/axroromonov44/dala_nazorati
+
+environment:
+  sdk: ^3.5.0
+  flutter: '>=3.24.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Networking + OAuth session
+  dio: ^5.8.0
+  cookie_jar: ^4.0.8
+  dio_cookie_manager: ^3.1.1
+
+  # Camera + on-device face detection
+  camera: ^0.11.0+2
+  google_mlkit_face_detection: ^0.13.1
+  image: ^4.3.0
+
+  # Device data (anti-fraud) + permissions
+  device_info_plus: ^11.5.0
+  connectivity_plus: ^6.1.4
+  geolocator: ^13.0.2
+  permission_handler: ^12.0.1
+  flutter_secure_storage: ^9.2.4
+  package_info_plus: ^9.0.1
+  crypto: ^3.0.6
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:

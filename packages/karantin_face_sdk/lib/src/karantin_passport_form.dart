@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../../../core/constants/app_colors.dart';
+import 'karantin_face_config.dart';
 
 /// Passport / PNFL entry form, a native port of the web login `FormComponent`.
 ///
@@ -11,11 +11,19 @@ class KarantinPassportForm extends StatefulWidget {
   const KarantinPassportForm({
     super.key,
     required this.onSubmit,
+    required this.primaryColor,
+    required this.strings,
     this.systemName,
   });
 
   /// Called with (identifier, isPnfl) when the form validates successfully.
   final void Function(String identifier, bool isPnfl) onSubmit;
+
+  /// Accent colour for the button and field focus.
+  final Color primaryColor;
+
+  /// UI strings.
+  final KarantinFaceStrings strings;
 
   /// Target system name shown under the form ("Tizim: …").
   final String? systemName;
@@ -25,8 +33,7 @@ class KarantinPassportForm extends StatefulWidget {
 }
 
 class _KarantinPassportFormState extends State<KarantinPassportForm> {
-  // App theme green; the "Davom etish" button and field accents follow it.
-  static const _accent = kGreen;
+  Color get _accent => widget.primaryColor;
 
   final _formKey = GlobalKey<FormState>();
   final _controller = TextEditingController();
@@ -123,10 +130,10 @@ class _KarantinPassportFormState extends State<KarantinPassportForm> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Text(
-            'Yuz orqali tizimga kirish',
+          Text(
+            widget.strings.formTitle,
             textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 12),
           _InfoAlert(isPnfl: _isPnfl),
@@ -142,7 +149,10 @@ class _KarantinPassportFormState extends State<KarantinPassportForm> {
                 borderRadius: BorderRadius.circular(10),
               ),
             ),
-            child: const Text('Davom etish', style: TextStyle(fontSize: 16)),
+            child: Text(
+              widget.strings.continueButton,
+              style: const TextStyle(fontSize: 16),
+            ),
           ),
           const SizedBox(height: 16),
           _buildSegmented(),
@@ -152,7 +162,7 @@ class _KarantinPassportFormState extends State<KarantinPassportForm> {
             Text.rich(
               TextSpan(
                 text: 'Tizim: ',
-                style: const TextStyle(color: _accent, fontSize: 13),
+                style: TextStyle(color: _accent, fontSize: 13),
                 children: [
                   TextSpan(
                     text: widget.systemName,
@@ -180,7 +190,7 @@ class _KarantinPassportFormState extends State<KarantinPassportForm> {
         ],
         validator: _validate,
         decoration: _decoration(
-          label: 'PNFLingizni kiriting',
+          label: widget.strings.pnflLabel,
           hint: '12345678901234',
         ),
       );
@@ -196,7 +206,7 @@ class _KarantinPassportFormState extends State<KarantinPassportForm> {
       ],
       validator: _validate,
       decoration: _decoration(
-        label: 'Passport seriya va raqamni kiriting',
+        label: widget.strings.passportLabel,
         hint: 'AA1234567',
       ),
     );
@@ -209,7 +219,7 @@ class _KarantinPassportFormState extends State<KarantinPassportForm> {
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(color: _accent, width: 2),
+        borderSide: BorderSide(color: _accent, width: 2),
       ),
     );
   }
@@ -224,13 +234,13 @@ class _KarantinPassportFormState extends State<KarantinPassportForm> {
       child: Row(
         children: [
           _segment(
-            label: 'Passport',
+            label: widget.strings.passportTab,
             icon: Icons.badge_outlined,
             selected: !_isPnfl,
             onTap: () => _setMode(false),
           ),
           _segment(
-            label: 'JSHSHR (PINFL)',
+            label: widget.strings.pnflTab,
             icon: Icons.fingerprint,
             selected: _isPnfl,
             onTap: () => _setMode(true),
