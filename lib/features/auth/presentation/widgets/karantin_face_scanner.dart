@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:camera/camera.dart';
+import 'package:flutter/foundation.dart' show compute;
 import 'package:flutter/material.dart';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import 'package:image/image.dart' as img;
@@ -56,7 +57,19 @@ class _KarantinFaceScannerState extends State<KarantinFaceScanner>
   // Detection pacing: process at most one frame per interval.
   static const _detectionIntervalMs = 150;
   static const _countdownSeconds = 1;
-  static const _targetAdditional = 3;
+  // Frames captured in a short burst; the best becomes the main image and the
+  // rest (deduplicated) become the additional check images.
+  static const _burstCount = 5;
+  static const _mainMaxDim = 720;
+  static const _additionalMaxDim = 640;
+
+  // Passive liveness signals collected across frames (no user prompts).
+  double _minEyeOpen = 1.0;
+  double _maxEyeOpen = 0.0;
+  double _headYMin = 999;
+  double _headYMax = -999;
+  double _headXMin = 999;
+  double _headXMax = -999;
 
   CameraController? _controller;
   FaceDetector? _detector;
@@ -89,8 +102,10 @@ class _KarantinFaceScannerState extends State<KarantinFaceScanner>
         performanceMode: FaceDetectorMode.fast,
         enableContours: false,
         enableLandmarks: false,
-        enableClassification: false,
-        enableTracking: false,
+        // Classification gives eye-open probabilities for passive liveness
+        // (a natural blink) without ever asking the user to do anything.
+        enableClassification: true,
+        enableTracking: true,
       ),
     );
     _initCamera();
@@ -224,7 +239,8 @@ class _KarantinFaceScannerState extends State<KarantinFaceScanner>
         a.boundingBox.width * a.boundingBox.height,
       ),
     );
-    final box = faces.first.boundingBox;
+    final face = faces.first;
+    final box = face.boundingBox;
 
     final metadata = inputImage.metadata;
     var size = metadata?.size ?? Size(image.width.toDouble(), image.height.toDouble());
@@ -236,7 +252,13 @@ class _KarantinFaceScannerState extends State<KarantinFaceScanner>
 
     final centered = checkFaceCentered(box, size);
     final ratio = calculateFaceRatio(box, size);
-    final isLive = updateLivenessPositions(_positions, box);
+    _updatePassiveLiveness(face);
+    // Lenient liveness: any natural movement, a natural blink, or a small head
+    // pose change counts — a real person passes effortlessly, a perfectly still
+    // printed photo does not. We never prompt the user to move or blink.
+    final isLive = updateLivenessPositions(_positions, box) ||
+        _blinkDetected ||
+        _headMoved;
 
     final readiness = getFaceReadinessStep(
       isCentered: centered,
@@ -257,6 +279,43 @@ class _KarantinFaceScannerState extends State<KarantinFaceScanner>
       _readyFrames = 0;
       _startCountdown();
     }
+  }
+
+  void _updatePassiveLiveness(Face face) {
+    final left = face.leftEyeOpenProbability;
+    final right = face.rightEyeOpenProbability;
+    if (left != null && right != null) {
+      final open = (left + right) / 2;
+      _minEyeOpen = math.min(_minEyeOpen, open);
+      _maxEyeOpen = math.max(_maxEyeOpen, open);
+    }
+    final y = face.headEulerAngleY;
+    if (y != null) {
+      _headYMin = math.min(_headYMin, y);
+      _headYMax = math.max(_headYMax, y);
+    }
+    final x = face.headEulerAngleX;
+    if (x != null) {
+      _headXMin = math.min(_headXMin, x);
+      _headXMax = math.max(_headXMax, x);
+    }
+  }
+
+  // A natural blink: eyes clearly open at some point and clearly closed at another.
+  bool get _blinkDetected => _maxEyeOpen > 0.7 && _minEyeOpen < 0.35;
+
+  // Small natural head-pose variation over the scan (degrees).
+  bool get _headMoved =>
+      (_headYMax - _headYMin) > 6 || (_headXMax - _headXMin) > 6;
+
+  void _resetLiveness() {
+    _positions.clear();
+    _minEyeOpen = 1.0;
+    _maxEyeOpen = 0.0;
+    _headYMin = 999;
+    _headYMax = -999;
+    _headXMin = 999;
+    _headXMax = -999;
   }
 
   void _applyReadiness({
@@ -298,26 +357,39 @@ class _KarantinFaceScannerState extends State<KarantinFaceScanner>
     try {
       await _stopStream();
 
-      final mainBytes = await _takePictureBytes(controller);
-      if (mainBytes == null) {
+      // Burst-capture a few stills; the natural latency between shots gives
+      // slight variation (acts like collecting frames during the scan).
+      final frames = <Uint8List>[];
+      for (var i = 0; i < _burstCount; i++) {
+        final f = await _takePictureBytes(controller);
+        if (f != null) frames.add(f);
+      }
+      if (frames.isEmpty) {
         _resetAfterFailure('Rasm olinmadi. Qaytadan urinib koʻring.');
         return;
       }
 
-      // Display the full frame (natural framing); upload the face-focused crop.
-      if (mounted) setState(() => _mainPreview = mainBytes);
-      final cropped = await _cropCenteredSquare(mainBytes);
+      // Show the first frame immediately for responsiveness.
+      if (mounted) setState(() => _mainPreview = frames.first);
 
-      final additional = <Uint8List>[];
-      for (var i = 0; i < _targetAdditional; i++) {
-        final extra = await _takePictureBytes(controller);
-        if (extra != null && !_isDuplicate(additional, extra)) {
-          additional.add(extra);
-        }
-      }
+      // Score, crop and compress off the UI thread: pick the sharpest/brightest
+      // frame as the main image, resize + JPEG-compress everything for upload.
+      final result = await compute(
+        processCapturedFrames,
+        FrameJob(
+          frames: frames,
+          mainMaxDim: _mainMaxDim,
+          additionalMaxDim: _additionalMaxDim,
+          maxAdditional: 4,
+        ),
+      );
+      if (!mounted || !_hasCaptured) return;
 
       await widget.onCapture(
-        KarantinFacePayload(faceImage: cropped, checkImages: additional),
+        KarantinFacePayload(
+          faceImage: result.main,
+          checkImages: result.additional,
+        ),
       );
       // Success: the parent navigates away; keep showing the captured frame.
     } catch (_) {
@@ -333,7 +405,7 @@ class _KarantinFaceScannerState extends State<KarantinFaceScanner>
   void restart() {
     _countdownTimer?.cancel();
     _countdownTimer = null;
-    _positions.clear();
+    _resetLiveness();
     _readyFrames = 0;
     _hasCaptured = false;
     if (mounted) {
@@ -361,36 +433,6 @@ class _KarantinFaceScannerState extends State<KarantinFaceScanner>
       return await file.readAsBytes();
     } catch (_) {
       return null;
-    }
-  }
-
-  bool _isDuplicate(List<Uint8List> existing, Uint8List candidate) {
-    for (final e in existing) {
-      if (e.length == candidate.length) return true;
-    }
-    return false;
-  }
-
-  /// Centered square crop, mirroring the web client's no-faceBox fallback in
-  /// `getFaceFocusedCropArea` (the face is already centered by capture time).
-  Future<Uint8List> _cropCenteredSquare(Uint8List bytes) async {
-    try {
-      final decoded = img.decodeImage(bytes);
-      if (decoded == null) return bytes;
-      final baked = img.bakeOrientation(decoded);
-      final side = math.min(baked.width, baked.height);
-      final offX = ((baked.width - side) / 2).round();
-      final offY = ((baked.height - side) / 2).round();
-      final cropped = img.copyCrop(
-        baked,
-        x: offX,
-        y: offY,
-        width: side,
-        height: side,
-      );
-      return Uint8List.fromList(img.encodeJpg(cropped, quality: 95));
-    } catch (_) {
-      return bytes;
     }
   }
 
@@ -595,4 +637,122 @@ class _KarantinFaceScannerState extends State<KarantinFaceScanner>
       ),
     );
   }
+}
+
+// ---------------------------------------------------------------------------
+// Off-thread frame processing (best-frame selection + crop + resize + compress)
+// ---------------------------------------------------------------------------
+
+/// Input for [processCapturedFrames]. All fields are isolate-sendable.
+class FrameJob {
+  const FrameJob({
+    required this.frames,
+    required this.mainMaxDim,
+    required this.additionalMaxDim,
+    required this.maxAdditional,
+  });
+
+  final List<Uint8List> frames;
+  final int mainMaxDim;
+  final int additionalMaxDim;
+  final int maxAdditional;
+}
+
+class FrameResult {
+  const FrameResult({required this.main, required this.additional});
+
+  final Uint8List main;
+  final List<Uint8List> additional;
+}
+
+/// Picks the sharpest, best-exposed frame as the main image (centre-cropped to a
+/// square and down-scaled), and compresses the remaining frames as additional
+/// check images. Runs in an isolate via `compute` so decoding never janks the UI.
+FrameResult processCapturedFrames(FrameJob job) {
+  final decoded = <img.Image>[];
+  for (final bytes in job.frames) {
+    final im = img.decodeImage(bytes);
+    if (im != null) decoded.add(img.bakeOrientation(im));
+  }
+
+  if (decoded.isEmpty) {
+    // Could not decode: fall back to the raw bytes so the flow still proceeds.
+    return FrameResult(
+      main: job.frames.first,
+      additional: job.frames.skip(1).take(job.maxAdditional).toList(),
+    );
+  }
+
+  var bestIndex = 0;
+  var bestScore = -1.0;
+  for (var i = 0; i < decoded.length; i++) {
+    final score = _frameScore(decoded[i]);
+    if (score > bestScore) {
+      bestScore = score;
+      bestIndex = i;
+    }
+  }
+
+  final main = _cropSquareResizeJpg(decoded[bestIndex], job.mainMaxDim, 85);
+
+  final additional = <Uint8List>[];
+  for (var i = 0; i < decoded.length && additional.length < job.maxAdditional; i++) {
+    if (i == bestIndex) continue;
+    additional.add(_resizeJpg(decoded[i], job.additionalMaxDim, 80));
+  }
+  // Ensure at least one additional frame when possible (backend expects >= 1).
+  if (additional.isEmpty && decoded.length == 1) {
+    additional.add(_resizeJpg(decoded[bestIndex], job.additionalMaxDim, 80));
+  }
+
+  return FrameResult(main: main, additional: additional);
+}
+
+/// Sharpness (gradient energy) weighted by how well-exposed the frame is.
+double _frameScore(img.Image image) {
+  final small = img.grayscale(img.copyResize(image, width: 200));
+  final w = small.width;
+  final h = small.height;
+  var energy = 0.0;
+  var lumSum = 0.0;
+  var count = 0;
+  for (var y = 2; y < h; y += 2) {
+    for (var x = 2; x < w; x += 2) {
+      final cur = small.getPixel(x, y).r.toDouble();
+      final left = small.getPixel(x - 2, y).r.toDouble();
+      final up = small.getPixel(x, y - 2).r.toDouble();
+      final gx = cur - left;
+      final gy = cur - up;
+      energy += gx * gx + gy * gy;
+      lumSum += cur;
+      count++;
+    }
+  }
+  if (count == 0) return 0;
+  final sharpness = energy / count;
+  final brightness = lumSum / count;
+  final exposure = 1 - ((brightness - 128).abs() / 128); // 1 at mid, 0 at extremes
+  return sharpness * (0.5 + 0.5 * exposure.clamp(0.0, 1.0));
+}
+
+Uint8List _cropSquareResizeJpg(img.Image image, int maxDim, int quality) {
+  final side = math.min(image.width, image.height);
+  final offX = ((image.width - side) / 2).round();
+  final offY = ((image.height - side) / 2).round();
+  var out = img.copyCrop(image, x: offX, y: offY, width: side, height: side);
+  if (side > maxDim) {
+    out = img.copyResize(out, width: maxDim, height: maxDim);
+  }
+  return Uint8List.fromList(img.encodeJpg(out, quality: quality));
+}
+
+Uint8List _resizeJpg(img.Image image, int maxDim, int quality) {
+  var out = image;
+  final longest = math.max(image.width, image.height);
+  if (longest > maxDim) {
+    out = image.width >= image.height
+        ? img.copyResize(image, width: maxDim)
+        : img.copyResize(image, height: maxDim);
+  }
+  return Uint8List.fromList(img.encodeJpg(out, quality: quality));
 }
