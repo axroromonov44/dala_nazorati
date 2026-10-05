@@ -91,8 +91,6 @@ class _KarantinFaceScannerState extends State<KarantinFaceScanner>
   bool _isMutating = false;
   bool _hasCaptured = false;
 
-  Uint8List? _mainPreview;
-
   @override
   void initState() {
     super.initState();
@@ -357,21 +355,17 @@ class _KarantinFaceScannerState extends State<KarantinFaceScanner>
     try {
       await _stopStream();
 
-      // Take the first shot and freeze it on screen immediately, so the user
-      // never sees the live preview flicker while the remaining shots are taken.
-      final first = await _takePictureBytes(controller);
-      if (first == null) {
-        _resetAfterFailure('Rasm olinmadi. Qaytadan urinib koʻring.');
-        return;
-      }
-      if (mounted) setState(() => _mainPreview = first);
-
-      // Burst the remaining frames behind the frozen image; the natural latency
-      // between shots gives slight variation (acts like scan-time collection).
-      final frames = <Uint8List>[first];
-      for (var i = 1; i < _burstCount; i++) {
+      // Burst-capture in the background; the circle keeps showing the (now
+      // static) camera frame with the scan overlay on top — no still swap, no
+      // white flash. The natural latency between shots gives slight variation.
+      final frames = <Uint8List>[];
+      for (var i = 0; i < _burstCount; i++) {
         final f = await _takePictureBytes(controller);
         if (f != null) frames.add(f);
+      }
+      if (frames.isEmpty) {
+        _resetAfterFailure('Rasm olinmadi. Qaytadan urinib koʻring.');
+        return;
       }
 
       // Score, crop and compress off the UI thread: pick the sharpest/brightest
@@ -418,7 +412,6 @@ class _KarantinFaceScannerState extends State<KarantinFaceScanner>
         _countdown = null;
         _isVerified = false;
         _isMutating = false;
-        _mainPreview = null;
       });
     }
     _startStream();
@@ -449,7 +442,7 @@ class _KarantinFaceScannerState extends State<KarantinFaceScanner>
   }
 
   String get _statusText {
-    if (_mainPreview != null && widget.isUploaded) {
+    if (widget.isUploaded) {
       return 'Yuz muvaffaqiyatli tasdiqlandi!';
     }
     if (_countdown != null) return 'Qimirlamay turing!';
@@ -548,40 +541,19 @@ class _KarantinFaceScannerState extends State<KarantinFaceScanner>
         child: Stack(
           fit: StackFit.expand,
           children: [
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 350),
-              child: KeyedSubtree(
-                key: ValueKey(
-                  _mainPreview != null
-                      ? 'image'
-                      : _cameraReady
-                      ? 'camera'
-                      : 'loading',
-                ),
-                child: _buildCameraOrImage(diameter),
-              ),
-            ),
-            if (_countdown != null && _mainPreview == null)
+            // Always the live camera — never a swapped still, so nothing can
+            // flash white. Capture and upload happen in the background.
+            _buildCamera(diameter),
+            if (_countdown != null && !_isVerified)
               _buildCountdown(_countdown!),
-            if (_mainPreview != null) _buildScanOverlay(),
+            if (_isVerified) _buildScanOverlay(),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildCameraOrImage(double diameter) {
-    if (_mainPreview != null) {
-      // The live preview is already selfie-mirrored by the platform, but the
-      // captured still is saved un-mirrored; mirror the frozen frame so the
-      // framing does not flip at capture.
-      return Transform(
-        alignment: Alignment.center,
-        transform: Matrix4.identity()..scaleByDouble(-1.0, 1.0, 1.0, 1.0),
-        child: Image.memory(_mainPreview!, fit: BoxFit.cover),
-      );
-    }
-
+  Widget _buildCamera(double diameter) {
     final controller = _controller;
     if (!_cameraReady || controller == null) {
       return const ColoredBox(
