@@ -65,7 +65,7 @@ class _LoginView extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       Image.asset(
-                        'assets/images/main_logo.png',
+                        'assets/images/nazorat_logo.png',
                         height: context.iconXl * 3,
                       ),
                       SizedBox(height: context.spaceMd),

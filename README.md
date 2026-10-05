@@ -1,4 +1,4 @@
-# Dala Nazorati
+# Nazorat AAT
 
 Field monitoring app (Flutter) — GPS-based field boundary drawing, offline map
 tiles, and a crop/pest reference encyclopedia synced from the open

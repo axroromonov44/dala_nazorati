@@ -108,7 +108,7 @@ class _SplashPageState extends State<_SplashPage>
                   ),
                   padding: const EdgeInsets.all(20),
                   child: Image.asset(
-                    'assets/images/main_logo.png',
+                    'assets/images/nazorat_logo.png',
                     fit: BoxFit.contain,
                   ),
                 ),

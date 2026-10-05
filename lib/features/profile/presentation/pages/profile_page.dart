@@ -21,6 +21,7 @@ import '../../../../core/utils/responsive.dart';
 import '../../../auth/domain/entities/user.dart';
 import '../../../auth/domain/repositories/auth_repository.dart';
 import '../../../auth/presentation/bloc/profile_cubit.dart';
+import '../../../auth/presentation/widgets/role_badge.dart';
 import '../../../fields/data/field_media_cache.dart';
 import '../../../reference/data/reference_image_cache.dart';
 import '../../../fields/domain/repositories/field_repository.dart';
@@ -213,6 +214,7 @@ class _IdentityCard extends StatelessWidget {
       if (user?.position?.isNotEmpty ?? false) user!.position!,
       if (user?.phone?.isNotEmpty ?? false) user!.phone!,
     ].join(' • ');
+    final accent = roleColor(user?.inspectorRole);
 
     return GestureDetector(
       onTap: user == null
@@ -274,12 +276,14 @@ class _IdentityCard extends StatelessWidget {
                     ),
                   ],
                   if (user != null) ...[
+                    const SizedBox(height: 8),
+                    RoleBadge(role: user.inspectorRole),
                     const SizedBox(height: 6),
                     Text(
                       'tapForDetails'.tr(),
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
-                        color: kGreen,
+                        color: accent,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -418,6 +422,10 @@ class _ProfileDetailsSheet extends StatelessWidget {
           value: user.fullNameCyrillic!,
         ),
       _DetailRow(label: 'detailUsername'.tr(), value: user.username),
+      _DetailRow(
+        label: 'roleSectionLabel'.tr(),
+        value: roleLabel(user.inspectorRole),
+      ),
       if (user.position?.isNotEmpty ?? false)
         _DetailRow(label: 'detailPosition'.tr(), value: user.position!),
       if (user.phone?.isNotEmpty ?? false)
