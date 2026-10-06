@@ -544,9 +544,7 @@ class _ProgressContent extends StatelessWidget {
             ),
             kVerticalSpace4,
             Text(
-              'referenceSyncProgress'.tr(
-                namedArgs: {'percent': '$percent'},
-              ),
+              'referenceSyncProgress'.tr(namedArgs: {'percent': '$percent'}),
               style: TextStyle(color: secondaryColor, fontSize: 12),
             ),
             if (controller.mapRunning && controller.mapProgress != null)
@@ -609,8 +607,7 @@ class _StepList extends StatelessWidget {
           _StepRow(
             label: (stepLabelKeys[keys[i]] ?? keys[i]).tr(),
             status:
-                controller.statuses[keys[i]] ??
-                ReferenceSyncStepStatus.pending,
+                controller.statuses[keys[i]] ?? ReferenceSyncStepStatus.pending,
             isLast: i == keys.length - 1,
             colorScheme: colorScheme,
             iconSlot: _iconSlot,
@@ -685,9 +682,10 @@ class _StepRow extends StatelessWidget {
                   color: switch (status) {
                     ReferenceSyncStepStatus.running => kGreen,
                     ReferenceSyncStepStatus.error => colorScheme.error,
-                    _ => isPending
-                        ? colorScheme.onSurfaceVariant
-                        : colorScheme.onSurface,
+                    _ =>
+                      isPending
+                          ? colorScheme.onSurfaceVariant
+                          : colorScheme.onSurface,
                   },
                 ),
               ),

@@ -158,8 +158,7 @@ class _KarantinPassportFormState extends State<KarantinPassportForm> {
           ),
           const SizedBox(height: 16),
           _buildSegmented(),
-          if (widget.systemName != null &&
-              widget.systemName!.isNotEmpty) ...[
+          if (widget.systemName != null && widget.systemName!.isNotEmpty) ...[
             const SizedBox(height: 16),
             Text.rich(
               TextSpan(
@@ -292,7 +291,9 @@ class _KarantinPassportFormState extends State<KarantinPassportForm> {
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
-                    color: selected ? const Color(0xFF212529) : const Color(0xFF868E96),
+                    color: selected
+                        ? const Color(0xFF212529)
+                        : const Color(0xFF868E96),
                   ),
                 ),
               ),

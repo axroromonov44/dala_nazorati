@@ -399,12 +399,13 @@ class _RedirectDialogState extends State<_RedirectDialog>
   @override
   void initState() {
     super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: _totalSeconds * 1000),
-    )..addStatusListener((status) {
-      if (status == AnimationStatus.completed) _complete();
-    });
+    _ctrl =
+        AnimationController(
+          vsync: this,
+          duration: const Duration(milliseconds: _totalSeconds * 1000),
+        )..addStatusListener((status) {
+          if (status == AnimationStatus.completed) _complete();
+        });
     _ctrl.forward();
   }
 
@@ -469,8 +470,9 @@ class _RedirectDialogState extends State<_RedirectDialog>
             AnimatedBuilder(
               animation: _ctrl,
               builder: (context, _) {
-                final remaining =
-                    (_totalSeconds * (1 - _ctrl.value)).ceil().clamp(0, _totalSeconds);
+                final remaining = (_totalSeconds * (1 - _ctrl.value))
+                    .ceil()
+                    .clamp(0, _totalSeconds);
                 return Column(
                   children: [
                     _CircleCountdown(

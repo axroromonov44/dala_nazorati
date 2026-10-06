@@ -938,7 +938,7 @@ class _DrawingBottomBar extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 const Icon(Icons.touch_app_rounded, color: kGreen, size: 15),
-               kHorizontalSpace8,
+                kHorizontalSpace8,
                 Text(
                   pointCount == 0
                       ? 'drawingPrompt'.tr()

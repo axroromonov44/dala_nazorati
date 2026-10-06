@@ -69,9 +69,9 @@ class KarantinDeviceDataCollector {
     FlutterSecureStorage? storage,
     DeviceInfoPlugin? deviceInfo,
     Connectivity? connectivity,
-  }) : _storage = storage ?? const FlutterSecureStorage(),
-       _deviceInfo = deviceInfo ?? DeviceInfoPlugin(),
-       _connectivity = connectivity ?? Connectivity();
+  })  : _storage = storage ?? const FlutterSecureStorage(),
+        _deviceInfo = deviceInfo ?? DeviceInfoPlugin(),
+        _connectivity = connectivity ?? Connectivity();
 
   final FlutterSecureStorage _storage;
   final DeviceInfoPlugin _deviceInfo;
@@ -97,7 +97,7 @@ class KarantinDeviceDataCollector {
       location: position == null
           ? "Noma'lum"
           : '${position.latitude.toStringAsFixed(6)}°, '
-                '${position.longitude.toStringAsFixed(6)}°',
+              '${position.longitude.toStringAsFixed(6)}°',
       latitude: position?.latitude,
       longitude: position?.longitude,
       accuracy: position?.accuracy,
@@ -123,8 +123,7 @@ class KarantinDeviceDataCollector {
       return _DeviceIdentity(storedId, fingerprint);
     }
 
-    final deviceId =
-        'device_${fingerprint.substring(0, 12)}_'
+    final deviceId = 'device_${fingerprint.substring(0, 12)}_'
         '${DateTime.now().millisecondsSinceEpoch.toRadixString(36)}';
     try {
       await _storage.write(key: _deviceIdKey, value: deviceId);
@@ -191,9 +190,8 @@ class KarantinDeviceDataCollector {
   Future<String> _appString() async {
     try {
       final info = await PackageInfo.fromPlatform();
-      final platform = defaultTargetPlatform == TargetPlatform.iOS
-          ? 'iOS'
-          : 'Android';
+      final platform =
+          defaultTargetPlatform == TargetPlatform.iOS ? 'iOS' : 'Android';
       return 'Nazorat AAT ${info.version}+${info.buildNumber}, Native $platform';
     } catch (_) {
       return 'Nazorat AAT, Native';
@@ -203,9 +201,8 @@ class KarantinDeviceDataCollector {
   Future<String> _networkString() async {
     try {
       final results = await _connectivity.checkConnectivity();
-      final result = results.isNotEmpty
-          ? results.first
-          : ConnectivityResult.none;
+      final result =
+          results.isNotEmpty ? results.first : ConnectivityResult.none;
       switch (result) {
         case ConnectivityResult.wifi:
           return 'WIFI';

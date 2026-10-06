@@ -42,13 +42,13 @@ class KarantinFaceConfig {
   final KarantinFaceStrings strings;
 
   Uri get authorizeUri => Uri.parse(
-    '$baseUrl/app/project/oauth/authorize'
-    '?response_type=code'
-    '&client_id=$clientId'
-    '&redirect_uri=${Uri.encodeComponent(redirectUri)}'
-    '&scope=${Uri.encodeComponent(scope)}'
-    '&auth_type=$authType',
-  );
+        '$baseUrl/app/project/oauth/authorize'
+        '?response_type=code'
+        '&client_id=$clientId'
+        '&redirect_uri=${Uri.encodeComponent(redirectUri)}'
+        '&scope=${Uri.encodeComponent(scope)}'
+        '&auth_type=$authType',
+      );
 
   String get apiBaseUrl => '$baseUrl/app';
 }
@@ -66,7 +66,7 @@ class KarantinFaceStrings {
     this.cameraPermissionTitle = 'Kameraga ruxsat kerak',
     this.cameraPermissionBody =
         'Yuz skanerlash uchun kameradan foydalanish ruxsati talab qilinadi. '
-        'Sozlamalar orqali ruxsat bering.',
+            'Sozlamalar orqali ruxsat bering.',
     this.cancelAction = 'Bekor qilish',
     this.openSettings = "Sozlamalarga o'tish",
     this.retryAction = 'Qayta urinish',

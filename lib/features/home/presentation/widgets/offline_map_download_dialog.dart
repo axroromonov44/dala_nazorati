@@ -269,8 +269,10 @@ class _DownloadProgressDialogState extends State<_DownloadProgressDialog> {
           },
           onError: (Object error) {
             if (!mounted || _cancelled) return;
-            if (error is DioException && error.type == DioExceptionType.cancel)
+            if (error is DioException &&
+                error.type == DioExceptionType.cancel) {
               return;
+            }
             setState(() => _failed = true);
           },
         );

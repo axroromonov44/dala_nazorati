@@ -89,8 +89,7 @@ bool updateLivenessPositions(
   for (var i = 1; i < positions.length; i++) {
     final prev = positions[i - 1];
     final curr = positions[i];
-    final movement =
-        (curr.left - prev.left).abs() +
+    final movement = (curr.left - prev.left).abs() +
         (curr.top - prev.top).abs() +
         ((curr.width - prev.width).abs() + (curr.height - prev.height).abs()) *
             0.4;
