@@ -2,7 +2,7 @@ name: dala_nazorati
 description: "Nazorat AAT - karantin, veterinariya va SES inspektorlari uchun nazorat tizimi"
 publish_to: 'none'
 
-version: 1.0.0+18
+version: 1.0.1+19
 
 environment:
   sdk: ^3.11.4
