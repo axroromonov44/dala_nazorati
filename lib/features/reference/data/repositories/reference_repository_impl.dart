@@ -118,19 +118,24 @@ class ReferenceRepositoryImpl implements ReferenceRepository {
     final statuses = {
       for (final key in _catalogKeys) key: ReferenceSyncStepStatus.pending,
     };
-    // Fire the independent lookups at once, then report each one's outcome.
+    // The lookups still go out all at once, but they are reported one at a
+    // time and in order, so the dialog shows a single spinner walking down the
+    // list instead of five rows spinning together. This costs no time: the
+    // requests are already in flight, and a lookup that answered early simply
+    // ticks over the moment the row above it does.
+    final lookupResults = {
+      for (final key in _lookupKeys)
+        key: _runCatalogStep(key, forceRefresh).drain<void>().then(
+          (_) => ReferenceSyncStepStatus.success,
+          onError: (_) => ReferenceSyncStepStatus.error,
+        ),
+    };
     for (final key in _lookupKeys) {
       statuses[key] = ReferenceSyncStepStatus.running;
+      yield ReferenceSyncProgress(statuses: Map.of(statuses), done: false);
+      statuses[key] = await lookupResults[key]!;
+      yield ReferenceSyncProgress(statuses: Map.of(statuses), done: false);
     }
-    yield ReferenceSyncProgress(statuses: Map.of(statuses), done: false);
-    await Future.wait([
-      for (final key in _lookupKeys)
-        _runCatalogStep(key, forceRefresh).drain<void>().then(
-          (_) => statuses[key] = ReferenceSyncStepStatus.success,
-          onError: (_) => statuses[key] = ReferenceSyncStepStatus.error,
-        ),
-    ]);
-    yield ReferenceSyncProgress(statuses: Map.of(statuses), done: false);
 
     for (final key in _sequentialKeys) {
       statuses[key] = ReferenceSyncStepStatus.running;
