@@ -9,6 +9,7 @@ import '../../features/reference/domain/repositories/reference_repository.dart';
 import '../di/injection.dart';
 import '../map/tile_cache_service.dart';
 import '../observability/crash_reporting.dart';
+import 'download_lifecycle.dart';
 import '../notifications/app_notification.dart';
 import '../notifications/notification_center.dart';
 
@@ -81,6 +82,13 @@ class AppDownloadController extends ChangeNotifier {
   StreamSubscription<TileDownloadProgress>? _mapSub;
   CancelToken? _mapCancelToken;
 
+  final _lifecycle = DownloadLifecycle();
+
+  /// Set when the map step failed while the app was away. The inspector never
+  /// chose to stop, so it is resumed on return rather than left as an error
+  /// they have to notice and retry.
+  bool _resumeMapOnForeground = false;
+
   bool get isActive => running;
 
   bool get mapRunning =>
@@ -133,7 +141,14 @@ class AppDownloadController extends ChangeNotifier {
     allDone = false;
     minimized = false;
     running = true;
+    // Keeps the CPU and screen awake, which is what lets a download survive
+    // the minutes right after the app is backgrounded. It is not a substitute
+    // for a foreground service - the system can still cut the process off -
+    // which is why the map step resumes itself below.
     WakelockPlus.enable();
+    _lifecycle
+      ..onResumed = _onForeground
+      ..attach();
     notifyListeners();
 
     if (includeCatalog) {
@@ -170,6 +185,7 @@ class AppDownloadController extends ChangeNotifier {
     statuses[mapStepKey] = ReferenceSyncStepStatus.running;
     CrashReporting.log('sync: $mapStepKey -> running');
     notifyListeners();
+    _resumeMapOnForeground = false;
     _mapCancelToken = CancelToken();
     _mapSub =
         TileCacheService.downloadJobs(
@@ -178,6 +194,7 @@ class AppDownloadController extends ChangeNotifier {
           subdomains: map.subdomains,
           retina: map.retina,
           cancelToken: _mapCancelToken,
+          lifecycle: _lifecycle,
         ).listen(
           (progress) {
             mapProgress = progress;
@@ -192,6 +209,16 @@ class AppDownloadController extends ChangeNotifier {
                 error.type == DioExceptionType.cancel) {
               return;
             }
+
+            // Already-downloaded tiles come back from the cache without touching
+            // the network, so resuming costs little and starting over costs the
+            // whole region again.
+            if (!_lifecycle.isForeground) {
+              _resumeMapOnForeground = true;
+              CrashReporting.log('sync: $mapStepKey interrupted in background');
+              return;
+            }
+
             statuses[mapStepKey] = ReferenceSyncStepStatus.error;
             unawaited(
               CrashReporting.recordNonFatal(
@@ -205,8 +232,18 @@ class AppDownloadController extends ChangeNotifier {
         );
   }
 
+  void _onForeground() {
+    if (!_resumeMapOnForeground || !running) return;
+    _resumeMapOnForeground = false;
+    unawaited(_mapSub?.cancel());
+    _mapSub = null;
+    CrashReporting.log('sync: $mapStepKey resumed after foreground');
+    _startMapPhaseIfNeeded();
+  }
+
   void _finish() {
     allDone = true;
+    _lifecycle.detach();
     WakelockPlus.disable();
     notifyListeners();
   }
@@ -230,6 +267,8 @@ class AppDownloadController extends ChangeNotifier {
     );
     running = false;
     minimized = false;
+    _resumeMapOnForeground = false;
+    _lifecycle.detach();
     WakelockPlus.disable();
     notifyListeners();
   }
@@ -252,6 +291,7 @@ class AppDownloadController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _lifecycle.detach();
     unawaited(_catalogSub?.cancel());
     unawaited(_mapSub?.cancel());
     if (_mapCancelToken != null && !_mapCancelToken!.isCancelled) {

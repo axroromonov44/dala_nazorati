@@ -8,6 +8,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../constants/storage_keys.dart';
+import '../download/download_lifecycle.dart';
 import '../di/injection.dart';
 import '../storage/hive_service.dart';
 import 'tile_math.dart';
@@ -112,6 +113,7 @@ class TileCacheService {
     required List<String> subdomains,
     required bool retina,
     CancelToken? cancelToken,
+    DownloadLifecycle? lifecycle,
   }) async* {
     final dio = _ensureBulkDio();
     final tiles = _combinedTiles(jobs);
@@ -156,6 +158,14 @@ class TileCacheService {
           consecutiveFailures = 0;
           bytes += tileBytes;
         }
+      }
+
+      // A trip to the background times out whatever was in flight, which is
+      // indistinguishable from a lost connection by the count alone. Those
+      // failures are forgiven; a genuinely dead network will fail the next
+      // batch too, with the app in front of the inspector.
+      if (lifecycle?.consumeSawBackground() ?? false) {
+        consecutiveFailures = 0;
       }
 
       yield TileDownloadProgress(
