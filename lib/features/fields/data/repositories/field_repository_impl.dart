@@ -56,11 +56,21 @@ class FieldRepositoryImpl implements FieldRepository {
   }
 
   /// Fills the store with invented fields around [center] when it is empty.
-  /// Debug builds only: every build of this app talks to production, so
-  /// invented polygons must never be able to reach a real inspector.
+  ///
+  /// Gated on [kSeedMockFields] rather than on [kDebugMode] directly, because
+  /// it is currently shipping in release builds on purpose. When that flag goes
+  /// back to false this also removes what it seeded before, so turning it off
+  /// is one edit and not a support request about stale polygons.
   @override
   Future<void> seedMockFieldsIfEmpty(LatLng center) async {
-    if (!kDebugMode || await _store.count() > 0) return;
+    if (!kSeedMockFields) {
+      if (await _store.countMockObjects() > 0) {
+        await _store.deleteMockObjects();
+        _spatialIndex.rebuild(const []);
+      }
+      return;
+    }
+    if (await _store.count() > 0) return;
 
     await _store.upsertAll([
       for (final field in FieldMockSeeder.around(center))

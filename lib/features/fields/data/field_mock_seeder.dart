@@ -4,6 +4,19 @@ import 'package:latlong2/latlong.dart';
 
 import 'models/field_summary_model.dart';
 
+/// Whether seeded fields are shipped at all.
+///
+/// **Temporarily true in release builds**, so the offline map can be checked on
+/// a real device through Play internal testing - a debug build installed over
+/// the cable could not be, and the behaviour being tested is exactly what a
+/// signed build does on a phone with no connection.
+///
+/// Set this back to `kDebugMode` before the next test build. Nothing else needs
+/// changing: when it is false the seeder also deletes whatever it seeded
+/// earlier, so a phone that already received these polygons clears them on its
+/// next launch rather than keeping them next to real data.
+const bool kSeedMockFields = true;
+
 /// Fields invented around a point, so the map can be worked on before the
 /// backend serves any. Nothing here touches the network.
 abstract final class FieldMockSeeder {
