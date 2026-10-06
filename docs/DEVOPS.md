@@ -27,13 +27,13 @@ This file does two jobs:
 | Diagnostics log | ✅ working |
 | Remote Config update policy | ✅ parameters published |
 | Push (FCM) | ✅ working, verified on a real device |
-| CD — Android half | ⚠️ 3 of 4 secrets set, **needs `GOOGLE_PLAY_SERVICE_ACCOUNT`** |
+| CD — Android half | ✅ all 4 secrets set; Play API access verified (HTTP 200 on `edits`) |
 | CD — iOS half | ⚠️ 1 of 7 secrets set, **needs the Apple credentials** |
 | Release signing | ✅ verified locally — `flutter build appbundle --release` produces a signed 79 MB AAB |
 | Branch protection on `main` | ⛔ deliberately not enabled |
 | Shorebird code push | ✅ configured (`shorebird.yaml`) |
 
-The ⚠️ rows depend on [Your TODO](#your-todo).
+The ⚠️ row depends on [CD secrets](#cd-secrets).
 
 ---
 
@@ -212,7 +212,7 @@ GitHub → Settings → Secrets and variables → Actions:
 | `ANDROID_KEYSTORE_BASE64` | signing key | `base64 -i android/keystore.jks \| pbcopy` |
 | `ANDROID_KEY_PROPERTIES` | key passwords | `base64 -i android/key.properties \| pbcopy` |
 | `ANDROID_GOOGLE_SERVICES_JSON` | Firebase (Android) | `base64 -i android/app/google-services.json \| pbcopy` |
-| `GOOGLE_PLAY_SERVICE_ACCOUNT` | Play API | Play Console → Setup → API access → service account JSON (plain text) |
+| `GOOGLE_PLAY_SERVICE_ACCOUNT` | Play API | Google Cloud service account JSON, **plain text, not base64** — see [CD secrets](#cd-secrets) |
 | `IOS_GOOGLE_SERVICE_INFO_PLIST` | Firebase (iOS) | `base64 -i ios/Runner/GoogleService-Info.plist \| pbcopy` |
 | `IOS_CERTIFICATE_P12` | distribution certificate | Keychain → export .p12 → base64 |
 | `IOS_CERTIFICATE_PASSWORD` | .p12 password | chosen during export |
@@ -280,6 +280,11 @@ if (googleServicesFile.exists()) {
     )
 }
 ```
+
+The trap is that this is a log line, not an error: a release build on a machine
+without the file succeeds and produces an AAB with no Crashlytics and no push.
+CI is safe — it writes the file from `ANDROID_GOOGLE_SERVICES_JSON` first — but
+a hand-built AAB is only as good as what is in `android/app/`.
 
 `android/settings.gradle.kts`:
 
@@ -537,7 +542,7 @@ the three `InfoPlist.strings`.
 
 ## Where this was left off
 
-Last updated 2026-10-06. Everything below is the state of the repository as it
+Last updated 2026-10-07. Everything below is the state of the repository as it
 actually stands, not a plan.
 
 ### Done and verified
@@ -559,13 +564,38 @@ oversight — do not "fix" it without being asked.
 
 ### CD secrets
 
-Already set (taken from files that exist on the development machine):
+Already set — the whole Android half:
 
 ```
 ANDROID_KEYSTORE_BASE64
 ANDROID_KEY_PROPERTIES
 ANDROID_GOOGLE_SERVICES_JSON
+GOOGLE_PLAY_SERVICE_ACCOUNT
 IOS_GOOGLE_SERVICE_INFO_PLIST
+```
+
+`GOOGLE_PLAY_SERVICE_ACCOUNT` is the `play-release-ci@nazorat-aat` service
+account, created in the `nazorat-aat` Google Cloud project — a Firebase project
+*is* a Cloud project, so no second one was made. It carries **no Cloud IAM
+role**; the upload right comes from the Play Console invitation, not from
+Cloud. The old "Play Console → Setup → API access" route no longer exists:
+
+1. Cloud Console → enable `Google Play Android Developer API`
+2. IAM & Admin → Service Accounts → create, skip the role step → Keys → JSON
+3. Play Console → **Users and permissions → Invite new users** → that service
+   account's email → `com.nazorat.aat.uz` → *View app information* and
+   *Release to testing tracks*
+
+The key goes in as **plain text** (`serviceAccountJsonPlainText`), unlike every
+other secret here, which is base64. Access can be checked without spending a
+40-minute build on it — this returns HTTP 200 once the invitation has landed:
+
+```bash
+gcloud auth activate-service-account --key-file=<key>.json
+curl -X POST -H "Authorization: Bearer $(gcloud auth print-access-token \
+  --scopes=https://www.googleapis.com/auth/androidpublisher)" \
+  -H "Content-Length: 0" \
+  https://androidpublisher.googleapis.com/androidpublisher/v3/applications/com.nazorat.aat.uz/edits
 ```
 
 Still needed — each lives in an external console, so it has to be fetched by
@@ -573,7 +603,6 @@ hand:
 
 | secret | where |
 |---|---|
-| `GOOGLE_PLAY_SERVICE_ACCOUNT` | Play Console → Setup → API access |
 | `IOS_CERTIFICATE_P12` | Keychain Access → export the distribution certificate |
 | `IOS_CERTIFICATE_PASSWORD` | chosen during that export |
 | `IOS_PROVISIONING_PROFILE` | Apple Developer → Profiles |
@@ -582,24 +611,25 @@ hand:
 | `APPSTORE_PRIVATE_KEY` | the `.p8`, downloadable only once |
 
 ```bash
-gh secret set GOOGLE_PLAY_SERVICE_ACCOUNT < ~/Downloads/play-service-account.json
 base64 -i ~/Downloads/dist.p12 | gh secret set IOS_CERTIFICATE_P12
 ```
 
-The two halves are independent: `GOOGLE_PLAY_SERVICE_ACCOUNT` on its own makes
-Android releases work, without waiting for any of the Apple credentials.
+The two halves are independent: the Android job releases on its own, without
+waiting for any of the Apple credentials. Until they exist the iOS job fails
+while Android still reaches Play — a red run is not a broken release.
 
 ### Next steps, in order
 
-1. **`GOOGLE_PLAY_SERVICE_ACCOUNT`**, then a first real release to prove the
-   pipeline:
+1. **A first real release to prove the pipeline:**
    ```bash
    tool/bump_build.sh 1.0.1
    git commit -am "chore: release 1.0.1"
    git tag v1.0.1 && git push origin main v1.0.1
    ```
    The iOS job will fail until its secrets exist; the Android job should reach
-   Play's internal track.
+   Play's internal track. Play rejects an API upload for a package that has
+   never been published through the Console, but `com.nazorat.aat.uz` already
+   has manually uploaded test bundles, so that gate is behind us.
 2. **The six Apple secrets**, then re-run the release. Expect the signing step
    to need adjusting on its first run.
 3. **Wire `onMessageOpened` to navigation.** The handler exists but goes
