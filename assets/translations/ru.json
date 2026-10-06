@@ -222,5 +222,14 @@
   "updateAvailableTitle": "Доступна новая версия",
   "updateAvailableBody": "Вышла новая версия приложения. Рекомендуем обновиться.",
   "updateNow": "Обновить",
-  "updateLater": "Позже"
+  "updateLater": "Позже",
+  "locationServiceOffTitle": "GPS выключен",
+  "locationServiceOffBody": "Включите GPS, чтобы видеть своё местоположение",
+  "locationServiceOffAction": "Включить",
+  "locationPermissionBlockedTitle": "Нет доступа к местоположению",
+  "locationPermissionBlockedBody": "Разрешите доступ в настройках",
+  "locationPermissionBlockedAction": "Настройки",
+  "locationApproximateTitle": "Местоположение приблизительное",
+  "locationApproximateBody": "Включите «Точное местоположение» для точности",
+  "locationStaleBadge": "Последнее известное местоположение"
 }

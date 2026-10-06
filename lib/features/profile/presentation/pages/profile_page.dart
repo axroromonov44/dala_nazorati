@@ -11,23 +11,18 @@ import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_spacings.dart';
-import '../../../../core/di/injection.dart';
 import '../../../../core/map/tile_cache_service.dart';
 import '../../../../core/notifications/app_notification.dart';
 import '../../../../core/notifications/notification_center.dart';
 import '../../../../core/observability/crash_reporting.dart';
 import '../../../../core/observability/diagnostics_log.dart';
-import '../../../../core/storage/hive_service.dart';
+import '../../../../core/storage/session_cleaner.dart';
 import '../../../../core/theme/theme_cubit.dart';
 import '../../../../core/utils/haptic.dart';
 import '../../../../core/utils/responsive.dart';
 import '../../../auth/domain/entities/user.dart';
-import '../../../auth/domain/repositories/auth_repository.dart';
 import '../../../auth/presentation/bloc/profile_cubit.dart';
 import '../../../auth/presentation/widgets/role_badge.dart';
-import '../../../fields/data/field_media_cache.dart';
-import '../../../reference/data/reference_image_cache.dart';
-import '../../../fields/domain/repositories/field_repository.dart';
 import '../widgets/profile_avatar.dart';
 
 class ProfilePage extends StatelessWidget {
@@ -975,15 +970,7 @@ class _LogoutTileState extends State<_LogoutTile> {
     if (!confirmed || !mounted) return;
 
     setState(() => _loggingOut = true);
-    await getIt<AuthRepository>().logout();
-    await getIt<FieldRepository>().clearLocalData();
-    await FieldMediaCache.clear();
-    await TileCacheService.clearCache(notify: false);
-    await getIt<HiveService>().offlineQueueBox.clear();
-    await getIt<HiveService>().referenceDataBox.clear();
-    await ReferenceImageCache.clear();
-    getIt<ProfileCubit>().reset();
-    NotificationCenter.items.value = const [];
+    await SessionCleaner.wipe();
 
     if (!mounted) return;
     context.go('/login');

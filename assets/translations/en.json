@@ -222,5 +222,14 @@
   "updateAvailableTitle": "New version available",
   "updateAvailableBody": "A new version of the app is available. We recommend updating.",
   "updateNow": "Update",
-  "updateLater": "Later"
+  "updateLater": "Later",
+  "locationServiceOffTitle": "Location is off",
+  "locationServiceOffBody": "Turn on location to see where you are",
+  "locationServiceOffAction": "Turn on",
+  "locationPermissionBlockedTitle": "Location permission denied",
+  "locationPermissionBlockedBody": "Grant access in settings",
+  "locationPermissionBlockedAction": "Settings",
+  "locationApproximateTitle": "Location is approximate",
+  "locationApproximateBody": "Enable precise location for accuracy",
+  "locationStaleBadge": "Last known location"
 }

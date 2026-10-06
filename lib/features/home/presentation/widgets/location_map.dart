@@ -37,11 +37,18 @@ const _regionalPaddingMeters = 3000.0;
 const _regionalMinZoom = 10;
 const _regionalMaxZoom = 13;
 
-PendingMapDownload? computeRegionalMapDownload(BuildContext context) {
+Future<PendingMapDownload?> computeRegionalMapDownload(
+  BuildContext context,
+) async {
   final isOnline = context.read<ConnectivityCubit>().state;
   if (!isOnline) return null;
 
-  final fieldsBounds = getIt<FieldRepository>().allFieldsBounds();
+  // Read everything that needs the context before the store is awaited: after
+  // the gap this context may be gone, and the lints that catch that are right.
+  final languageCode = context.locale.languageCode;
+  final retina = RetinaMode.isHighDensity(context);
+
+  final fieldsBounds = await getIt<FieldRepository>().allFieldsBounds();
   if (fieldsBounds == null) return null;
 
   final regionalBounds = TileMath.padBounds(
@@ -60,7 +67,7 @@ PendingMapDownload? computeRegionalMapDownload(BuildContext context) {
 
   final regionName = UzbekistanRegions.nearestTo(
     regionalBounds.center,
-  ).localizedName(context.locale.languageCode);
+  ).localizedName(languageCode);
 
   return PendingMapDownload(
     jobs: [
@@ -76,7 +83,7 @@ PendingMapDownload? computeRegionalMapDownload(BuildContext context) {
     body: 'offlineMapCityBody'.tr(namedArgs: {'region': regionName}),
     urlTemplate: _tileUrl,
     subdomains: _tileSubdomains,
-    retina: RetinaMode.isHighDensity(context),
+    retina: retina,
   );
 }
 
@@ -138,7 +145,7 @@ class _LocationMapState extends State<LocationMap>
   bool _zoomIndicatorVisible = false;
   double _zoomIndicatorZoom = _zoomOverview;
 
-  void _maybePromptOfflineDownload() {
+  Future<void> _maybePromptOfflineDownload() async {
     if (_offlineDialogChecked || !mounted) return;
     _offlineDialogChecked = true;
 
@@ -146,7 +153,8 @@ class _LocationMapState extends State<LocationMap>
     final isOnline = context.read<ConnectivityCubit>().state;
     if (!isOnline) return;
 
-    final fieldsBounds = getIt<FieldRepository>().allFieldsBounds();
+    final fieldsBounds = await getIt<FieldRepository>().allFieldsBounds();
+    if (!mounted) return;
     final regionalBounds = fieldsBounds == null
         ? TileMath.boundsFor(center, _regionalRadiusMeters)
         : TileMath.padBounds(fieldsBounds, _regionalPaddingMeters);
@@ -211,9 +219,24 @@ class _LocationMapState extends State<LocationMap>
     );
   }
 
+  /// Debug builds start with nothing to draw until the backend serves fields,
+  /// which makes the offline behaviour impossible to work on. The repository
+  /// refuses this in release, so it cannot reach a real inspector.
+  Future<void> _seedMockFields() async {
+    await getIt<FieldRepository>().seedMockFieldsIfEmpty(
+      LatLng(widget.location.latitude, widget.location.longitude),
+    );
+    if (!mounted || !_mapReady) return;
+    final camera = _mapController.camera;
+    context.read<FieldsBloc>().add(
+      FieldsViewportChanged(bounds: camera.visibleBounds, zoom: camera.zoom),
+    );
+  }
+
   void _playCityIntro() {
     if (_introPlayed || !mounted) return;
     _introPlayed = true;
+    unawaited(_seedMockFields());
 
     Future.delayed(const Duration(milliseconds: 3500), () {
       if (!mounted) return;
@@ -243,7 +266,7 @@ class _LocationMapState extends State<LocationMap>
     _offlineDialogChecked = false;
     Future.delayed(const Duration(milliseconds: 400), () {
       if (!mounted) return;
-      _maybePromptOfflineDownload();
+      unawaited(_maybePromptOfflineDownload());
     });
   }
 

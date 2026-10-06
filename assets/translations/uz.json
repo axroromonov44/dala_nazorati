@@ -222,5 +222,14 @@
   "updateAvailableTitle": "Yangi versiya chiqdi",
   "updateAvailableBody": "Ilovaning yangi versiyasi mavjud. Yangilashni tavsiya qilamiz.",
   "updateNow": "Yangilash",
-  "updateLater": "Keyinroq"
+  "updateLater": "Keyinroq",
+  "locationServiceOffTitle": "GPS o'chirilgan",
+  "locationServiceOffBody": "Joylashuvni ko'rsatish uchun GPS ni yoqing",
+  "locationServiceOffAction": "Yoqish",
+  "locationPermissionBlockedTitle": "Joylashuvga ruxsat berilmagan",
+  "locationPermissionBlockedBody": "Sozlamalardan ruxsat bering",
+  "locationPermissionBlockedAction": "Sozlamalar",
+  "locationApproximateTitle": "Joylashuv taxminiy",
+  "locationApproximateBody": "Aniq joylashuv uchun \"Aniq joylashuv\" ni yoqing",
+  "locationStaleBadge": "Oxirgi ma'lum joylashuv"
 }

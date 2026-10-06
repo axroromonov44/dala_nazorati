@@ -9,9 +9,11 @@ import '../../../../core/utils/haptic.dart';
 import '../../../../core/utils/responsive.dart';
 import '../../../fields/presentation/bloc/fields_bloc.dart';
 import '../../../reference/domain/repositories/reference_repository.dart';
+import '../../domain/repositories/location_repository.dart';
 import '../bloc/map_bloc.dart';
 import '../widgets/app_download_dialog.dart';
 import '../widgets/location_map.dart';
+import '../widgets/location_status_banner.dart';
 import 'fake_gps_page.dart';
 
 class HomePage extends StatelessWidget {
@@ -54,21 +56,39 @@ class _HomeViewState extends State<_HomeView> {
     // tab — see `MainPage.initState`, not here, so it isn't tied to
     // this tab ever being opened.
 
+    unawaited(_maybeOfferDownloads());
+  }
+
+  /// The map extent now comes from SQLite, so deciding what to offer is
+  /// asynchronous. The three-second delay is unchanged: it lets the map settle
+  /// before a dialog covers it.
+  Future<void> _maybeOfferDownloads() async {
     final includeCatalog = !getIt<ReferenceRepository>().isCatalogCached();
-    final mapDownload = computeRegionalMapDownload(context);
-    if (includeCatalog || mapDownload != null) {
-      Future.delayed(const Duration(seconds: 3), () {
-        if (mounted) {
-          unawaited(
-            showAppDownloadDialog(
-              context,
-              includeCatalog: includeCatalog,
-              mapDownload: mapDownload,
-            ),
-          );
-        }
-      });
+    if (!mounted) return;
+    final mapDownload = await computeRegionalMapDownload(context);
+    if (!mounted || (!includeCatalog && mapDownload == null)) return;
+
+    await Future<void>.delayed(const Duration(seconds: 3));
+    if (!mounted) return;
+    await showAppDownloadDialog(
+      context,
+      includeCatalog: includeCatalog,
+      mapDownload: mapDownload,
+    );
+  }
+
+  /// Sends the inspector to whichever screen can actually fix this. The map
+  /// recovers on its own once they come back: the service status stream fires,
+  /// and a permission change is picked up by the retry it triggers.
+  Future<void> _resolveLocationBlock(LocationBlock reason) async {
+    final repository = getIt<LocationRepository>();
+    if (reason == LocationBlock.serviceDisabled) {
+      await repository.openDeviceLocationSettings();
+    } else {
+      await repository.openAppSettings();
     }
+    if (!mounted) return;
+    context.read<MapBloc>().add(const MapLocationRetried());
   }
 
   @override
@@ -82,6 +102,27 @@ class _HomeViewState extends State<_HomeView> {
             location: location,
             drawingNotifier: widget.isDrawing,
           ),
+          // The map stays on screen behind the banner whenever there is any
+          // position to centre it on, so a blocked inspector keeps their
+          // fields instead of being sent to an error page.
+          MapLocationBlocked(:final reason, :final lastKnown, :final message) =>
+            lastKnown == null
+                ? _ErrorView(message: message.tr())
+                : Stack(
+                    children: [
+                      LocationMap(
+                        location: lastKnown,
+                        drawingNotifier: widget.isDrawing,
+                      ),
+                      Align(
+                        alignment: Alignment.topCenter,
+                        child: LocationStatusBanner(
+                          reason: reason,
+                          onPressed: () => _resolveLocationBlock(reason),
+                        ),
+                      ),
+                    ],
+                  ),
           MapFakeGpsDetected() => const FakeGpsPage(),
           MapLocationFailure(:final message) => _ErrorView(message: message),
         },

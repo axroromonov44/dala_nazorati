@@ -1,3 +1,4 @@
+import '../constants/storage_keys.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../storage/hive_service.dart';
@@ -8,7 +9,7 @@ class ThemeCubit extends Cubit<ThemeMode> {
   }
 
   final HiveService _hiveService;
-  static const _key = 'theme_mode';
+  static const _key = StorageKeys.themeMode;
 
   void _load() {
     final saved = _hiveService.userBox.get(_key) as String?;

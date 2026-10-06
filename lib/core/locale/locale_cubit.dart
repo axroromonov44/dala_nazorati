@@ -1,3 +1,4 @@
+import '../constants/storage_keys.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../storage/hive_service.dart';
@@ -8,7 +9,7 @@ class LocaleCubit extends Cubit<Locale> {
   }
 
   final HiveService _hiveService;
-  static const _key = 'locale';
+  static const _key = StorageKeys.localeCode;
 
   static const supportedLocales = [Locale('uz'), Locale('ru'), Locale('en')];
 

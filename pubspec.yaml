@@ -35,6 +35,9 @@ dependencies:
 
   # Offline storage
   hive_flutter: ^1.1.0
+  bloc_concurrency: ^0.3.0
+  sqflite: ^2.4.1
+  path: ^1.9.0
 
   # Connectivity
   connectivity_plus: ^6.1.4
@@ -104,6 +107,9 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+  # Lets the map-object store run under `flutter test`, where there is no
+  # platform SQLite.
+  sqflite_common_ffi: ^2.3.4
 
   # Tests that pump easy_localization need its prefs channel mocked.
   shared_preferences: ^2.5.3

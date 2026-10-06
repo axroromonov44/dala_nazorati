@@ -35,6 +35,8 @@ import '../update/remote_config_service.dart';
 import '../update/shorebird_update_service.dart';
 import '../router/app_router.dart';
 import '../storage/hive_service.dart';
+import '../storage/map_object_database.dart';
+import '../storage/map_object_store.dart';
 import '../storage/offline_sync_service.dart';
 import '../storage/secure_storage_service.dart';
 
@@ -52,6 +54,14 @@ Future<void> configureDependencies() async {
   );
   final hiveService = await HiveService.create();
   getIt.registerSingleton<HiveService>(hiveService);
+
+  // Map objects live in SQLite, not Hive: a province-sized download is tens of
+  // thousands of polygons and only the ones under the viewport belong in
+  // memory. Hive keeps what it is good at - tokens, FCM state, settings, the
+  // offline queue.
+  getIt.registerSingleton<MapObjectStore>(
+    MapObjectStore(await MapObjectDatabase.open()),
+  );
   getIt.registerLazySingleton<OfflineSyncService>(
     () => OfflineSyncService(getIt(), getIt()),
   );
@@ -106,19 +116,21 @@ Future<void> configureDependencies() async {
   getIt.registerLazySingleton<WatchLocationUseCase>(
     () => WatchLocationUseCase(getIt()),
   );
-  getIt.registerFactory<MapBloc>(() => MapBloc(getIt(), getIt()));
+  getIt.registerFactory<MapBloc>(() => MapBloc(getIt(), getIt(), getIt()));
 
   getIt.registerLazySingleton<FieldRemoteDataSource>(
     () => FieldRemoteDataSource(getIt()),
   );
   final fieldSpatialIndex = FieldSpatialIndex();
   getIt.registerSingleton<FieldSpatialIndex>(fieldSpatialIndex);
-  final fieldRepository = FieldRepositoryImpl(
-    getIt<FieldRemoteDataSource>(),
-    getIt<HiveService>(),
-    fieldSpatialIndex,
-  )..loadCachedIndex();
-  getIt.registerSingleton<FieldRepository>(fieldRepository);
+  getIt.registerSingleton<FieldRepository>(
+    FieldRepositoryImpl(
+      getIt<FieldRemoteDataSource>(),
+      getIt<HiveService>(),
+      fieldSpatialIndex,
+      getIt<MapObjectStore>(),
+    ),
+  );
   getIt.registerFactory<FieldsBloc>(() => FieldsBloc(getIt()));
 
   getIt.registerLazySingleton<ReferenceRemoteDataSource>(

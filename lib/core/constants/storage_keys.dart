@@ -13,6 +13,12 @@ class StorageKeys {
 
   static const String installMarker = 'install_marker';
 
+  /// Preferences, not session data: they survive a logout. Named here rather
+  /// than inside each cubit so [SessionCleaner] cannot drift out of step with
+  /// whatever string the cubit happens to use.
+  static const String localeCode = 'locale';
+  static const String themeMode = 'theme_mode';
+
   static const String fieldsIndexBox = 'fields_index_box';
   static const String fieldPhotoMetaBox = 'field_photo_meta_box';
   static const String fieldDetailBox = 'field_detail_box';
