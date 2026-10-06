@@ -6,6 +6,7 @@ import 'dart:typed_data';
 import 'package:camera/camera.dart';
 import 'package:flutter/foundation.dart' show compute;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show DeviceOrientation;
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import 'package:image/image.dart' as img;
 
@@ -13,6 +14,7 @@ import 'camera_input_image.dart';
 import 'face_readiness.dart';
 import 'face_scan_animation.dart';
 import 'karantin_face_remote_datasource.dart';
+import 'raw_camera_frame.dart';
 
 /// Native face scanner, a faithful port of the web client's `FaceDetection`
 /// component + `useFaceDetection` hook.
@@ -58,8 +60,13 @@ class _KarantinFaceScannerState extends State<KarantinFaceScanner>
   static const _detectionIntervalMs = 150;
   static const _countdownSeconds = 1;
   // Frames captured in a short burst; the best becomes the main image and the
-  // rest (deduplicated) become the additional check images.
+  // rest (deduplicated) become the additional check images. They are pulled
+  // straight from the live preview stream, never via `takePicture()`.
   static const _burstCount = 3;
+  // Spacing between burst frames: far enough apart that the three shots differ
+  // slightly, short enough that the whole burst is over in a blink.
+  static const _burstSpacingMs = 90;
+  static const _burstTimeoutMs = 1500;
   static const _mainMaxDim = 720;
   static const _additionalMaxDim = 640;
 
@@ -90,6 +97,12 @@ class _KarantinFaceScannerState extends State<KarantinFaceScanner>
   bool _isVerified = false;
   bool _isMutating = false;
   bool _hasCaptured = false;
+
+  // Burst state. While `_burstCompleter` is non-null every incoming preview
+  // frame is a capture candidate instead of a detection frame.
+  final List<RawCameraFrame> _burst = [];
+  Completer<List<RawCameraFrame>>? _burstCompleter;
+  int _lastBurstMs = 0;
 
   @override
   void initState() {
@@ -154,6 +167,15 @@ class _KarantinFaceScannerState extends State<KarantinFaceScanner>
         return;
       }
 
+      // The scanner is portrait-only. Locking the capture orientation keeps the
+      // preview's aspect ratio from flipping when the phone is tilted, which
+      // would otherwise momentarily letterbox the circle.
+      try {
+        await controller.lockCaptureOrientation(DeviceOrientation.portraitUp);
+      } catch (_) {
+        // Not supported everywhere; the aspect is derived defensively anyway.
+      }
+
       _controller = controller;
       setState(() => _cameraReady = true);
       await _startStream();
@@ -175,9 +197,12 @@ class _KarantinFaceScannerState extends State<KarantinFaceScanner>
         code.contains('restricted');
   }
 
-  Future<void> _startStream() async {
+  /// [force] keeps the stream alive for the capture burst, which runs while
+  /// `_hasCaptured` is already true.
+  Future<void> _startStream({bool force = false}) async {
     final controller = _controller;
-    if (controller == null || _streaming || _hasCaptured) return;
+    if (controller == null || _streaming) return;
+    if (_hasCaptured && !force) return;
     try {
       await controller.startImageStream(_onFrame);
       _streaming = true;
@@ -196,6 +221,10 @@ class _KarantinFaceScannerState extends State<KarantinFaceScanner>
   }
 
   void _onFrame(CameraImage image) {
+    if (_burstCompleter != null) {
+      _collectBurstFrame(image);
+      return;
+    }
     if (_hasCaptured || _processing || _countdown != null) return;
 
     final now = DateTime.now().millisecondsSinceEpoch;
@@ -353,23 +382,20 @@ class _KarantinFaceScannerState extends State<KarantinFaceScanner>
     });
 
     try {
+      // Grab the burst out of the running preview. Nothing on screen changes:
+      // no shutter, no preview blank, no sound — the user only sees the scan
+      // overlay while the frames are collected and uploaded.
+      final frames = await _collectBurst();
       await _stopStream();
 
-      // Burst-capture in the background; the circle keeps showing the (now
-      // static) camera frame with the scan overlay on top — no still swap, no
-      // white flash. The natural latency between shots gives slight variation.
-      final frames = <Uint8List>[];
-      for (var i = 0; i < _burstCount; i++) {
-        final f = await _takePictureBytes(controller);
-        if (f != null) frames.add(f);
-      }
       if (frames.isEmpty) {
         _resetAfterFailure('Rasm olinmadi. Qaytadan urinib koʻring.');
         return;
       }
 
-      // Score, crop and compress off the UI thread: pick the sharpest/brightest
-      // frame as the main image, resize + JPEG-compress everything for upload.
+      // Decode, score, crop and compress off the UI thread: pick the
+      // sharpest/brightest frame as the main image, resize + JPEG-compress
+      // everything for upload.
       final result = await compute(
         processCapturedFrames,
         FrameJob(
@@ -379,6 +405,10 @@ class _KarantinFaceScannerState extends State<KarantinFaceScanner>
           maxAdditional: 4,
         ),
       );
+      if (result == null) {
+        _resetAfterFailure('Rasm olinmadi. Qaytadan urinib koʻring.');
+        return;
+      }
       if (!mounted || !_hasCaptured) return;
 
       await widget.onCapture(
@@ -396,11 +426,58 @@ class _KarantinFaceScannerState extends State<KarantinFaceScanner>
     }
   }
 
+  /// Collects [_burstCount] preview frames (or whatever arrived before the
+  /// timeout) without touching the capture session.
+  Future<List<RawCameraFrame>> _collectBurst() async {
+    _burst.clear();
+    _lastBurstMs = 0;
+    final completer = Completer<List<RawCameraFrame>>();
+    _burstCompleter = completer;
+
+    if (!_streaming) await _startStream(force: true);
+
+    final frames = await completer.future
+        .timeout(
+          const Duration(milliseconds: _burstTimeoutMs),
+          onTimeout: () => List<RawCameraFrame>.from(_burst),
+        )
+        .catchError((_) => <RawCameraFrame>[]);
+
+    _burstCompleter = null;
+    _burst.clear();
+    return frames;
+  }
+
+  void _collectBurstFrame(CameraImage image) {
+    final completer = _burstCompleter;
+    if (completer == null || completer.isCompleted) return;
+
+    final now = DateTime.now().millisecondsSinceEpoch;
+    if (_burst.isNotEmpty && now - _lastBurstMs < _burstSpacingMs) return;
+
+    final controller = _controller;
+    if (controller == null) return;
+    final frame = rawFrameFromCameraImage(
+      image: image,
+      controller: controller,
+      camera: controller.description,
+    );
+    if (frame == null) return;
+
+    _lastBurstMs = now;
+    _burst.add(frame);
+    if (_burst.length >= _burstCount) {
+      completer.complete(List<RawCameraFrame>.from(_burst));
+    }
+  }
+
   /// Called by the parent (via key/state) to reset the scanner after a failed
   /// verification so the user can retry.
   void restart() {
     _countdownTimer?.cancel();
     _countdownTimer = null;
+    _burstCompleter = null;
+    _burst.clear();
     _resetLiveness();
     _readyFrames = 0;
     _hasCaptured = false;
@@ -422,22 +499,17 @@ class _KarantinFaceScannerState extends State<KarantinFaceScanner>
     restart();
   }
 
-  Future<Uint8List?> _takePictureBytes(CameraController controller) async {
-    try {
-      final file = await controller.takePicture();
-      return await file.readAsBytes();
-    } catch (_) {
-      return null;
-    }
-  }
-
   // ---------------------------------------------------------------- UI
 
-  Color get _borderColor {
-    if (_isMutating && _isVerified) return _verifiedColor;
+  /// One colour drives the whole scanner: the ring, the glow and the status
+  /// text. Keeping a single source avoids the old mix of borders that could
+  /// disagree with each other.
+  Color get _accentColor {
+    if (!_cameraReady) return _readyColor;
+    if (_isVerified || widget.isUploaded) return _verifiedColor;
     if (_countdown != null) return _readyColor;
-    if (_isVerified && !_isMutating) return _holdColor;
     if (_step >= 2 && _isCentered) return _readyColor;
+    if (_step >= 1) return _holdColor;
     return _errorColor;
   }
 
@@ -453,32 +525,13 @@ class _KarantinFaceScannerState extends State<KarantinFaceScanner>
 
   @override
   Widget build(BuildContext context) {
-    final progressGreen = _isVerified || _isMutating;
-    final statusColor = progressGreen ? _verifiedColor : _readyColor;
+    final accent = _accentColor;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        _buildPreview(),
-        const SizedBox(height: 20),
-        SizedBox(
-          width: 220,
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(999),
-            child: TweenAnimationBuilder<double>(
-              tween: Tween(end: (_progress / 100).clamp(0.0, 1.0)),
-              duration: const Duration(milliseconds: 300),
-              curve: Curves.easeOut,
-              builder: (context, value, _) => LinearProgressIndicator(
-                value: value,
-                minHeight: 8,
-                backgroundColor: const Color(0xFFE9ECEF),
-                valueColor: AlwaysStoppedAnimation(statusColor),
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: 12),
+        _buildPreview(accent),
+        const SizedBox(height: 22),
         AnimatedSwitcher(
           duration: const Duration(milliseconds: 280),
           transitionBuilder: (child, anim) => FadeTransition(
@@ -497,8 +550,9 @@ class _KarantinFaceScannerState extends State<KarantinFaceScanner>
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 16,
-              fontWeight: FontWeight.w500,
-              color: statusColor,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.1,
+              color: accent,
             ),
           ),
         ),
@@ -506,49 +560,90 @@ class _KarantinFaceScannerState extends State<KarantinFaceScanner>
     );
   }
 
-  Widget _buildPreview() {
-    const diameter = 320.0;
-    final border = _cameraReady
-        ? _countdown != null
-              ? _readyColor
-              : _isVerified
-              ? _verifiedColor
-              : _borderColor
-        : Colors.transparent;
-    // Soft glow only for the positive states; no red halo when off-centre.
-    Color? glow;
-    if (_cameraReady) {
-      if (_isVerified) {
-        glow = _verifiedColor;
-      } else if (_countdown != null || (_isCentered && _step >= 2)) {
-        glow = _readyColor;
-      }
-    }
+  Widget _buildPreview(Color accent) {
+    const gap = 9.0;
+    const stroke = 5.0;
+    const ring = (gap + stroke) * 2;
 
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeOut,
-      width: diameter,
-      height: diameter,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        border: Border.all(color: border, width: 3),
-        boxShadow: glow != null
-            ? [BoxShadow(color: glow.withValues(alpha: 0.4), blurRadius: 12)]
-            : null,
-      ),
-      child: ClipOval(
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            // Always the live camera — never a swapped still, so nothing can
-            // flash white. Capture and upload happen in the background.
-            _buildCamera(diameter),
-            if (_countdown != null && !_isVerified)
-              _buildCountdown(_countdown!),
-            if (_isVerified) _buildScanOverlay(),
-          ],
-        ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Shrink on narrow phones instead of overflowing; the ring and the
+        // preview always stay concentric because both derive from `box`.
+        final available = constraints.hasBoundedWidth
+            ? constraints.maxWidth - 16
+            : double.infinity;
+        final box = math.min(328.0, available.isFinite ? available : 328.0);
+        final photo = box - ring;
+        return _buildPreviewBox(accent, box, photo, stroke);
+      },
+    );
+  }
+
+  Widget _buildPreviewBox(
+    Color accent,
+    double box,
+    double photo,
+    double stroke,
+  ) {
+    return SizedBox(
+      width: box,
+      height: box,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // Soft halo behind everything; it never draws an edge of its own, so
+          // it cannot look like a second ring.
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOut,
+            width: photo,
+            height: photo,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: accent.withValues(alpha: _cameraReady ? 0.28 : 0.0),
+                  blurRadius: 28,
+                  spreadRadius: 2,
+                ),
+              ],
+            ),
+          ),
+          // The live camera. Never a swapped still and never interrupted by a
+          // photo capture, so nothing can flash white.
+          SizedBox(
+            width: photo,
+            height: photo,
+            child: ClipOval(
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  _buildCamera(photo),
+                  if (_isVerified) _buildScanOverlay(),
+                ],
+              ),
+            ),
+          ),
+          // Exactly one ring: a track plus the progress arc, painted on a
+          // single circle that is concentric with the preview by construction.
+          IgnorePointer(
+            child: TweenAnimationBuilder<double>(
+              tween: Tween(end: (_progress / 100).clamp(0.0, 1.0)),
+              duration: const Duration(milliseconds: 320),
+              curve: Curves.easeOut,
+              builder: (context, value, _) => CustomPaint(
+                size: Size.square(box),
+                painter: _ScannerRingPainter(
+                  progress: value,
+                  color: accent,
+                  stroke: stroke,
+                  visible: _cameraReady,
+                ),
+              ),
+            ),
+          ),
+          if (_countdown != null && !_isVerified) _buildCountdown(_countdown!),
+        ],
       ),
     );
   }
@@ -559,63 +654,71 @@ class _KarantinFaceScannerState extends State<KarantinFaceScanner>
       return const ColoredBox(
         color: Color(0xFF111111),
         child: Center(
-          child: CircularProgressIndicator(color: Color(0xFF07C23C)),
+          child: CircularProgressIndicator(
+            color: Color(0xFF07C23C),
+            strokeWidth: 2.5,
+          ),
         ),
       );
     }
 
-    // Cover-fit the preview without distortion. The scanner is portrait-locked,
-    // so build a portrait box from the camera's own aspect (shorter x longer)
-    // regardless of how the platform reports previewSize orientation; FittedBox
-    // then crops it to the square circle with a uniform (non-stretching) scale.
-    final previewSize = controller.value.previewSize;
-    final double childWidth;
-    final double childHeight;
-    if (previewSize == null) {
-      childWidth = diameter;
-      childHeight = diameter;
-    } else {
-      childWidth = math.min(previewSize.width, previewSize.height);
-      childHeight = math.max(previewSize.width, previewSize.height);
-    }
-    // No manual mirror here: the platform already shows the front camera as a
-    // natural selfie view. Adding a flip would reverse it relative to the
-    // native camera.
-    return FittedBox(
-      fit: BoxFit.cover,
-      clipBehavior: Clip.hardEdge,
-      child: SizedBox(
-        width: childWidth,
-        height: childHeight,
-        child: CameraPreview(controller),
-      ),
+    // Rebuild whenever the controller reports a new orientation, so the box we
+    // hand the preview never goes stale.
+    return ValueListenableBuilder<CameraValue>(
+      valueListenable: controller,
+      builder: (context, value, _) {
+        // `CameraPreview` wraps itself in an AspectRatio: `aspectRatio` in
+        // landscape, `1 / aspectRatio` in portrait. Give it a box of any other
+        // shape and it letterboxes itself inside that box — which is what left
+        // the white gap between the preview and the ring. Build the box from
+        // the very same ratio so the preview fills it edge to edge, then
+        // cover-crop the result into the circle.
+        final orientation =
+            value.lockedCaptureOrientation ?? value.deviceOrientation;
+        final previewAspect = previewBoxAspect(
+          aspectRatio: value.aspectRatio,
+          orientation: orientation,
+        );
+
+        return ColoredBox(
+          // Anything the cover-crop cannot reach reads as camera black, never
+          // as the page background.
+          color: const Color(0xFF111111),
+          child: FittedBox(
+            fit: BoxFit.cover,
+            clipBehavior: Clip.hardEdge,
+            child: SizedBox(
+              width: diameter * previewAspect,
+              height: diameter,
+              child: CameraPreview(controller),
+            ),
+          ),
+        );
+      },
     );
   }
 
   Widget _buildCountdown(int countdown) {
-    return Center(
-      child: TweenAnimationBuilder<double>(
-        tween: Tween(begin: 0.95, end: 1.05),
-        duration: const Duration(milliseconds: 625),
-        curve: Curves.easeInOut,
-        builder: (context, scale, child) =>
-            Transform.scale(scale: scale, child: child),
-        child: Container(
-          width: 110,
-          height: 110,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: _readyColor.withValues(alpha: 0.15),
-            border: Border.all(color: _readyColor.withValues(alpha: 0.1), width: 2),
-          ),
-          child: Text(
-            '${countdown + 1}',
-            style: const TextStyle(
-              color: _readyColor,
-              fontSize: 48,
-              fontWeight: FontWeight.w700,
-            ),
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.9, end: 1.04),
+      duration: const Duration(milliseconds: 625),
+      curve: Curves.easeInOut,
+      builder: (context, scale, child) =>
+          Transform.scale(scale: scale, child: child),
+      child: Container(
+        width: 112,
+        height: 112,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: Colors.black.withValues(alpha: 0.28),
+        ),
+        child: Text(
+          '${countdown + 1}',
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 52,
+            fontWeight: FontWeight.w700,
           ),
         ),
       ),
@@ -623,12 +726,10 @@ class _KarantinFaceScannerState extends State<KarantinFaceScanner>
   }
 
   Widget _buildScanOverlay() {
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        color: Colors.black.withValues(alpha: 0.3),
-        border: Border.all(color: _verifiedColor, width: 3),
-      ),
+    // No border here: the ring above the preview is the only outline, so the
+    // overlay just dims the frame and runs the scan line.
+    return ColoredBox(
+      color: Colors.black.withValues(alpha: 0.28),
       child: Stack(
         fit: StackFit.expand,
         children: [
@@ -650,6 +751,86 @@ class _KarantinFaceScannerState extends State<KarantinFaceScanner>
   }
 }
 
+/// The aspect ratio of the box a [CameraPreview] has to be given so it fills it
+/// exactly instead of letterboxing itself inside it.
+///
+/// `CameraPreview` wraps its texture in `AspectRatio(aspectRatio)` while the
+/// device is landscape and `AspectRatio(1 / aspectRatio)` while it is portrait.
+/// Any other box shape leaves a gap on two sides — which is what used to show
+/// through as a pale crescent between the preview and the ring.
+double previewBoxAspect({
+  required double aspectRatio,
+  required DeviceOrientation orientation,
+}) {
+  if (aspectRatio <= 0 || !aspectRatio.isFinite) return 1;
+  final isLandscape =
+      orientation == DeviceOrientation.landscapeLeft ||
+      orientation == DeviceOrientation.landscapeRight;
+  return isLandscape ? aspectRatio : 1 / aspectRatio;
+}
+
+/// Draws the scanner's single ring: a faint full-circle track with the progress
+/// arc (plus a soft glow pass) on top, starting at 12 o'clock.
+class _ScannerRingPainter extends CustomPainter {
+  const _ScannerRingPainter({
+    required this.progress,
+    required this.color,
+    required this.stroke,
+    required this.visible,
+  });
+
+  final double progress;
+  final Color color;
+  final double stroke;
+  final bool visible;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (!visible) return;
+    final rect = Rect.fromLTWH(
+      stroke / 2,
+      stroke / 2,
+      size.width - stroke,
+      size.height - stroke,
+    );
+
+    final track = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = stroke
+      ..strokeCap = StrokeCap.round
+      ..color = color.withValues(alpha: 0.18);
+    canvas.drawOval(rect, track);
+
+    final value = progress.clamp(0.0, 1.0);
+    if (value <= 0) return;
+
+    const startAngle = -math.pi / 2;
+    final sweep = 2 * math.pi * value;
+
+    final glow = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = stroke
+      ..strokeCap = StrokeCap.round
+      ..color = color.withValues(alpha: 0.45)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 7);
+    canvas.drawArc(rect, startAngle, sweep, false, glow);
+
+    final arc = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = stroke
+      ..strokeCap = StrokeCap.round
+      ..color = color;
+    canvas.drawArc(rect, startAngle, sweep, false, arc);
+  }
+
+  @override
+  bool shouldRepaint(_ScannerRingPainter old) =>
+      old.progress != progress ||
+      old.color != color ||
+      old.stroke != stroke ||
+      old.visible != visible;
+}
+
 // ---------------------------------------------------------------------------
 // Off-thread frame processing (best-frame selection + crop + resize + compress)
 // ---------------------------------------------------------------------------
@@ -663,7 +844,7 @@ class FrameJob {
     required this.maxAdditional,
   });
 
-  final List<Uint8List> frames;
+  final List<RawCameraFrame> frames;
   final int mainMaxDim;
   final int additionalMaxDim;
   final int maxAdditional;
@@ -676,23 +857,20 @@ class FrameResult {
   final List<Uint8List> additional;
 }
 
-/// Picks the sharpest, best-exposed frame as the main image (centre-cropped to a
-/// square and down-scaled), and compresses the remaining frames as additional
-/// check images. Runs in an isolate via `compute` so decoding never janks the UI.
-FrameResult processCapturedFrames(FrameJob job) {
+/// Decodes the streamed burst, picks the sharpest, best-exposed frame as the
+/// main image (centre-cropped to a square and down-scaled), and compresses the
+/// remaining frames as additional check images. Runs in an isolate via
+/// `compute` so YUV/BGRA conversion never janks the UI.
+///
+/// Returns null when not a single frame could be decoded.
+FrameResult? processCapturedFrames(FrameJob job) {
   final decoded = <img.Image>[];
-  for (final bytes in job.frames) {
-    final im = img.decodeImage(bytes);
-    if (im != null) decoded.add(img.bakeOrientation(im));
+  for (final frame in job.frames) {
+    final im = decodeRawFrame(frame);
+    if (im != null) decoded.add(im);
   }
 
-  if (decoded.isEmpty) {
-    // Could not decode: fall back to the raw bytes so the flow still proceeds.
-    return FrameResult(
-      main: job.frames.first,
-      additional: job.frames.skip(1).take(job.maxAdditional).toList(),
-    );
-  }
+  if (decoded.isEmpty) return null;
 
   var bestIndex = 0;
   var bestScore = -1.0;
@@ -712,7 +890,7 @@ FrameResult processCapturedFrames(FrameJob job) {
     additional.add(_resizeJpg(decoded[i], job.additionalMaxDim, 80));
   }
   // Ensure at least one additional frame when possible (backend expects >= 1).
-  if (additional.isEmpty && decoded.length == 1) {
+  if (additional.isEmpty) {
     additional.add(_resizeJpg(decoded[bestIndex], job.additionalMaxDim, 80));
   }
 

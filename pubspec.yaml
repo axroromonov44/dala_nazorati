@@ -2,7 +2,7 @@ name: dala_nazorati
 description: "Nazorat AAT - karantin, veterinariya va SES inspektorlari uchun nazorat tizimi"
 publish_to: 'none'
 
-version: 1.0.0+16
+version: 1.0.0+18
 
 environment:
   sdk: ^3.11.4
@@ -65,7 +65,6 @@ dependencies:
   easy_localization: ^3.0.8
   url_launcher: ^6.3.1
   image_picker: ^1.1.2
-  easy_stepper: ^1.2.0
 
   # In-app browser for OneID/SSO OAuth flow (needed to capture the redirect code)
   webview_flutter: ^4.10.0
@@ -97,6 +96,12 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+
+  # Tests that pump easy_localization need its prefs channel mocked.
+  shared_preferences: ^2.5.3
+  # Tests that fake the documents directory for the reference image cache.
+  path_provider_platform_interface: ^2.1.2
+  plugin_platform_interface: ^2.1.8
 
   build_runner: ^2.4.15
   injectable_generator: ^2.7.0

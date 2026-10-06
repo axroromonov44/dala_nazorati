@@ -9,7 +9,10 @@ import '../models/reference_item_model.dart';
 class ReferenceRemoteDataSource {
   ReferenceRemoteDataSource()
     : _dio = Dio(BaseOptions(baseUrl: ReferenceEndpoints.baseUrl)) {
-    attachDebugLogger(_dio);
+    // Bodies off: the pest/plant catalogs are hundreds of entries with full
+    // descriptions, and dumping them turns every sync into megabytes of logcat
+    // that buries the rest of the console and stalls the device.
+    attachDebugLogger(_dio, logBody: false);
   }
 
   final Dio _dio;

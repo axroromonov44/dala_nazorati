@@ -43,12 +43,34 @@ const stepLabelKeys = {
   mapStepKey: 'referenceSyncMapStep',
 };
 
+/// Roughly how much work each step is, so the bar tracks time rather than step
+/// count. Counting steps equally made the bar jump to 63% in a second and then
+/// sit there for minutes, because the images alone are ~2000 downloads while
+/// the five lookup lists are one small request each.
+const _stepWeights = <String, double>{
+  'crop_types': 1,
+  'plant_types': 1,
+  'propagation_types': 1,
+  'pest_types': 1,
+  'pest_distribution_zones': 1,
+  'plants': 3,
+  'pests': 3,
+  'images': 45,
+  mapStepKey: 35,
+};
+
+double _weightOf(String key) => _stepWeights[key] ?? 1;
+
 class AppDownloadController extends ChangeNotifier {
   bool includeCatalog = false;
   PendingMapDownload? mapDownload;
   List<String> orderedKeys = [];
   Map<String, ReferenceSyncStepStatus> statuses = {};
   TileDownloadProgress? mapProgress;
+
+  /// How far the running catalog step has got, reported by the repository.
+  /// Only the image step reports anything; the rest jump straight to done.
+  double catalogStepFraction = 0;
 
   bool running = false;
   bool allDone = false;
@@ -66,14 +88,32 @@ class AppDownloadController extends ChangeNotifier {
   bool get hasFailures =>
       statuses.values.any((status) => status == ReferenceSyncStepStatus.error);
 
+  /// 0..1 across the whole download, weighted by how heavy each step is and
+  /// including how far the running step has got.
   double get fraction {
     if (orderedKeys.isEmpty) return 1;
-    final finished = statuses.values.where(
-      (status) =>
-          status == ReferenceSyncStepStatus.success ||
-          status == ReferenceSyncStepStatus.error,
-    );
-    return finished.length / orderedKeys.length;
+
+    var total = 0.0;
+    var completed = 0.0;
+    for (final key in orderedKeys) {
+      final weight = _weightOf(key);
+      total += weight;
+      switch (statuses[key]) {
+        case ReferenceSyncStepStatus.success:
+        case ReferenceSyncStepStatus.error:
+          completed += weight;
+        case ReferenceSyncStepStatus.running:
+          final within = key == mapStepKey
+              ? (mapProgress?.fraction ?? 0)
+              : catalogStepFraction;
+          completed += weight * within.clamp(0.0, 1.0);
+        case ReferenceSyncStepStatus.pending:
+        case null:
+          break;
+      }
+    }
+    if (total == 0) return 1;
+    return (completed / total).clamp(0.0, 1.0);
   }
 
   void start({required bool includeCatalog, PendingMapDownload? mapDownload}) {
@@ -88,6 +128,7 @@ class AppDownloadController extends ChangeNotifier {
       for (final key in orderedKeys) key: ReferenceSyncStepStatus.pending,
     };
     mapProgress = null;
+    catalogStepFraction = 0;
     allDone = false;
     minimized = false;
     running = true;
@@ -99,6 +140,7 @@ class AppDownloadController extends ChangeNotifier {
         progress,
       ) {
         statuses.addAll(progress.statuses);
+        catalogStepFraction = progress.activeFraction;
         notifyListeners();
         if (progress.done) _startMapPhaseIfNeeded();
       });

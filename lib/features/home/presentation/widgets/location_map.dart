@@ -904,7 +904,12 @@ class _DrawingBottomBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final bottom = MediaQuery.of(context).padding.bottom;
+    // The surrounding Scaffold declares a `bottomNavigationBar`, so it strips
+    // the bottom inset out of the MediaQuery it hands to its body — and while
+    // drawing that bar collapses to zero height, leaving nothing to clear the
+    // system navigation bar. Read the inset straight from the view instead, or
+    // the cancel button ends up underneath it.
+    final bottom = MediaQueryData.fromView(View.of(context)).padding.bottom;
 
     return Container(
       padding: EdgeInsets.fromLTRB(16, 10, 16, bottom + 12),

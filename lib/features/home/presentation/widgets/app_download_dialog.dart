@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import 'package:easy_localization/easy_localization.dart';
-import 'package:easy_stepper/easy_stepper.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
@@ -519,22 +518,8 @@ class _ProgressContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final orderedKeys = controller.orderedKeys;
-    final steps = [
-      for (final key in orderedKeys)
-        EasyStep(
-          customStep: _stepIcon(
-            controller.statuses[key] ?? ReferenceSyncStepStatus.pending,
-            colorScheme,
-          ),
-          title: (stepLabelKeys[key] ?? key).tr(),
-        ),
-    ];
-    final runningIndex = orderedKeys.indexWhere(
-      (key) => controller.statuses[key] == ReferenceSyncStepStatus.running,
-    );
-    final activeStep = runningIndex == -1 ? orderedKeys.length : runningIndex;
     final secondaryColor = colorScheme.onSurfaceVariant;
+    final percent = (controller.fraction * 100).clamp(0, 100).round();
 
     return ConstrainedBox(
       constraints: BoxConstraints(
@@ -543,47 +528,24 @@ class _ProgressContent extends StatelessWidget {
       child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            SizedBox(
-              width: double.maxFinite,
-              child: EasyStepper(
-                activeStep: activeStep,
-                direction: Axis.vertical,
-                disableScroll: true,
-                alignment: Alignment.topLeft,
-                verticalAlignment: CrossAxisAlignment.start,
-                stepRadius: 14,
-                internalPadding: 6,
-                showLoadingAnimation: false,
-                showStepBorder: false,
-                enableStepTapping: false,
-                steppingEnabled: false,
-                activeStepBackgroundColor: Colors.transparent,
-                finishedStepBackgroundColor: Colors.transparent,
-                unreachedStepBackgroundColor: Colors.transparent,
-                lineStyle: LineStyle(
-                  lineLength: 18,
-                  defaultLineColor: colorScheme.outlineVariant,
-                  finishedLineColor: kGreen,
-                ),
-                steps: steps,
-              ),
-            ),
+            _StepList(controller: controller),
             kVerticalSpace12,
             ClipRRect(
               borderRadius: BorderRadius.circular(8),
-              child: LinearProgressIndicator(
-                value: controller.fraction,
-                minHeight: 8,
+              child: TweenAnimationBuilder<double>(
+                tween: Tween(end: controller.fraction.clamp(0.0, 1.0)),
+                duration: const Duration(milliseconds: 250),
+                curve: Curves.easeOut,
+                builder: (context, value, _) =>
+                    LinearProgressIndicator(value: value, minHeight: 8),
               ),
             ),
             kVerticalSpace4,
             Text(
               'referenceSyncProgress'.tr(
-                namedArgs: {
-                  'percent': '${(controller.fraction * 100).round()}',
-                },
+                namedArgs: {'percent': '$percent'},
               ),
               style: TextStyle(color: secondaryColor, fontSize: 12),
             ),
@@ -616,6 +578,122 @@ class _ProgressContent extends StatelessWidget {
               ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// The vertical list of catalog steps.
+///
+/// Written by hand rather than with a stepper package because the labels are
+/// long sentences in three languages ("Zararkunanda va kasalliklar
+/// maʼlumotnomasi"): the label has to wrap inside the dialog instead of running
+/// off its right edge.
+class _StepList extends StatelessWidget {
+  const _StepList({required this.controller});
+
+  final AppDownloadController controller;
+
+  static const _iconSlot = 28.0;
+  static const _connectorHeight = 14.0;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final keys = controller.orderedKeys;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (var i = 0; i < keys.length; i++)
+          _StepRow(
+            label: (stepLabelKeys[keys[i]] ?? keys[i]).tr(),
+            status:
+                controller.statuses[keys[i]] ??
+                ReferenceSyncStepStatus.pending,
+            isLast: i == keys.length - 1,
+            colorScheme: colorScheme,
+            iconSlot: _iconSlot,
+            connectorHeight: _connectorHeight,
+          ),
+      ],
+    );
+  }
+}
+
+class _StepRow extends StatelessWidget {
+  const _StepRow({
+    required this.label,
+    required this.status,
+    required this.isLast,
+    required this.colorScheme,
+    required this.iconSlot,
+    required this.connectorHeight,
+  });
+
+  final String label;
+  final ReferenceSyncStepStatus status;
+  final bool isLast;
+  final ColorScheme colorScheme;
+  final double iconSlot;
+  final double connectorHeight;
+
+  @override
+  Widget build(BuildContext context) {
+    final done =
+        status == ReferenceSyncStepStatus.success ||
+        status == ReferenceSyncStepStatus.error;
+    final isPending = status == ReferenceSyncStepStatus.pending;
+
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Column(
+            children: [
+              SizedBox(
+                width: iconSlot,
+                height: iconSlot,
+                child: Center(child: _stepIcon(status, colorScheme)),
+              ),
+              // The connector stretches with the row, so a label that wraps to
+              // two lines keeps the line unbroken down to the next step.
+              if (!isLast)
+                Expanded(
+                  child: Container(
+                    width: 2,
+                    constraints: BoxConstraints(minHeight: connectorHeight),
+                    color: done ? kGreen : colorScheme.outlineVariant,
+                  ),
+                ),
+            ],
+          ),
+          kHorizontalSpace12,
+          Expanded(
+            child: Padding(
+              padding: EdgeInsets.only(
+                top: 4,
+                bottom: isLast ? 0 : connectorHeight,
+              ),
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: status == ReferenceSyncStepStatus.running
+                      ? FontWeight.w600
+                      : FontWeight.w500,
+                  color: switch (status) {
+                    ReferenceSyncStepStatus.running => kGreen,
+                    ReferenceSyncStepStatus.error => colorScheme.error,
+                    _ => isPending
+                        ? colorScheme.onSurfaceVariant
+                        : colorScheme.onSurface,
+                  },
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

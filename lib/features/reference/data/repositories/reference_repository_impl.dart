@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import '../../../../core/storage/hive_service.dart';
@@ -90,16 +91,21 @@ class ReferenceRepositoryImpl implements ReferenceRepository {
         forceRefresh: forceRefresh,
       );
 
-  static const List<String> _catalogKeys = [
+  /// The five small lookup lists. They do not depend on each other, so they are
+  /// fetched together instead of one round trip after another.
+  static const List<String> _lookupKeys = [
     'crop_types',
     'plant_types',
     'propagation_types',
     'pest_types',
     'pest_distribution_zones',
-    'plants',
-    'pests',
-    'images',
   ];
+
+  /// Everything after the lookups has to stay in order: the image URLs only
+  /// exist once plants and pests have been fetched.
+  static const List<String> _sequentialKeys = ['plants', 'pests', 'images'];
+
+  static const List<String> _catalogKeys = [..._lookupKeys, ..._sequentialKeys];
 
   @override
   bool isCatalogCached() =>
@@ -112,11 +118,31 @@ class ReferenceRepositoryImpl implements ReferenceRepository {
     final statuses = {
       for (final key in _catalogKeys) key: ReferenceSyncStepStatus.pending,
     };
-    for (final key in _catalogKeys) {
+    // Fire the independent lookups at once, then report each one's outcome.
+    for (final key in _lookupKeys) {
+      statuses[key] = ReferenceSyncStepStatus.running;
+    }
+    yield ReferenceSyncProgress(statuses: Map.of(statuses), done: false);
+    await Future.wait([
+      for (final key in _lookupKeys)
+        _runCatalogStep(key, forceRefresh).drain<void>().then(
+          (_) => statuses[key] = ReferenceSyncStepStatus.success,
+          onError: (_) => statuses[key] = ReferenceSyncStepStatus.error,
+        ),
+    ]);
+    yield ReferenceSyncProgress(statuses: Map.of(statuses), done: false);
+
+    for (final key in _sequentialKeys) {
       statuses[key] = ReferenceSyncStepStatus.running;
       yield ReferenceSyncProgress(statuses: Map.of(statuses), done: false);
       try {
-        await _runCatalogStep(key, forceRefresh);
+        await for (final fraction in _runCatalogStep(key, forceRefresh)) {
+          yield ReferenceSyncProgress(
+            statuses: Map.of(statuses),
+            done: false,
+            activeFraction: fraction,
+          );
+        }
         statuses[key] = ReferenceSyncStepStatus.success;
       } catch (_) {
         statuses[key] = ReferenceSyncStepStatus.error;
@@ -126,30 +152,25 @@ class ReferenceRepositoryImpl implements ReferenceRepository {
     yield ReferenceSyncProgress(statuses: Map.of(statuses), done: true);
   }
 
-  Future<void> _runCatalogStep(String key, bool forceRefresh) {
-    switch (key) {
-      case 'crop_types':
-        return getCropTypes(forceRefresh: forceRefresh);
-      case 'plant_types':
-        return getPlantTypes(forceRefresh: forceRefresh);
-      case 'propagation_types':
-        return getPropagationTypes(forceRefresh: forceRefresh);
-      case 'pest_types':
-        return getPestTypes(forceRefresh: forceRefresh);
-      case 'pest_distribution_zones':
-        return getPestDistributionZones(forceRefresh: forceRefresh);
-      case 'plants':
-        return getPlants(forceRefresh: forceRefresh);
-      case 'pests':
-        return getPests(forceRefresh: forceRefresh);
-      case 'images':
-        return _downloadImages(forceRefresh: forceRefresh);
-      default:
-        throw StateError('Unknown reference catalog key: $key');
-    }
+  /// Runs one catalog step, reporting 0..1 along the way where the step is long
+  /// enough for that to mean anything (only the images are).
+  Stream<double> _runCatalogStep(String key, bool forceRefresh) {
+    if (key == 'images') return _downloadImages(forceRefresh: forceRefresh);
+    return Stream.fromFuture(switch (key) {
+      'crop_types' => getCropTypes(forceRefresh: forceRefresh),
+      'plant_types' => getPlantTypes(forceRefresh: forceRefresh),
+      'propagation_types' => getPropagationTypes(forceRefresh: forceRefresh),
+      'pest_types' => getPestTypes(forceRefresh: forceRefresh),
+      'pest_distribution_zones' => getPestDistributionZones(
+        forceRefresh: forceRefresh,
+      ),
+      'plants' => getPlants(forceRefresh: forceRefresh),
+      'pests' => getPests(forceRefresh: forceRefresh),
+      _ => throw StateError('Unknown reference catalog key: $key'),
+    }).map((_) => 1);
   }
 
-  Future<void> _downloadImages({bool forceRefresh = false}) async {
+  Stream<double> _downloadImages({bool forceRefresh = false}) async* {
     if (!forceRefresh && _hiveService.referenceDataBox.containsKey('images')) {
       return;
     }
@@ -159,7 +180,28 @@ class ReferenceRepositoryImpl implements ReferenceRepository {
       for (final plant in plants) ...plant.images,
       for (final pest in pests) ...pest.images,
     };
-    await ReferenceImageCache.downloadAll(urls);
+
+    // Bridge the cache's callback into this stream. Thousands of images would
+    // otherwise rebuild the dialog thousands of times, so only whole percent
+    // changes are forwarded.
+    final ticks = StreamController<double>();
+    var lastPercent = -1;
+    final download = ReferenceImageCache.downloadAll(
+      urls,
+      onProgress: (done, total) {
+        if (total == 0 || ticks.isClosed) return;
+        final percent = (done * 100 / total).floor();
+        if (percent == lastPercent) return;
+        lastPercent = percent;
+        ticks.add(done / total);
+      },
+    ).whenComplete(ticks.close);
+
+    yield* ticks.stream;
+    // Rethrows when images are still missing, so the step is marked as failed
+    // and 'images' is not recorded as complete.
+    await download;
+
     await _hiveService.referenceDataBox.put('images', 'done');
   }
 

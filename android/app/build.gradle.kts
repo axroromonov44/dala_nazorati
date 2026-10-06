@@ -1,5 +1,6 @@
-import java.util.Properties
+import java.io.File
 import java.io.FileInputStream
+import java.util.Properties
 
 plugins {
     id("com.android.application")
@@ -11,6 +12,56 @@ val keystoreProperties = Properties()
 val keystorePropertiesFile = rootProject.file("key.properties")
 if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(FileInputStream(keystorePropertiesFile))
+}
+
+// A signing config whose keystore is missing makes bundletool fail deep inside
+// `signReleaseBundle` with a bare NullPointerException, which says nothing about
+// the real problem. Decide up front whether release signing is usable.
+fun keystoreValue(key: String): String? =
+    (keystoreProperties[key] as String?)?.trim()?.takeIf { it.isNotEmpty() }
+
+// Flutter's convention: a relative storeFile is resolved from android/app/,
+// so `../keystore.jks` means android/keystore.jks.
+val keystoreFile = keystoreValue("storeFile")?.let { path ->
+    val candidate = File(path)
+    if (candidate.isAbsolute) candidate else file(path)
+}
+
+val hasReleaseSigning = keystorePropertiesFile.exists() &&
+    keystoreValue("keyAlias") != null &&
+    keystoreValue("keyPassword") != null &&
+    keystoreValue("storePassword") != null &&
+    keystoreFile?.exists() == true
+
+val releaseBuildRequested = gradle.startParameter.taskNames.any {
+    it.contains("Release", ignoreCase = true)
+}
+
+if (releaseBuildRequested && !hasReleaseSigning) {
+    val reason = when {
+        !keystorePropertiesFile.exists() ->
+            "android/key.properties topilmadi (u .gitignore da, shuning uchun repoda yo'q)."
+        keystoreFile == null -> "key.properties ichida storeFile ko'rsatilmagan."
+        keystoreFile.exists().not() ->
+            "keystore fayli topilmadi: " + keystoreFile.absolutePath
+        else -> "key.properties ichida keyAlias / keyPassword / storePassword to'liq emas."
+    }
+    throw GradleException(
+        """
+        Release qurilmasi imzolanmaydi: $reason
+
+        android/key.properties quyidagicha bo'lishi kerak:
+            storeFile=/absolute/path/to/upload-keystore.jks
+            storePassword=...
+            keyAlias=upload
+            keyPassword=...
+
+        Diqqat: Play Store'ga yangilanish yuborish uchun ilova birinchi marta
+        qaysi kalit bilan imzolangan bo'lsa, o'sha kalit kerak. Yangi keystore
+        yaratish faqat Play App Signing yoqilgan va yangi upload kalit
+        ro'yxatdan o'tkazilgan holda ishlaydi.
+        """.trimIndent()
+    )
 }
 
 android {
@@ -40,18 +91,22 @@ android {
 
     signingConfigs {
         create("release") {
-            if (keystorePropertiesFile.exists()) {
-                keyAlias = keystoreProperties["keyAlias"] as String
-                keyPassword = keystoreProperties["keyPassword"] as String
-                storeFile = file(keystoreProperties["storeFile"] as String)
-                storePassword = keystoreProperties["storePassword"] as String
+            if (hasReleaseSigning) {
+                keyAlias = keystoreValue("keyAlias")
+                keyPassword = keystoreValue("keyPassword")
+                storeFile = keystoreFile
+                storePassword = keystoreValue("storePassword")
             }
         }
     }
 
     buildTypes {
         release {
-            signingConfig = signingConfigs.getByName("release")
+            // Only wire it up when it is actually usable; an empty config is what
+            // produced the NullPointerException in `signReleaseBundle`.
+            if (hasReleaseSigning) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
 }

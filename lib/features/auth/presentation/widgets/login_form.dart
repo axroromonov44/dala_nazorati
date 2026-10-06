@@ -4,16 +4,19 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/constants/app_colors.dart';
-import '../../../../core/constants/app_spacings.dart';
 import '../../../../core/utils/haptic.dart';
 import '../bloc/auth_bloc.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:karantin_face_sdk/karantin_face_sdk.dart';
 import '../../../../core/constants/karantin_config.dart';
 import '../pages/oneid_webview_page.dart';
+import 'login_metrics.dart';
 
 class LoginForm extends StatefulWidget {
-  const LoginForm({super.key});
+  const LoginForm({super.key, required this.metrics});
+
+  /// Sizes derived from the height the login screen has to work with.
+  final LoginMetrics metrics;
 
   @override
   State<LoginForm> createState() => _LoginFormState();
@@ -109,6 +112,13 @@ class _LoginFormState extends State<LoginForm> {
   @override
   Widget build(BuildContext context) {
     final isLoading = context.watch<AuthBloc>().state is AuthLoading;
+    final metrics = widget.metrics;
+    // Trim the field's own padding on short screens; the theme's roomier value
+    // is kept everywhere else.
+    final fieldPadding = EdgeInsets.symmetric(
+      horizontal: 16,
+      vertical: metrics.fieldPaddingV,
+    );
 
     return Form(
       key: _formKey,
@@ -121,17 +131,19 @@ class _LoginFormState extends State<LoginForm> {
             decoration: InputDecoration(
               labelText: 'phoneLabel'.tr(),
               prefixIcon: const Icon(Icons.person_outline_rounded),
+              contentPadding: fieldPadding,
             ),
             validator: (v) =>
                 (v == null || v.isEmpty) ? 'phoneRequired'.tr() : null,
           ),
-          kVerticalSpace16,
+          SizedBox(height: metrics.fieldGap),
           TextFormField(
             controller: _passwordController,
             obscureText: _obscurePassword,
             decoration: InputDecoration(
               labelText: 'passwordLabel'.tr(),
               prefixIcon: const Icon(Icons.lock_outline),
+              contentPadding: fieldPadding,
               suffixIcon: IconButton(
                 icon: Icon(
                   _obscurePassword
@@ -146,9 +158,12 @@ class _LoginFormState extends State<LoginForm> {
             validator: (v) =>
                 (v == null || v.length < 6) ? 'passwordMinLength'.tr() : null,
           ),
-          kVerticalSpace32,
+          SizedBox(height: metrics.submitGap),
           ElevatedButton(
             onPressed: hTapMedium(isLoading ? null : _submit),
+            style: ElevatedButton.styleFrom(
+              minimumSize: Size.fromHeight(metrics.buttonHeight),
+            ),
             child: isLoading
                 ? const SizedBox(
                     height: 20,
@@ -160,12 +175,18 @@ class _LoginFormState extends State<LoginForm> {
                   )
                 : Text('loginButton'.tr()),
           ),
-          kVerticalSpace16,
+          SizedBox(height: metrics.dividerGap),
           const _OrDivider(),
-          kVerticalSpace16,
-          _OneIdButton(onTap: _startOneIdLogin),
-          const SizedBox(height: 10),
-          _KarantinButton(onTap: _startKarantinLogin),
+          SizedBox(height: metrics.dividerGap),
+          _OneIdButton(
+            onTap: _startOneIdLogin,
+            paddingV: metrics.providerPaddingV,
+          ),
+          SizedBox(height: metrics.providerGap),
+          _KarantinButton(
+            onTap: _startKarantinLogin,
+            paddingV: metrics.providerPaddingV,
+          ),
         ],
       ),
     );
@@ -199,9 +220,10 @@ class _OrDivider extends StatelessWidget {
 }
 
 class _OneIdButton extends StatelessWidget {
-  const _OneIdButton({required this.onTap});
+  const _OneIdButton({required this.onTap, required this.paddingV});
 
   final VoidCallback onTap;
+  final double paddingV;
 
   @override
   Widget build(BuildContext context) {
@@ -230,7 +252,7 @@ class _OneIdButton extends StatelessWidget {
           onTap: hTap(onTap),
           borderRadius: BorderRadius.circular(14),
           child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 13),
+            padding: EdgeInsets.symmetric(vertical: paddingV),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -240,13 +262,23 @@ class _OneIdButton extends StatelessWidget {
                   filterQuality: FilterQuality.high,
                 ),
                 const SizedBox(width: 10),
-                Text(
-                  'oneIdLoginSuffix'.tr(),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.1,
+                // Keep the label on one line whatever the language: wrapping
+                // used to make the button grow and push the page below the
+                // fold on narrow phones.
+                Flexible(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      'oneIdLoginSuffix'.tr(),
+                      maxLines: 1,
+                      softWrap: false,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.1,
+                      ),
+                    ),
                   ),
                 ),
               ],
@@ -259,9 +291,10 @@ class _OneIdButton extends StatelessWidget {
 }
 
 class _KarantinButton extends StatelessWidget {
-  const _KarantinButton({required this.onTap});
+  const _KarantinButton({required this.onTap, required this.paddingV});
 
   final VoidCallback onTap;
+  final double paddingV;
 
   @override
   Widget build(BuildContext context) {
@@ -288,28 +321,41 @@ class _KarantinButton extends StatelessWidget {
           onTap: hTap(onTap),
           borderRadius: BorderRadius.circular(14),
           child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 12),
+            padding: EdgeInsets.symmetric(vertical: paddingV),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  'karantinIdLogin'.tr(),
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.1,
+                // Both labels stay on one line (the Russian and Uzbek strings
+                // are long enough to wrap on a narrow phone, which made this
+                // button nearly twice as tall as intended).
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    'karantinIdLogin'.tr(),
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    softWrap: false,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.1,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 3),
-                Text(
-                  'faceIdLogin'.tr(),
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Colors.white.withAlpha(200),
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w500,
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    'faceIdLogin'.tr(),
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    softWrap: false,
+                    style: TextStyle(
+                      color: Colors.white.withAlpha(200),
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ),
               ],
