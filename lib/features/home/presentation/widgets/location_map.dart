@@ -16,6 +16,8 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_spacings.dart';
+import '../../../auth/presentation/bloc/profile_cubit.dart';
+import '../../../auth/presentation/widgets/role_badge.dart';
 import '../../../fields/domain/entities/field_detail.dart';
 import '../../../fields/domain/entities/field_summary.dart';
 import '../../../fields/domain/repositories/field_repository.dart';
@@ -633,6 +635,12 @@ class _LocationMapState extends State<LocationMap>
         ),
         if (!_isDrawing)
           Positioned(
+            top: MediaQuery.of(context).padding.top + context.spaceSm,
+            left: context.rs(12.0, 18.0),
+            child: const _MapRoleChip(),
+          ),
+        if (!_isDrawing)
+          Positioned(
             bottom: context.rs(32.0, 48.0) + kFloatingNavBarClearance,
             right: context.rs(16.0, 24.0),
             child: Column(
@@ -738,6 +746,33 @@ class _LocationMapState extends State<LocationMap>
           ),
         ],
       ],
+    );
+  }
+}
+
+/// Floating pill naming the inspectorate the map belongs to.
+///
+/// The map itself is the same for everyone; this is what tells a user whether
+/// they are looking at it as a quarantine, veterinary or SES inspector.
+class _MapRoleChip extends StatelessWidget {
+  const _MapRoleChip();
+
+  @override
+  Widget build(BuildContext context) {
+    final user = context.watch<ProfileCubit>().state;
+    if (user == null) return const SizedBox.shrink();
+
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E1E20) : Colors.white,
+        borderRadius: BorderRadius.circular(999),
+        boxShadow: const [
+          BoxShadow(color: Colors.black26, blurRadius: 6, offset: Offset(0, 2)),
+        ],
+      ),
+      padding: const EdgeInsets.all(3),
+      child: RoleBadge(role: user.inspectorRole, compact: true),
     );
   }
 }
@@ -869,7 +904,12 @@ class _DrawingBottomBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final bottom = MediaQuery.of(context).padding.bottom;
+    // The surrounding Scaffold declares a `bottomNavigationBar`, so it strips
+    // the bottom inset out of the MediaQuery it hands to its body — and while
+    // drawing that bar collapses to zero height, leaving nothing to clear the
+    // system navigation bar. Read the inset straight from the view instead, or
+    // the cancel button ends up underneath it.
+    final bottom = MediaQueryData.fromView(View.of(context)).padding.bottom;
 
     return Container(
       padding: EdgeInsets.fromLTRB(16, 10, 16, bottom + 12),
@@ -898,7 +938,7 @@ class _DrawingBottomBar extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 const Icon(Icons.touch_app_rounded, color: kGreen, size: 15),
-               kHorizontalSpace8,
+                kHorizontalSpace8,
                 Text(
                   pointCount == 0
                       ? 'drawingPrompt'.tr()

@@ -4,14 +4,19 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/constants/app_colors.dart';
-import '../../../../core/constants/app_spacings.dart';
 import '../../../../core/utils/haptic.dart';
 import '../bloc/auth_bloc.dart';
-import '../pages/karantin_webview_page.dart';
+import 'package:flutter/foundation.dart' show kDebugMode;
+import 'package:karantin_face_sdk/karantin_face_sdk.dart';
+import '../../../../core/constants/karantin_config.dart';
 import '../pages/oneid_webview_page.dart';
+import 'login_metrics.dart';
 
 class LoginForm extends StatefulWidget {
-  const LoginForm({super.key});
+  const LoginForm({super.key, required this.metrics});
+
+  /// Sizes derived from the height the login screen has to work with.
+  final LoginMetrics metrics;
 
   @override
   State<LoginForm> createState() => _LoginFormState();
@@ -60,10 +65,16 @@ class _LoginFormState extends State<LoginForm> {
 
   Future<void> _openKarantinWebView() async {
     final authBloc = context.read<AuthBloc>();
-    final code = await Navigator.of(context, rootNavigator: true).push<String?>(
-      MaterialPageRoute(builder: (_) => const KarantinWebViewPage()),
+    final code = await KarantinFace.authenticate(
+      context,
+      config: const KarantinFaceConfig(
+        clientId: KarantinIdConfig.clientId,
+        redirectUri: KarantinIdConfig.redirectUri,
+        primaryColor: kGreen,
+        debugLogging: kDebugMode,
+      ),
     );
-    debugPrint('[KarantinID] webview returned code=$code');
+    debugPrint('[KarantinID] native face auth returned code=$code');
     if (code != null && code.isNotEmpty) {
       authBloc.add(AuthKarantinLoginRequested(code: code));
     } else {
@@ -101,6 +112,13 @@ class _LoginFormState extends State<LoginForm> {
   @override
   Widget build(BuildContext context) {
     final isLoading = context.watch<AuthBloc>().state is AuthLoading;
+    final metrics = widget.metrics;
+    // Trim the field's own padding on short screens; the theme's roomier value
+    // is kept everywhere else.
+    final fieldPadding = EdgeInsets.symmetric(
+      horizontal: 16,
+      vertical: metrics.fieldPaddingV,
+    );
 
     return Form(
       key: _formKey,
@@ -113,17 +131,19 @@ class _LoginFormState extends State<LoginForm> {
             decoration: InputDecoration(
               labelText: 'phoneLabel'.tr(),
               prefixIcon: const Icon(Icons.person_outline_rounded),
+              contentPadding: fieldPadding,
             ),
             validator: (v) =>
                 (v == null || v.isEmpty) ? 'phoneRequired'.tr() : null,
           ),
-          kVerticalSpace16,
+          SizedBox(height: metrics.fieldGap),
           TextFormField(
             controller: _passwordController,
             obscureText: _obscurePassword,
             decoration: InputDecoration(
               labelText: 'passwordLabel'.tr(),
               prefixIcon: const Icon(Icons.lock_outline),
+              contentPadding: fieldPadding,
               suffixIcon: IconButton(
                 icon: Icon(
                   _obscurePassword
@@ -138,9 +158,12 @@ class _LoginFormState extends State<LoginForm> {
             validator: (v) =>
                 (v == null || v.length < 6) ? 'passwordMinLength'.tr() : null,
           ),
-          kVerticalSpace32,
+          SizedBox(height: metrics.submitGap),
           ElevatedButton(
             onPressed: hTapMedium(isLoading ? null : _submit),
+            style: ElevatedButton.styleFrom(
+              minimumSize: Size.fromHeight(metrics.buttonHeight),
+            ),
             child: isLoading
                 ? const SizedBox(
                     height: 20,
@@ -152,12 +175,18 @@ class _LoginFormState extends State<LoginForm> {
                   )
                 : Text('loginButton'.tr()),
           ),
-          kVerticalSpace16,
+          SizedBox(height: metrics.dividerGap),
           const _OrDivider(),
-          kVerticalSpace16,
-          _OneIdButton(onTap: _startOneIdLogin),
-          const SizedBox(height: 10),
-          _KarantinButton(onTap: _startKarantinLogin),
+          SizedBox(height: metrics.dividerGap),
+          _OneIdButton(
+            onTap: _startOneIdLogin,
+            paddingV: metrics.providerPaddingV,
+          ),
+          SizedBox(height: metrics.providerGap),
+          _KarantinButton(
+            onTap: _startKarantinLogin,
+            paddingV: metrics.providerPaddingV,
+          ),
         ],
       ),
     );
@@ -191,9 +220,10 @@ class _OrDivider extends StatelessWidget {
 }
 
 class _OneIdButton extends StatelessWidget {
-  const _OneIdButton({required this.onTap});
+  const _OneIdButton({required this.onTap, required this.paddingV});
 
   final VoidCallback onTap;
+  final double paddingV;
 
   @override
   Widget build(BuildContext context) {
@@ -222,7 +252,7 @@ class _OneIdButton extends StatelessWidget {
           onTap: hTap(onTap),
           borderRadius: BorderRadius.circular(14),
           child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 13),
+            padding: EdgeInsets.symmetric(vertical: paddingV),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -232,13 +262,23 @@ class _OneIdButton extends StatelessWidget {
                   filterQuality: FilterQuality.high,
                 ),
                 const SizedBox(width: 10),
-                Text(
-                  'oneIdLoginSuffix'.tr(),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.1,
+                // Keep the label on one line whatever the language: wrapping
+                // used to make the button grow and push the page below the
+                // fold on narrow phones.
+                Flexible(
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      'oneIdLoginSuffix'.tr(),
+                      maxLines: 1,
+                      softWrap: false,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.1,
+                      ),
+                    ),
                   ),
                 ),
               ],
@@ -251,9 +291,10 @@ class _OneIdButton extends StatelessWidget {
 }
 
 class _KarantinButton extends StatelessWidget {
-  const _KarantinButton({required this.onTap});
+  const _KarantinButton({required this.onTap, required this.paddingV});
 
   final VoidCallback onTap;
+  final double paddingV;
 
   @override
   Widget build(BuildContext context) {
@@ -280,28 +321,41 @@ class _KarantinButton extends StatelessWidget {
           onTap: hTap(onTap),
           borderRadius: BorderRadius.circular(14),
           child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 12),
+            padding: EdgeInsets.symmetric(vertical: paddingV),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  'karantinIdLogin'.tr(),
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.1,
+                // Both labels stay on one line (the Russian and Uzbek strings
+                // are long enough to wrap on a narrow phone, which made this
+                // button nearly twice as tall as intended).
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    'karantinIdLogin'.tr(),
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    softWrap: false,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.1,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 3),
-                Text(
-                  'faceIdLogin'.tr(),
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Colors.white.withAlpha(200),
-                    fontSize: 11.5,
-                    fontWeight: FontWeight.w500,
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text(
+                    'faceIdLogin'.tr(),
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    softWrap: false,
+                    style: TextStyle(
+                      color: Colors.white.withAlpha(200),
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ),
               ],
@@ -336,30 +390,34 @@ class _RedirectDialog extends StatefulWidget {
   State<_RedirectDialog> createState() => _RedirectDialogState();
 }
 
-class _RedirectDialogState extends State<_RedirectDialog> {
-  int _countdown = 3;
-  Timer? _timer;
+class _RedirectDialogState extends State<_RedirectDialog>
+    with SingleTickerProviderStateMixin {
+  static const _totalSeconds = 3;
+  late final AnimationController _ctrl;
+  bool _completed = false;
 
   @override
   void initState() {
     super.initState();
-    _timer = Timer.periodic(const Duration(seconds: 1), (t) {
-      if (_countdown == 0) {
-        t.cancel();
-        _complete();
-      } else {
-        setState(() => _countdown--);
-      }
-    });
+    _ctrl =
+        AnimationController(
+          vsync: this,
+          duration: const Duration(milliseconds: _totalSeconds * 1000),
+        )..addStatusListener((status) {
+          if (status == AnimationStatus.completed) _complete();
+        });
+    _ctrl.forward();
   }
 
   @override
   void dispose() {
-    _timer?.cancel();
+    _ctrl.dispose();
     super.dispose();
   }
 
   void _complete() {
+    if (_completed) return;
+    _completed = true;
     if (mounted) Navigator.pop(context);
     widget.onComplete();
   }
@@ -409,16 +467,33 @@ class _RedirectDialogState extends State<_RedirectDialog> {
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 28),
-            _SegmentedCountdown(count: _countdown, color: accentColor),
-            const SizedBox(height: 18),
-            Text(
-              'redirectInSec'.tr(namedArgs: {'count': '$_countdown'}),
-              style: TextStyle(
-                fontSize: 14,
-                color: colorScheme.onSurfaceVariant,
-                fontWeight: FontWeight.w500,
-              ),
-              textAlign: TextAlign.center,
+            AnimatedBuilder(
+              animation: _ctrl,
+              builder: (context, _) {
+                final remaining = (_totalSeconds * (1 - _ctrl.value))
+                    .ceil()
+                    .clamp(0, _totalSeconds);
+                return Column(
+                  children: [
+                    _CircleCountdown(
+                      progress: 1 - _ctrl.value,
+                      remaining: remaining,
+                      color: accentColor,
+                      colorLight: accentLight,
+                    ),
+                    const SizedBox(height: 16),
+                    Text(
+                      'redirectInSec'.tr(namedArgs: {'count': '$remaining'}),
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: colorScheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                );
+              },
             ),
           ],
         ),
@@ -539,90 +614,52 @@ class _RedirectDialogHeader extends StatelessWidget {
   }
 }
 
-class _SegmentedCountdown extends StatefulWidget {
-  const _SegmentedCountdown({required this.count, required this.color});
+class _CircleCountdown extends StatelessWidget {
+  const _CircleCountdown({
+    required this.progress,
+    required this.remaining,
+    required this.color,
+    required this.colorLight,
+  });
 
-  final int count;
+  /// 1.0 = full (just started), 0.0 = empty (about to continue).
+  final double progress;
+  final int remaining;
   final Color color;
-
-  @override
-  State<_SegmentedCountdown> createState() => _SegmentedCountdownState();
-}
-
-class _SegmentedCountdownState extends State<_SegmentedCountdown>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _ctrl;
-  late final Animation<double> _anim;
-  int _prevCount = 3;
-
-  @override
-  void initState() {
-    super.initState();
-    _prevCount = widget.count;
-    _ctrl = AnimationController(
-      duration: const Duration(milliseconds: 450),
-      vsync: this,
-    );
-    _anim = CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut);
-  }
-
-  @override
-  void didUpdateWidget(_SegmentedCountdown old) {
-    super.didUpdateWidget(old);
-    if (old.count != widget.count) {
-      _prevCount = old.count;
-      _ctrl.forward(from: 0);
-    }
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
+  final Color colorLight;
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 100,
-      height: 100,
+      width: 96,
+      height: 96,
       child: Stack(
         alignment: Alignment.center,
         children: [
-          AnimatedBuilder(
-            animation: _anim,
-            builder: (_, child) {
-              final prevSweep = _prevCount / 3 * 2 * math.pi;
-              final targetSweep = widget.count / 3 * 2 * math.pi;
-              final sweep = prevSweep + (targetSweep - prevSweep) * _anim.value;
-              return CustomPaint(
-                size: const Size(100, 100),
-                painter: _CircleProgressPainter(
-                  sweep: sweep,
-                  color: widget.color,
-                ),
-              );
-            },
+          CustomPaint(
+            size: const Size(96, 96),
+            painter: _RingPainter(
+              progress: progress.clamp(0.0, 1.0),
+              color: color,
+              colorLight: colorLight,
+            ),
           ),
           AnimatedSwitcher(
-            duration: const Duration(milliseconds: 250),
-            transitionBuilder: (child, animation) => SlideTransition(
-              position:
-                  Tween<Offset>(
-                    begin: const Offset(0, 0.4),
-                    end: Offset.zero,
-                  ).animate(
-                    CurvedAnimation(parent: animation, curve: Curves.easeOut),
-                  ),
-              child: FadeTransition(opacity: animation, child: child),
+            duration: const Duration(milliseconds: 260),
+            transitionBuilder: (child, anim) => FadeTransition(
+              opacity: anim,
+              child: ScaleTransition(
+                scale: Tween(begin: 0.7, end: 1.0).animate(anim),
+                child: child,
+              ),
             ),
             child: Text(
-              '${widget.count}',
-              key: ValueKey(widget.count),
+              '$remaining',
+              key: ValueKey(remaining),
               style: TextStyle(
-                fontSize: 46,
-                fontWeight: FontWeight.w900,
-                color: widget.color,
+                fontSize: 40,
+                fontWeight: FontWeight.w800,
+                color: color,
                 height: 1,
               ),
             ),
@@ -633,41 +670,48 @@ class _SegmentedCountdownState extends State<_SegmentedCountdown>
   }
 }
 
-class _CircleProgressPainter extends CustomPainter {
-  const _CircleProgressPainter({required this.sweep, required this.color});
+class _RingPainter extends CustomPainter {
+  const _RingPainter({
+    required this.progress,
+    required this.color,
+    required this.colorLight,
+  });
 
-  final double sweep;
+  final double progress;
   final Color color;
+  final Color colorLight;
 
-  static const _strokeWidth = 5.0;
+  static const _stroke = 6.0;
 
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
-    final radius = size.width / 2 - _strokeWidth / 2 - 1;
+    final radius = size.width / 2 - _stroke / 2 - 1;
     final rect = Rect.fromCircle(center: center, radius: radius);
 
-    canvas.drawArc(
-      rect,
-      -math.pi / 2,
-      2 * math.pi,
-      false,
+    canvas.drawCircle(
+      center,
+      radius,
       Paint()
-        ..color = color.withAlpha(30)
-        ..strokeWidth = _strokeWidth
-        ..style = PaintingStyle.stroke
-        ..strokeCap = StrokeCap.round,
+        ..color = color.withAlpha(28)
+        ..strokeWidth = _stroke
+        ..style = PaintingStyle.stroke,
     );
 
-    if (sweep > 0.01) {
+    if (progress > 0.001) {
       canvas.drawArc(
         rect,
         -math.pi / 2,
-        sweep,
+        progress * 2 * math.pi,
         false,
         Paint()
-          ..color = color
-          ..strokeWidth = _strokeWidth
+          ..shader = SweepGradient(
+            colors: [color, colorLight],
+            startAngle: 0,
+            endAngle: 2 * math.pi,
+            transform: const GradientRotation(-math.pi / 2),
+          ).createShader(rect)
+          ..strokeWidth = _stroke
           ..style = PaintingStyle.stroke
           ..strokeCap = StrokeCap.round,
       );
@@ -675,5 +719,6 @@ class _CircleProgressPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_CircleProgressPainter old) => old.sweep != sweep;
+  bool shouldRepaint(_RingPainter old) =>
+      old.progress != progress || old.color != color;
 }

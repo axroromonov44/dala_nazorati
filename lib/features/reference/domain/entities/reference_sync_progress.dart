@@ -3,10 +3,18 @@ import 'package:equatable/equatable.dart';
 enum ReferenceSyncStepStatus { pending, running, success, error }
 
 class ReferenceSyncProgress extends Equatable {
-  const ReferenceSyncProgress({required this.statuses, required this.done});
+  const ReferenceSyncProgress({
+    required this.statuses,
+    required this.done,
+    this.activeFraction = 0,
+  });
 
   final Map<String, ReferenceSyncStepStatus> statuses;
   final bool done;
+
+  /// How far the currently running step has got, 0..1. Only the image step
+  /// reports this; the others finish too quickly to be worth sub-dividing.
+  final double activeFraction;
 
   int get activeIndex {
     final keys = statuses.keys.toList();
@@ -30,5 +38,5 @@ class ReferenceSyncProgress extends Equatable {
   }
 
   @override
-  List<Object?> get props => [statuses, done];
+  List<Object?> get props => [statuses, done, activeFraction];
 }

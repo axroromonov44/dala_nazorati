@@ -8,3 +8,9 @@ const kBackground = Color(0xFFF0F7F0);
 const kBlack = Color(0xFF1A1A1A);
 const kTextSecondary = Color(0xFF6B7280);
 const kError = Color(0xFFD32F2F);
+
+/// One accent per inspectorate, so a glance at the badge (and at the map
+/// legend) is enough to tell which service the screen belongs to.
+const kRoleKarantin = kGreen;
+const kRoleVet = Color(0xFF1565C0);
+const kRoleSes = Color(0xFF6A1B9A);

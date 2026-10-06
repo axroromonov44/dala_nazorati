@@ -1,0 +1,8 @@
+/* Permission prompts. Info.plist holds the English originals; this file keeps
+   them explicit so every language lives side by side. */
+"NSCameraUsageDescription" = "Camera access is needed to photograph fields during monitoring.";
+"NSMicrophoneUsageDescription" = "Microphone access is needed to record field videos.";
+"NSLocationWhenInUseUsageDescription" = "Your location is used to show where you are on the map.";
+"NSLocationAlwaysAndWhenInUseUsageDescription" = "Your location is used to track field inspections, including while the app is in the background.";
+"NSPhotoLibraryUsageDescription" = "Photo library access is needed to attach existing photos to a monitoring record.";
+"NSPhotoLibraryAddUsageDescription" = "Photo library access is needed to save field photos you take.";

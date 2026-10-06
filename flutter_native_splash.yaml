@@ -1,21 +1,24 @@
 flutter_native_splash:
-  # Light mode — yashil fon
+  # Android 12 dan oldingi versiyalar va iOS — bu yerda niqob (mask) yo'q,
+  # shuning uchun oq doira rasmning o'zida.
   color: "#2E7D32"
-  image: assets/images/main_logo.png
+  image: assets/images/splash_logo.png
 
-  # Dark mode — qora-yashil fon
   color_dark: "#0D1F0D"
-  image_dark: assets/images/main_logo.png
+  image_dark: assets/images/splash_logo.png
 
-  # Android 12+ (monoxtom icon talab qiladi, kvadrat rasm bo'lishi shart —
-  # aks holda tizim uni kvadrat konteynerga siqib chiqaradi)
+  # Android 12+ ikonkani qurilma niqobi bilan kesadi (Samsung'da squircle,
+  # boshqalarida doira). Shuning uchun oq fonni o'zimiz chizmaymiz —
+  # icon_background_color orqali tizimning o'ziga chizdiramiz: u har doim
+  # niqob bilan aniq mos tushadi. Rasmning o'zi — faqat logotip, shaffof fonda
+  # va kanvasning atigi 35% ini egallaydi (xavfsiz chegara 66.7%).
   android_12:
     color: "#2E7D32"
-    icon_background_color: "#2E7D32"
-    image: assets/images/main_logo_square.png
+    image: assets/images/splash_icon.png
+    icon_background_color: "#FFFFFF"
     color_dark: "#0D1F0D"
-    icon_background_color_dark: "#0D1F0D"
-    image_dark: assets/images/main_logo_square.png
+    image_dark: assets/images/splash_icon.png
+    icon_background_color_dark: "#FFFFFF"
 
   web: false
   ios: true

@@ -1,6 +1,6 @@
 {
-    "name": "dala_nazorati",
-    "short_name": "dala_nazorati",
+    "name": "Nazorat AAT",
+    "short_name": "Nazorat AAT",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

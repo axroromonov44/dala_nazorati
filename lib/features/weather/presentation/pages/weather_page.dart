@@ -4,6 +4,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:webview_flutter/webview_flutter.dart';
+import 'package:webview_flutter_android/webview_flutter_android.dart';
 
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_spacings.dart';
@@ -39,8 +40,22 @@ class _WeatherPageState extends State<WeatherPage> {
           },
           onNavigationRequest: _onNavigationRequest,
         ),
-      )
-      ..loadRequest(Uri.parse(_forecastUrl));
+      );
+    unawaited(_initWebView());
+  }
+
+  Future<void> _initWebView() async {
+    // The forecast page calls navigator.geolocation on load. On Android the
+    // WebView re-prompts every time unless we answer the geolocation request
+    // ourselves — grant it once and retain it for the origin so it stops asking.
+    final platform = _controller.platform;
+    if (platform is AndroidWebViewController) {
+      await platform.setGeolocationPermissionsPromptCallbacks(
+        onShowPrompt: (request) async =>
+            const GeolocationPermissionsResponse(allow: true, retain: true),
+      );
+    }
+    await _controller.loadRequest(Uri.parse(_forecastUrl));
   }
 
   NavigationDecision _onNavigationRequest(NavigationRequest request) {

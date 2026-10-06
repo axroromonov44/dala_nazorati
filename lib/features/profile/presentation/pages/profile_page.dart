@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_spacings.dart';
@@ -14,6 +15,8 @@ import '../../../../core/di/injection.dart';
 import '../../../../core/map/tile_cache_service.dart';
 import '../../../../core/notifications/app_notification.dart';
 import '../../../../core/notifications/notification_center.dart';
+import '../../../../core/observability/crash_reporting.dart';
+import '../../../../core/observability/diagnostics_log.dart';
 import '../../../../core/storage/hive_service.dart';
 import '../../../../core/theme/theme_cubit.dart';
 import '../../../../core/utils/haptic.dart';
@@ -21,6 +24,7 @@ import '../../../../core/utils/responsive.dart';
 import '../../../auth/domain/entities/user.dart';
 import '../../../auth/domain/repositories/auth_repository.dart';
 import '../../../auth/presentation/bloc/profile_cubit.dart';
+import '../../../auth/presentation/widgets/role_badge.dart';
 import '../../../fields/data/field_media_cache.dart';
 import '../../../reference/data/reference_image_cache.dart';
 import '../../../fields/domain/repositories/field_repository.dart';
@@ -56,6 +60,8 @@ class ProfilePage extends StatelessWidget {
           const _BorderedTile(child: _SupportTile()),
           SizedBox(height: context.spaceSm),
           const _BorderedTile(child: _ClearMapCacheTile()),
+          const SizedBox(height: 10),
+          const _BorderedTile(child: _SendDiagnosticsTile()),
           SizedBox(height: context.spaceXl),
           const _BorderedTile(child: _LogoutTile()),
           SizedBox(height: context.spaceMd),
@@ -213,6 +219,7 @@ class _IdentityCard extends StatelessWidget {
       if (user?.position?.isNotEmpty ?? false) user!.position!,
       if (user?.phone?.isNotEmpty ?? false) user!.phone!,
     ].join(' • ');
+    final accent = roleColor(user?.inspectorRole);
 
     return GestureDetector(
       onTap: user == null
@@ -274,12 +281,14 @@ class _IdentityCard extends StatelessWidget {
                     ),
                   ],
                   if (user != null) ...[
+                    const SizedBox(height: 8),
+                    RoleBadge(role: user.inspectorRole),
                     const SizedBox(height: 6),
                     Text(
                       'tapForDetails'.tr(),
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
-                        color: kGreen,
+                        color: accent,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -307,12 +316,16 @@ class _BorderedTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return Container(
+    // Material rather than a decorated Container: a ListTile paints its own
+    // background and ink splash onto the nearest Material ancestor, so a
+    // coloured box in between would swallow the tap ripple (and Flutter
+    // asserts about it in debug).
+    return Material(
       clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-        color: colorScheme.surface,
+      color: colorScheme.surface,
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: colorScheme.outlineVariant),
+        side: BorderSide(color: colorScheme.outlineVariant),
       ),
       child: child,
     );
@@ -418,6 +431,10 @@ class _ProfileDetailsSheet extends StatelessWidget {
           value: user.fullNameCyrillic!,
         ),
       _DetailRow(label: 'detailUsername'.tr(), value: user.username),
+      _DetailRow(
+        label: 'roleSectionLabel'.tr(),
+        value: roleLabel(user.inspectorRole),
+      ),
       if (user.position?.isNotEmpty ?? false)
         _DetailRow(label: 'detailPosition'.tr(), value: user.position!),
       if (user.phone?.isNotEmpty ?? false)
@@ -712,6 +729,73 @@ class _ThemeTile extends StatelessWidget {
     ),
     onTap: () => _toggle(context),
   );
+}
+
+class _SendDiagnosticsTile extends StatefulWidget {
+  const _SendDiagnosticsTile();
+
+  @override
+  State<_SendDiagnosticsTile> createState() => _SendDiagnosticsTileState();
+}
+
+/// Lets an inspector who reports "it does not work" send the log off their
+/// phone with one tap. Because the app runs offline, errors never reach the
+/// developer on their own, and this is the most direct route.
+class _SendDiagnosticsTileState extends State<_SendDiagnosticsTile> {
+  bool _busy = false;
+
+  Future<void> _send() async {
+    hapticSelect();
+    setState(() => _busy = true);
+    try {
+      final file = await DiagnosticsLog.exportToFile();
+      if (!mounted) return;
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(file.path)],
+          subject: 'Nazorat AAT — diagnostika jurnali',
+        ),
+      );
+    } catch (error, stack) {
+      await CrashReporting.recordNonFatal(
+        error,
+        stack,
+        reason: 'Diagnostics log could not be shared',
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('diagnosticsFailed'.tr())));
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return ListTile(
+      dense: true,
+      visualDensity: VisualDensity.compact,
+      leading: const Icon(Icons.bug_report_outlined, color: kGreen),
+      title: Text('sendDiagnostics'.tr()),
+      subtitle: Text(
+        'sendDiagnosticsHint'.tr(),
+        style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant),
+      ),
+      trailing: _busy
+          ? const SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2, color: kGreen),
+            )
+          : Icon(
+              Icons.chevron_right_rounded,
+              color: colorScheme.onSurfaceVariant,
+            ),
+      onTap: _busy ? null : _send,
+    );
+  }
 }
 
 class _ClearMapCacheTile extends StatefulWidget {

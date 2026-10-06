@@ -24,10 +24,7 @@ class AppRouter {
         builder: (context, state) => const _SplashPage(),
       ),
       GoRoute(path: '/login', builder: (context, state) => const LoginPage()),
-      GoRoute(
-        path: '/home',
-        builder: (context, state) => const MainPage(),
-      ),
+      GoRoute(path: '/home', builder: (context, state) => const MainPage()),
       GoRoute(
         path: '/profile',
         builder: (context, state) => const ProfilePage(),
@@ -99,16 +96,19 @@ class _SplashPageState extends State<_SplashPage>
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
+                // Matches the native splash exactly (a white circle with the
+                // mark inside), so the handover from the OS splash to Flutter
+                // is seamless instead of a square logo popping onto a circle.
                 Container(
                   width: 140,
                   height: 140,
-                  decoration: BoxDecoration(
-                    color: kWhite.withAlpha(isDark ? 15 : 30),
+                  decoration: const BoxDecoration(
+                    color: kWhite,
                     shape: BoxShape.circle,
                   ),
-                  padding: const EdgeInsets.all(20),
+                  padding: const EdgeInsets.all(26),
                   child: Image.asset(
-                    'assets/images/main_logo.png',
+                    'assets/images/splash_icon.png',
                     fit: BoxFit.contain,
                   ),
                 ),

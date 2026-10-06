@@ -1,0 +1,166 @@
+name: Release
+
+# Ship to testers:
+#
+#   tool/bump_build.sh 1.1.0      # 1.0.0+18 -> 1.1.0+19
+#   git commit -am "chore: release 1.1.0"
+#   git tag v1.1.0 && git push origin main v1.1.0
+#
+# Result: a build appears on Play Console's internal testing track and on
+# TestFlight. No manual Xcode, Transporter or file upload.
+#
+# NOTE: this workflow has never run yet. It stays idle until the secrets
+# listed in docs/DEVOPS.md are in place, and the iOS signing step may well
+# need adjusting on the first run.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+env:
+  FLUTTER_VERSION: "3.47.1"
+
+jobs:
+  # The gate, before anything signed leaves the building.
+  verify:
+    name: Gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    outputs:
+      version: ${{ steps.version.outputs.name }}
+      build: ${{ steps.version.outputs.build }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      # pubspec.yaml is the single source of truth for the version. A CI run
+      # counter would start at 1 while this project is already at +18, and
+      # every store upload below the last number is rejected.
+      - name: Read version
+        id: version
+        run: |
+          RAW=$(grep -E '^version:' pubspec.yaml | head -1 | sed 's/^version:[[:space:]]*//')
+          echo "name=${RAW%%+*}" >> "$GITHUB_OUTPUT"
+          echo "build=${RAW##*+}" >> "$GITHUB_OUTPUT"
+          echo "pubspec version: $RAW"
+
+      # Catches the most likely release mistake: tagging without bumping, so
+      # the store would reject the upload after a 40-minute build.
+      - name: Tag must match pubspec
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          PUBSPEC="${{ steps.version.outputs.name }}"
+          if [ "$TAG" != "$PUBSPEC" ]; then
+            echo "::error::Tag v$TAG does not match pubspec version $PUBSPEC."
+            echo "::error::Run tool/bump_build.sh $TAG, commit, then re-tag."
+            exit 1
+          fi
+
+      - run: flutter pub get
+      - run: flutter analyze --fatal-infos
+      - run: flutter test
+
+  android:
+    name: Play Console (internal)
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      # These files are all gitignored (the repository is public), so CI
+      # receives them as base64 secrets:
+      #   base64 -i android/key.properties | pbcopy
+      - name: Restore signing and Firebase config
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEY_PROPERTIES: ${{ secrets.ANDROID_KEY_PROPERTIES }}
+          GOOGLE_SERVICES_JSON: ${{ secrets.ANDROID_GOOGLE_SERVICES_JSON }}
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 --decode > android/keystore.jks
+          echo "$KEY_PROPERTIES" | base64 --decode > android/key.properties
+          echo "$GOOGLE_SERVICES_JSON" | base64 --decode > android/app/google-services.json
+
+      - run: flutter pub get
+
+      - name: Build app bundle
+        run: flutter build appbundle --release
+
+      - name: Upload to Play Console
+        uses: r0adkll/upload-google-play@v1
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT }}
+          packageName: com.nazorat.aat.uz
+          releaseFiles: build/app/outputs/bundle/release/app-release.aab
+          track: internal
+          status: completed
+
+  ios:
+    name: TestFlight
+    needs: verify
+    runs-on: macos-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Restore Firebase config
+        env:
+          PLIST: ${{ secrets.IOS_GOOGLE_SERVICE_INFO_PLIST }}
+        run: echo "$PLIST" | base64 --decode > ios/Runner/GoogleService-Info.plist
+
+      - name: Import signing certificate
+        uses: apple-actions/import-codesign-certs@v3
+        with:
+          p12-file-base64: ${{ secrets.IOS_CERTIFICATE_P12 }}
+          p12-password: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
+
+      - name: Install provisioning profile
+        env:
+          PROFILE: ${{ secrets.IOS_PROVISIONING_PROFILE }}
+        run: |
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          echo "$PROFILE" | base64 --decode \
+            > ~/Library/MobileDevice/Provisioning\ Profiles/build.mobileprovision
+
+      - run: flutter pub get
+
+      - name: Build IPA
+        run: flutter build ipa --release --export-options-plist=ios/ExportOptions.plist
+
+      # App Store Connect API key, not an Apple ID password: two-factor auth
+      # makes the password useless in CI.
+      - name: Upload to TestFlight
+        env:
+          KEY_ID: ${{ secrets.APPSTORE_KEY_ID }}
+          ISSUER_ID: ${{ secrets.APPSTORE_ISSUER_ID }}
+          PRIVATE_KEY: ${{ secrets.APPSTORE_PRIVATE_KEY }}
+        run: |
+          mkdir -p ~/private_keys
+          echo "$PRIVATE_KEY" > ~/private_keys/AuthKey_$KEY_ID.p8
+          xcrun altool --upload-app \
+            --type ios \
+            --file "$(find build/ios/ipa -name '*.ipa' | head -1)" \
+            --apiKey "$KEY_ID" \
+            --apiIssuer "$ISSUER_ID"

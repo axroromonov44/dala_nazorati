@@ -1,8 +1,8 @@
 name: dala_nazorati
-description: "Dala nazorati - field monitoring application"
+description: "Nazorat AAT - karantin, veterinariya va SES inspektorlari uchun nazorat tizimi"
 publish_to: 'none'
 
-version: 1.0.0+14
+version: 1.0.0+18
 
 environment:
   sdk: ^3.11.4
@@ -42,7 +42,14 @@ dependencies:
   # Firebase
   firebase_core: ^3.13.1
   firebase_auth: ^5.5.4
+  firebase_crashlytics: ^4.3.10
+  firebase_remote_config: ^5.5.0
+  firebase_analytics: ^11.6.0
+  firebase_messaging: ^15.2.10
   cloud_firestore: ^5.6.9
+
+  # Push xabarini ilova ochiq turganda ko'rsatish uchun
+  flutter_local_notifications: ^19.4.2
 
   # Free map - OpenStreetMap
   flutter_map: ^7.0.2
@@ -65,7 +72,6 @@ dependencies:
   easy_localization: ^3.0.8
   url_launcher: ^6.3.1
   image_picker: ^1.1.2
-  easy_stepper: ^1.2.0
 
   # In-app browser for OneID/SSO OAuth flow (needed to capture the redirect code)
   webview_flutter: ^4.10.0
@@ -73,14 +79,37 @@ dependencies:
   webview_flutter_android: ^4.12.0
   webview_flutter_wkwebview: ^3.25.0
   permission_handler: ^12.0.1
+
+  # Native karantin-id face verification (replaces the in-webview face scan).
+  # The flow itself lives in the local SDK package; the direct deps below are
+  # kept because other parts of the app also use some of them.
+  karantin_face_sdk:
+    path: packages/karantin_face_sdk
+  camera: ^0.11.0+2
+  google_mlkit_face_detection: ^0.13.1
+  device_info_plus: ^11.5.0
+  crypto: ^3.0.6
+  image: ^4.3.0
+  # Shared cookie jar so the OAuth session survives the authorize -> submit ->
+  # redirect chain the same way a browser session would.
+  cookie_jar: ^4.0.8
+  dio_cookie_manager: ^3.1.1
+
   wakelock_plus: ^1.5.2
   package_info_plus: ^9.0.1
   animated_bottom_navigation_bar: ^1.4.1
+  share_plus: ^12.0.2
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+
+  # Tests that pump easy_localization need its prefs channel mocked.
+  shared_preferences: ^2.5.3
+  # Tests that fake the documents directory for the reference image cache.
+  path_provider_platform_interface: ^2.1.2
+  plugin_platform_interface: ^2.1.8
 
   build_runner: ^2.4.15
   injectable_generator: ^2.7.0
@@ -101,7 +130,10 @@ flutter_launcher_icons:
   ios: true
   image_path: "assets/images/app_icon.png"
   remove_alpha_ios: true
-  background_color_ios: "#FFFFFF"
-  adaptive_icon_background: "#FFFFFF"
-  adaptive_icon_foreground: "assets/images/app_icon.png"
+  background_color_ios: "#2E7D32"
+  # The adaptive foreground is the white shield on its own; the launcher
+  # supplies the green field behind it, so the two must not both carry it.
+  adaptive_icon_background: "#2E7D32"
+  adaptive_icon_foreground: "assets/images/app_icon_foreground.png"
+  adaptive_icon_monochrome: "assets/images/app_icon_monochrome.png"
   min_sdk_android: 21

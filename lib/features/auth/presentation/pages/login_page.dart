@@ -10,6 +10,7 @@ import '../../../../core/utils/responsive.dart';
 import '../../../sync/presentation/bloc/sync_bloc.dart';
 import '../bloc/auth_bloc.dart';
 import '../widgets/login_form.dart';
+import '../widgets/login_metrics.dart';
 
 class LoginPage extends StatelessWidget {
   const LoginPage({super.key});
@@ -56,39 +57,55 @@ class _LoginView extends StatelessWidget {
             ],
           ),
           body: SafeArea(
-            child: Center(
-              child: ConstrainedBox(
-                constraints: BoxConstraints(maxWidth: context.contentMaxWidth),
-                child: SingleChildScrollView(
-                  padding: EdgeInsets.all(context.spaceLg),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Image.asset(
-                        'assets/images/main_logo.png',
-                        height: context.iconXl * 3,
+            // Size the column to the room it actually has: on short Android
+            // phones everything shrinks just enough to fit above the fold,
+            // while taller screens keep the original proportions. The scroll
+            // view stays as a safety net (long translations, big system font,
+            // on-screen keyboard).
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final metrics = LoginMetrics.forHeight(
+                  constraints.maxHeight,
+                  isTablet: context.isTablet,
+                );
+                return Center(
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxWidth: context.contentMaxWidth,
+                    ),
+                    child: SingleChildScrollView(
+                      padding: EdgeInsets.all(metrics.pagePadding),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Image.asset(
+                            'assets/images/nazorat_logo.png',
+                            height: metrics.logoHeight,
+                          ),
+                          SizedBox(height: metrics.logoGap),
+                          AnimatedDefaultTextStyle(
+                            duration: const Duration(milliseconds: 300),
+                            style:
+                                (Theme.of(context).textTheme.headlineMedium ??
+                                        const TextStyle())
+                                    .copyWith(
+                                      fontSize: metrics.titleSize,
+                                      fontWeight: FontWeight.bold,
+                                      color: colorScheme.onSurface,
+                                    ),
+                            child: Text(
+                              'appTitle'.tr(),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                          SizedBox(height: metrics.titleGap),
+                          LoginForm(metrics: metrics),
+                        ],
                       ),
-                      SizedBox(height: context.spaceMd),
-                      AnimatedDefaultTextStyle(
-                        duration: const Duration(milliseconds: 300),
-                        style:
-                            (Theme.of(context).textTheme.headlineMedium ??
-                                    const TextStyle())
-                                .copyWith(
-                                  fontWeight: FontWeight.bold,
-                                  color: colorScheme.onSurface,
-                                ),
-                        child: Text(
-                          'appTitle'.tr(),
-                          textAlign: TextAlign.center,
-                        ),
-                      ),
-                      SizedBox(height: context.spaceMd),
-                      const LoginForm(),
-                    ],
+                    ),
                   ),
-                ),
-              ),
+                );
+              },
             ),
           ),
         ),

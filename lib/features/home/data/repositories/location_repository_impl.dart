@@ -16,12 +16,18 @@ class LocationException implements Exception {
 class LocationRepositoryImpl implements LocationRepository {
   static const _timeout = Duration(seconds: 30);
 
-  LocationSettings _locationSettings({int distanceFilter = 0}) {
+  LocationSettings _locationSettings({
+    int distanceFilter = 0,
+    Duration interval = const Duration(seconds: 2),
+  }) {
     if (Platform.isAndroid) {
       return AndroidSettings(
         accuracy: LocationAccuracy.bestForNavigation,
         forceLocationManager: true,
         distanceFilter: distanceFilter,
+        // Emit on a fixed interval (not only on movement) so mock-location
+        // toggling is detected almost immediately, even when standing still.
+        intervalDuration: interval,
       );
     }
     if (Platform.isIOS) {
@@ -52,8 +58,10 @@ class LocationRepositoryImpl implements LocationRepository {
   @override
   Stream<LocationPoint> watchLocation() async* {
     await _ensurePermission();
+    // distanceFilter: 0 + interval → continuous updates, so fake GPS appears the
+    // moment it is enabled and the map returns the moment it is turned off.
     yield* Geolocator.getPositionStream(
-      locationSettings: _locationSettings(distanceFilter: 10),
+      locationSettings: _locationSettings(distanceFilter: 0),
     ).map(_fromPosition);
   }
 

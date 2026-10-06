@@ -1,5 +1,7 @@
 import 'package:equatable/equatable.dart';
 
+import 'inspector_role.dart';
+
 class User extends Equatable {
   const User({
     required this.id,
@@ -37,6 +39,11 @@ class User extends Equatable {
   final String? fullNameCyrillic;
   final String? regionName;
   final String? districtName;
+
+  /// Inspectorate this user belongs to, derived from the token's `roles`
+  /// claim. `null` when the claim carries no code we recognise.
+  InspectorRole? get inspectorRole =>
+      resolveInspectorRole(roles, position: position);
 
   @override
   List<Object?> get props => [
