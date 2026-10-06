@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import '../../../../core/observability/crash_reporting.dart';
 import '../../../../core/storage/hive_service.dart';
 import '../../domain/entities/pest.dart';
 import '../../domain/entities/plant.dart';
@@ -149,8 +150,17 @@ class ReferenceRepositoryImpl implements ReferenceRepository {
           );
         }
         statuses[key] = ReferenceSyncStepStatus.success;
-      } catch (_) {
+      } catch (error, stack) {
         statuses[key] = ReferenceSyncStepStatus.error;
+        // Not fatal — the app carries on with whatever is cached — but it
+        // matters how many devices break, and on which step.
+        unawaited(
+          CrashReporting.recordNonFatal(
+            error,
+            stack,
+            reason: 'Catalog step failed: $key',
+          ),
+        );
       }
       yield ReferenceSyncProgress(statuses: Map.of(statuses), done: false);
     }

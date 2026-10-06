@@ -213,5 +213,8 @@
   "roleKarantinInspector": "Карантинный инспектор",
   "roleVetInspector": "Вет-инспектор",
   "roleSesInspector": "СЭС-инспектор",
-  "roleSectionLabel": "Роль"
+  "roleSectionLabel": "Роль",
+  "sendDiagnostics": "Отправить журнал диагностики",
+  "sendDiagnosticsHint": "Если в приложении ошибка, отправьте этот файл разработчику",
+  "diagnosticsFailed": "Не удалось отправить журнал"
 }

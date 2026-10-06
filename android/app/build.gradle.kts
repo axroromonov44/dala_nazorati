@@ -8,6 +8,22 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
+// The google-services plugin fails the build without google-services.json,
+// and that file is gitignored (the repository is public). So, exactly like
+// the signing config above: wire it up only when it is usable. CI and a fresh
+// clone still build, and Crashlytics starts working the moment the file is
+// dropped in.
+val googleServicesFile = file("google-services.json")
+if (googleServicesFile.exists()) {
+    apply(plugin = "com.google.gms.google-services")
+    apply(plugin = "com.google.firebase.crashlytics")
+} else {
+    logger.lifecycle(
+        "google-services.json not found - Crashlytics is disabled for this " +
+            "build. Download it from the Firebase console into android/app/."
+    )
+}
+
 val keystoreProperties = Properties()
 val keystorePropertiesFile = rootProject.file("key.properties")
 if (keystorePropertiesFile.exists()) {
@@ -70,6 +86,9 @@ android {
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
+        // flutter_local_notifications uses java.time APIs on older Android
+        // releases too; without desugaring the build fails.
+        isCoreLibraryDesugaringEnabled = true
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
@@ -113,4 +132,8 @@ android {
 
 flutter {
     source = "../.."
+}
+
+dependencies {
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 }

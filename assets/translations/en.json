@@ -213,5 +213,8 @@
   "roleKarantinInspector": "Quarantine inspector",
   "roleVetInspector": "Veterinary inspector",
   "roleSesInspector": "SES inspector",
-  "roleSectionLabel": "Role"
+  "roleSectionLabel": "Role",
+  "sendDiagnostics": "Send diagnostics log",
+  "sendDiagnosticsHint": "If something goes wrong, send this file to the developer",
+  "diagnosticsFailed": "Could not send the log"
 }

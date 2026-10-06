@@ -8,6 +8,7 @@ import '../../features/reference/domain/entities/reference_sync_progress.dart';
 import '../../features/reference/domain/repositories/reference_repository.dart';
 import '../di/injection.dart';
 import '../map/tile_cache_service.dart';
+import '../observability/crash_reporting.dart';
 import '../notifications/app_notification.dart';
 import '../notifications/notification_center.dart';
 
@@ -139,6 +140,7 @@ class AppDownloadController extends ChangeNotifier {
       _catalogSub = getIt<ReferenceRepository>().syncCatalog().listen((
         progress,
       ) {
+        _logStepChanges(progress.statuses);
         statuses.addAll(progress.statuses);
         catalogStepFraction = progress.activeFraction;
         notifyListeners();
@@ -149,6 +151,16 @@ class AppDownloadController extends ChangeNotifier {
     }
   }
 
+  /// Records step transitions in the crash report. When a crash or a
+  /// complaint arrives, this answers "where did the sync stop" — only the
+  /// changes are logged, not every progress tick.
+  void _logStepChanges(Map<String, ReferenceSyncStepStatus> incoming) {
+    for (final entry in incoming.entries) {
+      if (statuses[entry.key] == entry.value) continue;
+      CrashReporting.log('sync: ${entry.key} -> ${entry.value.name}');
+    }
+  }
+
   void _startMapPhaseIfNeeded() {
     final map = mapDownload;
     if (map == null) {
@@ -156,6 +168,7 @@ class AppDownloadController extends ChangeNotifier {
       return;
     }
     statuses[mapStepKey] = ReferenceSyncStepStatus.running;
+    CrashReporting.log('sync: $mapStepKey -> running');
     notifyListeners();
     _mapCancelToken = CancelToken();
     _mapSub =
@@ -174,12 +187,19 @@ class AppDownloadController extends ChangeNotifier {
             statuses[mapStepKey] = ReferenceSyncStepStatus.success;
             _finish();
           },
-          onError: (Object error) {
+          onError: (Object error, StackTrace stack) {
             if (error is DioException &&
                 error.type == DioExceptionType.cancel) {
               return;
             }
             statuses[mapStepKey] = ReferenceSyncStepStatus.error;
+            unawaited(
+              CrashReporting.recordNonFatal(
+                error,
+                stack,
+                reason: 'Offline map download failed',
+              ),
+            );
             _finish();
           },
         );

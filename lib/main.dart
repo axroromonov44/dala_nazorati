@@ -5,6 +5,8 @@ import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'app.dart';
 import 'core/di/injection.dart';
 import 'core/map/tile_cache_service.dart';
+import 'core/observability/crash_reporting.dart';
+import 'core/observability/diagnostics_log.dart';
 import 'core/update/shorebird_update_service.dart';
 import 'features/fields/data/field_media_cache.dart';
 import 'features/reference/data/reference_image_cache.dart';
@@ -13,8 +15,14 @@ void main() async {
   final binding = WidgetsFlutterBinding.ensureInitialized();
   FlutterNativeSplash.preserve(widgetsBinding: binding);
 
+  // First, so every startup failure after this point is reported.
+  await CrashReporting.init();
+
   await EasyLocalization.ensureInitialized();
   await configureDependencies();
+  // configureDependencies opens Hive, which the log writes into.
+  await DiagnosticsLog.init();
+  binding.addObserver(DiagnosticsLifecycleObserver());
   await TileCacheService.init();
   await FieldMediaCache.init();
   await ReferenceImageCache.init();

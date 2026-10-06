@@ -1,6 +1,7 @@
 import 'package:dio/dio.dart';
 
 import '../../../../core/constants/reference_endpoints.dart';
+import '../../../../core/network/diagnostics_interceptor.dart';
 import '../../../../core/network/dio_debug_logger.dart';
 import '../models/pest_model.dart';
 import '../models/plant_model.dart';
@@ -23,6 +24,7 @@ class ReferenceRemoteDataSource {
     // Bodies off: the pest/plant catalogs are hundreds of entries with full
     // descriptions, and dumping them turns every sync into megabytes of logcat
     // that buries the rest of the console and stalls the device.
+    _dio.interceptors.add(DiagnosticsInterceptor());
     attachDebugLogger(_dio, logBody: false);
   }
 

@@ -213,5 +213,8 @@
   "roleKarantinInspector": "Karantin inspektor",
   "roleVetInspector": "Vet inspektor",
   "roleSesInspector": "SES inspektor",
-  "roleSectionLabel": "Rol"
+  "roleSectionLabel": "Rol",
+  "sendDiagnostics": "Diagnostika jurnalini yuborish",
+  "sendDiagnosticsHint": "Ilovada muammo bo‘lsa, shu faylni dasturchiga yuboring",
+  "diagnosticsFailed": "Jurnalni yuborib bo‘lmadi"
 }
