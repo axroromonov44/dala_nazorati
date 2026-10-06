@@ -30,6 +30,7 @@ import '../constants/storage_keys.dart';
 import '../download/app_download_controller.dart';
 import '../network/dio_service.dart';
 import '../theme/theme_cubit.dart';
+import '../notifications/push_service.dart';
 import '../update/remote_config_service.dart';
 import '../update/shorebird_update_service.dart';
 import '../router/app_router.dart';
@@ -67,6 +68,8 @@ Future<void> configureDependencies() async {
   getIt.registerLazySingleton<AppRouter>(() => AppRouter(getIt()));
 
   getIt.registerLazySingleton<ThemeCubit>(() => ThemeCubit(getIt()));
+
+  getIt.registerLazySingleton<PushService>(() => PushService());
 
   getIt.registerLazySingleton<RemoteConfigService>(() => RemoteConfigService());
 

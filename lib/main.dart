@@ -5,6 +5,7 @@ import 'package:flutter_native_splash/flutter_native_splash.dart';
 import 'app.dart';
 import 'core/di/injection.dart';
 import 'core/map/tile_cache_service.dart';
+import 'core/notifications/push_service.dart';
 import 'core/observability/crash_reporting.dart';
 import 'core/observability/diagnostics_log.dart';
 import 'core/update/shorebird_update_service.dart';
@@ -38,4 +39,7 @@ void main() async {
   );
 
   unawaited(getIt<ShorebirdUpdateService>().checkAndUpdateSilently());
+  // After runApp, so the permission prompt lands on the first rendered
+  // screen rather than on an empty window.
+  unawaited(getIt<PushService>().init());
 }
