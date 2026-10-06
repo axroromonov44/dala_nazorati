@@ -11,6 +11,10 @@ update policy, read [`docs/DEVOPS.md`](docs/DEVOPS.md) first and follow the
 procedure there.** It holds the release commands, the workflows, the list of
 secrets and the invariants that must not be broken.
 
+`docs/DEVOPS.md` also records **where the work was left off** — what is done,
+what was deliberately skipped, and the next steps in order. Start there when
+picking the work back up.
+
 In short, a release is:
 
 ```bash

@@ -27,7 +27,10 @@ This file does two jobs:
 | Diagnostics log | ✅ working |
 | Remote Config update policy | ✅ parameters published |
 | Push (FCM) | ✅ working, verified on a real device |
-| CD (TestFlight + Play) | ⚠️ written, **secrets missing**, never run |
+| CD — Android half | ⚠️ 3 of 4 secrets set, **needs `GOOGLE_PLAY_SERVICE_ACCOUNT`** |
+| CD — iOS half | ⚠️ 1 of 7 secrets set, **needs the Apple credentials** |
+| Release signing | ✅ verified locally — `flutter build appbundle --release` produces a signed 79 MB AAB |
+| Branch protection on `main` | ⛔ deliberately not enabled |
 | Shorebird code push | ✅ configured (`shorebird.yaml`) |
 
 The ⚠️ rows depend on [Your TODO](#your-todo).
@@ -532,43 +535,99 @@ the three `InfoPlist.strings`.
 
 ---
 
-## Your TODO
+## Where this was left off
 
-### 1. Turn CI on
+Last updated 2026-10-06. Everything below is the state of the repository as it
+actually stands, not a plan.
 
-```bash
-git add -A && git commit -m "ci: add pipeline, crash reporting and diagnostics"
-git push
+### Done and verified
+
+- `main` carries the whole pipeline; CI passes there (analyze, tests, real
+  Android and iOS builds).
+- Firebase project `nazorat-aat` with both apps registered; Crashlytics,
+  Analytics, Remote Config and FCM are wired.
+- Remote Config parameters are published from `remoteconfig.template.json`.
+- Push notifications were tested end to end on a real device.
+- `flutter build appbundle --release` produces a signed bundle, so the signing
+  configuration itself is known good.
+
+### Deliberately skipped
+
+Branch protection on `main` is **not** enabled. CI runs on every push and pull
+request but does not block a merge. This was a conscious choice, not an
+oversight — do not "fix" it without being asked.
+
+### CD secrets
+
+Already set (taken from files that exist on the development machine):
+
+```
+ANDROID_KEYSTORE_BASE64
+ANDROID_KEY_PROPERTIES
+ANDROID_GOOGLE_SERVICES_JSON
+IOS_GOOGLE_SERVICE_INFO_PLIST
 ```
 
-Wait for all three jobs to pass in the Actions tab, then Settings → Branches
-→ enable "Require status checks to pass" for `main`, so unverified code
-cannot reach it.
+Still needed — each lives in an external console, so it has to be fetched by
+hand:
 
-### 2. CD secrets
-
-Add the 11 secrets from the [table above](#secrets-it-needs), then try a real
-release:
+| secret | where |
+|---|---|
+| `GOOGLE_PLAY_SERVICE_ACCOUNT` | Play Console → Setup → API access |
+| `IOS_CERTIFICATE_P12` | Keychain Access → export the distribution certificate |
+| `IOS_CERTIFICATE_PASSWORD` | chosen during that export |
+| `IOS_PROVISIONING_PROFILE` | Apple Developer → Profiles |
+| `APPSTORE_KEY_ID` | App Store Connect → Users → Integrations → Keys |
+| `APPSTORE_ISSUER_ID` | same page |
+| `APPSTORE_PRIVATE_KEY` | the `.p8`, downloadable only once |
 
 ```bash
-tool/bump_build.sh 1.0.1
-git commit -am "chore: release 1.0.1"
-git tag v1.0.1 && git push origin main v1.0.1
+gh secret set GOOGLE_PLAY_SERVICE_ACCOUNT < ~/Downloads/play-service-account.json
+base64 -i ~/Downloads/dist.p12 | gh secret set IOS_CERTIFICATE_P12
 ```
 
-The iOS signing step may need adjusting on the first run; that is normal.
+The two halves are independent: `GOOGLE_PLAY_SERVICE_ACCOUNT` on its own makes
+Android releases work, without waiting for any of the Apple credentials.
 
-### 3. Backend conversations (separate track)
+### Next steps, in order
 
-- **Catalog images total 1.04 GB.** Thumbnails are needed (WebP 1280px →
-  ~68 MB, 320px → ~17 MB). Raise with the `datahub.karantin.uz` team.
-- **A test account.** There is no staging backend, so a clearly marked test
-  inspector on production is needed — today a developer running `flutter run`
-  writes to the real database.
-- **`page_size` is ignored.** `/reference/plants/` always returns 20 per page,
-  so 184 plants cost 10 sequential requests.
+1. **`GOOGLE_PLAY_SERVICE_ACCOUNT`**, then a first real release to prove the
+   pipeline:
+   ```bash
+   tool/bump_build.sh 1.0.1
+   git commit -am "chore: release 1.0.1"
+   git tag v1.0.1 && git push origin main v1.0.1
+   ```
+   The iOS job will fail until its secrets exist; the Android job should reach
+   Play's internal track.
+2. **The six Apple secrets**, then re-run the release. Expect the signing step
+   to need adjusting on its first run.
+3. **Wire `onMessageOpened` to navigation.** The handler exists but goes
+   nowhere, because which screen to open depends on what `data` the backend
+   sends with a push. Needs a decision first, not code.
+4. **Rotate the keystore passwords** in `android/key.properties`, then update
+   `ANDROID_KEY_PROPERTIES`. Routine hygiene:
+   ```bash
+   keytool -storepasswd -keystore android/keystore.jks
+   keytool -keypasswd -alias upload -keystore android/keystore.jks
+   ```
+   This changes only the passwords, not the key, so nothing breaks in Play
+   Console.
+5. **Backend conversations** (separate track, nothing here blocks on them):
+   - Catalog images total **1.04 GB**. Thumbnails would cut that to roughly
+     68 MB (WebP 1280px) or 17 MB (320px). Raise with the
+     `datahub.karantin.uz` team.
+   - There is no staging backend, so a clearly marked test inspector on
+     production is needed — today `flutter run` writes to the real database.
+   - `page_size` is ignored on `/reference/plants/`, so 184 plants cost 10
+     sequential requests.
 
----
+### Known, accepted, not a bug
+
+Face capture sends frames **un-mirrored** (`karantin_face_scanner.dart` has no
+flip) while the old webview flipped them horizontally. The flow was verified on
+a device and works. If the backend ever starts rejecting face matches, this is
+the first place to look.
 
 ## Keeping this file current
 
