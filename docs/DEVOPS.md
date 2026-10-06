@@ -250,6 +250,14 @@ firebase apps:sdkconfig IOS 1:980297703068:ios:03f2183c045a5bd9eb9759 \
 > `project.pbxproj` under the Runner target's *Copy Bundle Resources* phase.
 > Dropping the file into `ios/Runner/` is not enough — without that entry it
 > never reaches the app bundle and Firebase stays dead on iOS.
+>
+> The flip side: because it is a declared build input, Xcode refuses to build
+> at all when the file is absent. The file is gitignored, so CI would fail on
+> every run. The CI job therefore writes a placeholder before building — it
+> only compiles, never launches the app — while the release workflow restores
+> the real file from `IOS_GOOGLE_SERVICE_INFO_PLIST`. Android solves the same
+> problem differently, by applying its Gradle plugins conditionally, because
+> there the plugin is what demands the file.
 
 ### Gradle plugins are conditional
 
