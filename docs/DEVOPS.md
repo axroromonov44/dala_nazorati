@@ -28,12 +28,12 @@ This file does two jobs:
 | Remote Config update policy | ✅ parameters published |
 | Push (FCM) | ✅ working, verified on a real device |
 | CD — Android half | ✅ proven end to end — `v1.0.1` shipped 1.0.1+19 to the internal track |
-| CD — iOS half | ⚠️ 1 of 7 secrets set, **needs the Apple credentials** |
+| CD — iOS half | ⚠️ 1 of 7 secrets set — parked for a daytime session |
 | Release signing | ✅ verified locally — `flutter build appbundle --release` produces a signed 79 MB AAB |
 | Branch protection on `main` | ⛔ deliberately not enabled |
 | Shorebird code push | ✅ configured (`shorebird.yaml`) |
 
-The ⚠️ row depends on [CD secrets](#cd-secrets).
+The ⚠️ row depends on [Preparing the Apple credentials](#preparing-the-apple-credentials).
 
 ---
 
@@ -613,9 +613,51 @@ hand:
 | `APPSTORE_ISSUER_ID` | same page |
 | `APPSTORE_PRIVATE_KEY` | the `.p8`, downloadable only once |
 
+### Preparing the Apple credentials
+
+Parked on purpose — picked up in a daytime session, since every step runs
+through Apple's consoles. Everything below is what that session starts from.
+
+Two things must already exist, or the run builds an IPA and then fails on the
+last step:
+
+- `com.nazorat.aat.uz` registered under Apple Developer → **Identifiers**
+- an App Store Connect app record for that same bundle id
+
+**The certificate** (`IOS_CERTIFICATE_P12`, `IOS_CERTIFICATE_PASSWORD`).
+Keychain Access → Certificate Assistant → *Request a Certificate from a
+Certificate Authority* → save the CSR. Apple Developer → Certificates → **+** →
+**Apple Distribution** → upload the CSR → download the `.cer` → double-click to
+install. Keychain Access → **My Certificates** → right-click the
+`Apple Distribution:` entry → **Export** as `.p12`, choosing a password.
+
+**The profile** (`IOS_PROVISIONING_PROFILE`). Apple Developer → **Profiles** →
+**+** → **App Store** → App ID `com.nazorat.aat.uz` → that certificate →
+download the `.mobileprovision`.
+
+**The API key** (`APPSTORE_KEY_ID`, `APPSTORE_ISSUER_ID`,
+`APPSTORE_PRIVATE_KEY`). App Store Connect → Users and Access → Integrations →
+**Keys** → **+**, access role **App Manager** — a lesser role cannot upload
+builds. The `.p8` downloads once; both IDs are on that page.
+
 ```bash
-base64 -i ~/Downloads/dist.p12 | gh secret set IOS_CERTIFICATE_P12
+base64 -i ~/Downloads/dist.p12          | gh secret set IOS_CERTIFICATE_P12
+base64 -i ~/Downloads/app.mobileprovision | gh secret set IOS_PROVISIONING_PROFILE
+gh secret set APPSTORE_PRIVATE_KEY < ~/Downloads/AuthKey_XXXXXX.p8
 ```
+
+Note the asymmetry: the `.p12` and the profile go in **base64**, the `.p8` goes
+in as **plain text**, because the workflow writes it straight to a file. Base64
+there builds fine and fails at upload with nothing that points at the cause.
+
+Re-running needs no new tag — `gh workflow run release.yml` replays it.
+
+**Expect the first run to fail on signing.** The Runner target is
+`CODE_SIGN_STYLE = Automatic` while CI installs a profile by hand; that
+combination usually ends in `No profiles for 'com.nazorat.aat.uz' were found`.
+The fix is `signingStyle` and a `provisioningProfiles` dict in
+`ios/ExportOptions.plist`, which cannot be written before the profile exists
+and carries a name.
 
 The two halves are independent: the Android job releases on its own, without
 waiting for any of the Apple credentials. Until they exist the iOS job fails
@@ -623,8 +665,8 @@ while Android still reaches Play — a red run is not a broken release.
 
 ### Next steps, in order
 
-1. **The six Apple secrets**, then re-run the release. Expect the signing step
-   to need adjusting on its first run.
+1. **The six Apple secrets** — see [Preparing the Apple credentials](#preparing-the-apple-credentials),
+   then re-run the release. Expect the signing step to need adjusting first.
 2. **Wire `onMessageOpened` to navigation.** The handler exists but goes
    nowhere, because which screen to open depends on what `data` the backend
    sends with a push. Needs a decision first, not code.
