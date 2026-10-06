@@ -4,6 +4,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/constants/app_colors.dart';
+import '../../../../core/update/update_prompt.dart';
 import '../../../../core/utils/haptic.dart';
 import '../../../auth/presentation/bloc/profile_cubit.dart';
 import '../../../profile/presentation/pages/profile_page.dart';
@@ -30,6 +31,11 @@ class _MainPageState extends State<MainPage> {
   void initState() {
     super.initState();
     unawaited(context.read<ProfileCubit>().refresh());
+    // After login and after the first frame: a dialog cannot be shown over
+    // the splash screen, and the Remote Config request must not slow startup.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(promptForUpdateIfNeeded(context));
+    });
   }
 
   @override

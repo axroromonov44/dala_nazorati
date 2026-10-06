@@ -213,5 +213,14 @@
   "roleKarantinInspector": "Карантинный инспектор",
   "roleVetInspector": "Вет-инспектор",
   "roleSesInspector": "СЭС-инспектор",
-  "roleSectionLabel": "Роль"
+  "roleSectionLabel": "Роль",
+  "sendDiagnostics": "Отправить журнал диагностики",
+  "sendDiagnosticsHint": "Если в приложении ошибка, отправьте этот файл разработчику",
+  "diagnosticsFailed": "Не удалось отправить журнал",
+  "updateRequiredTitle": "Требуется обновление",
+  "updateRequiredBody": "Эта версия приложения больше не поддерживается. Установите новую версию, чтобы продолжить.",
+  "updateAvailableTitle": "Доступна новая версия",
+  "updateAvailableBody": "Вышла новая версия приложения. Рекомендуем обновиться.",
+  "updateNow": "Обновить",
+  "updateLater": "Позже"
 }

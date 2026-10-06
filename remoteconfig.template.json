@@ -1,0 +1,34 @@
+{
+  "parameters": {
+    "min_supported_version": {
+      "defaultValue": { "value": "1.0.0" },
+      "description": "Builds below this version are blocked with a dialog that cannot be dismissed. Leave empty to block nobody.",
+      "valueType": "STRING"
+    },
+    "latest_version": {
+      "defaultValue": { "value": "1.0.0" },
+      "description": "The newest released version. Builds below it get a dismissible update prompt.",
+      "valueType": "STRING"
+    },
+    "update_message": {
+      "defaultValue": { "value": "" },
+      "description": "Shown instead of the built-in text. Use it to spell out why an update is urgent.",
+      "valueType": "STRING"
+    },
+    "store_url_android": {
+      "defaultValue": {
+        "value": "https://play.google.com/store/apps/details?id=com.nazorat.aat.uz"
+      },
+      "description": "Where the Update button sends Android users.",
+      "valueType": "STRING"
+    },
+    "store_url_ios": {
+      "defaultValue": { "value": "" },
+      "description": "App Store link. Empty until the app has an App Store id; the button stays hidden until then.",
+      "valueType": "STRING"
+    }
+  },
+  "version": {
+    "description": "Initial update-policy parameters (see docs/DEVOPS.md)"
+  }
+}

@@ -1,0 +1,7 @@
+/* Ruxsat so'rovlari. */
+"NSCameraUsageDescription" = "Monitoring davomida maydon rasmlarini olish uchun kameraga ruxsat kerak.";
+"NSMicrophoneUsageDescription" = "Maydon videosini yozib olish uchun mikrofondan foydalanish kerak.";
+"NSLocationWhenInUseUsageDescription" = "Joylashuvingiz xaritada qayerda ekaningizni ko'rsatish uchun ishlatiladi.";
+"NSLocationAlwaysAndWhenInUseUsageDescription" = "Joylashuvingiz dala tekshiruvlarini kuzatish uchun, shu jumladan ilova fonda ishlaganda ham ishlatiladi.";
+"NSPhotoLibraryUsageDescription" = "Monitoring yozuviga mavjud rasmlarni biriktirish uchun galereyaga ruxsat kerak.";
+"NSPhotoLibraryAddUsageDescription" = "Olgan maydon rasmlaringizni saqlash uchun galereyaga ruxsat kerak.";

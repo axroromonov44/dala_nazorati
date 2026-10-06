@@ -51,10 +51,8 @@ class _WeatherPageState extends State<WeatherPage> {
     final platform = _controller.platform;
     if (platform is AndroidWebViewController) {
       await platform.setGeolocationPermissionsPromptCallbacks(
-        onShowPrompt: (request) async => const GeolocationPermissionsResponse(
-          allow: true,
-          retain: true,
-        ),
+        onShowPrompt: (request) async =>
+            const GeolocationPermissionsResponse(allow: true, retain: true),
       );
     }
     await _controller.loadRequest(Uri.parse(_forecastUrl));

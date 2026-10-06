@@ -3,7 +3,8 @@ import 'package:flutter/material.dart';
 /// Port of the web client's `ScanAnimation`: a grid overlay with a horizontal
 /// line sweeping top-to-bottom, shown over the captured face while it uploads.
 class FaceScanAnimation extends StatefulWidget {
-  const FaceScanAnimation({super.key, this.scanColor = const Color(0xFF00FF88)});
+  const FaceScanAnimation(
+      {super.key, this.scanColor = const Color(0xFF00FF88)});
 
   final Color scanColor;
 

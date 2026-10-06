@@ -24,10 +24,7 @@ class AppRouter {
         builder: (context, state) => const _SplashPage(),
       ),
       GoRoute(path: '/login', builder: (context, state) => const LoginPage()),
-      GoRoute(
-        path: '/home',
-        builder: (context, state) => const MainPage(),
-      ),
+      GoRoute(path: '/home', builder: (context, state) => const MainPage()),
       GoRoute(
         path: '/profile',
         builder: (context, state) => const ProfilePage(),

@@ -32,8 +32,7 @@ void main() {
   const url =
       'https://s3.efito.uz/datahub/media/pest_images/image_abc123_XyZ.png';
   final md5Name = '${md5.convert(utf8.encode(url))}.png';
-  final legacyName =
-      '${url.hashCode.toUnsigned(32).toRadixString(16)}.png';
+  final legacyName = '${url.hashCode.toUnsigned(32).toRadixString(16)}.png';
 
   test('init creates the cache directory', () async {
     expect(imagesDir.existsSync(), isTrue);

@@ -1,0 +1,7 @@
+/* Запросы разрешений. */
+"NSCameraUsageDescription" = "Доступ к камере нужен для съёмки полей во время мониторинга.";
+"NSMicrophoneUsageDescription" = "Доступ к микрофону нужен для записи видео полей.";
+"NSLocationWhenInUseUsageDescription" = "Геопозиция используется, чтобы показать ваше местоположение на карте.";
+"NSLocationAlwaysAndWhenInUseUsageDescription" = "Геопозиция используется для отслеживания полевых проверок, в том числе когда приложение работает в фоне.";
+"NSPhotoLibraryUsageDescription" = "Доступ к галерее нужен, чтобы прикрепить существующие фото к записи мониторинга.";
+"NSPhotoLibraryAddUsageDescription" = "Доступ к галерее нужен, чтобы сохранять снятые фото полей.";

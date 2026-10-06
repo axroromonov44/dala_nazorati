@@ -156,9 +156,8 @@ class _KarantinFaceScannerState extends State<KarantinFaceScanner>
         front,
         ResolutionPreset.high,
         enableAudio: false,
-        imageFormatGroup: Platform.isIOS
-            ? ImageFormatGroup.bgra8888
-            : ImageFormatGroup.nv21,
+        imageFormatGroup:
+            Platform.isIOS ? ImageFormatGroup.bgra8888 : ImageFormatGroup.nv21,
       );
 
       await controller.initialize();
@@ -183,7 +182,8 @@ class _KarantinFaceScannerState extends State<KarantinFaceScanner>
       if (_isPermissionDenied(e)) {
         widget.onPermissionDenied?.call();
       } else {
-        widget.onError?.call('Kamerani ochib boʻlmadi. Qaytadan urinib koʻring.');
+        widget.onError
+            ?.call('Kamerani ochib boʻlmadi. Qaytadan urinib koʻring.');
       }
     } catch (_) {
       widget.onError?.call('Kamerani ochib boʻlmadi. Qaytadan urinib koʻring.');
@@ -270,7 +270,8 @@ class _KarantinFaceScannerState extends State<KarantinFaceScanner>
     final box = face.boundingBox;
 
     final metadata = inputImage.metadata;
-    var size = metadata?.size ?? Size(image.width.toDouble(), image.height.toDouble());
+    var size =
+        metadata?.size ?? Size(image.width.toDouble(), image.height.toDouble());
     final rotation = metadata?.rotation;
     if (rotation == InputImageRotation.rotation90deg ||
         rotation == InputImageRotation.rotation270deg) {
@@ -763,8 +764,7 @@ double previewBoxAspect({
   required DeviceOrientation orientation,
 }) {
   if (aspectRatio <= 0 || !aspectRatio.isFinite) return 1;
-  final isLandscape =
-      orientation == DeviceOrientation.landscapeLeft ||
+  final isLandscape = orientation == DeviceOrientation.landscapeLeft ||
       orientation == DeviceOrientation.landscapeRight;
   return isLandscape ? aspectRatio : 1 / aspectRatio;
 }
@@ -885,7 +885,9 @@ FrameResult? processCapturedFrames(FrameJob job) {
   final main = _cropSquareResizeJpg(decoded[bestIndex], job.mainMaxDim, 85);
 
   final additional = <Uint8List>[];
-  for (var i = 0; i < decoded.length && additional.length < job.maxAdditional; i++) {
+  for (var i = 0;
+      i < decoded.length && additional.length < job.maxAdditional;
+      i++) {
     if (i == bestIndex) continue;
     additional.add(_resizeJpg(decoded[i], job.additionalMaxDim, 80));
   }
@@ -920,7 +922,8 @@ double _frameScore(img.Image image) {
   if (count == 0) return 0;
   final sharpness = energy / count;
   final brightness = lumSum / count;
-  final exposure = 1 - ((brightness - 128).abs() / 128); // 1 at mid, 0 at extremes
+  final exposure =
+      1 - ((brightness - 128).abs() / 128); // 1 at mid, 0 at extremes
   return sharpness * (0.5 + 0.5 * exposure.clamp(0.0, 1.0));
 }
 

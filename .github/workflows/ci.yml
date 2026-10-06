@@ -1,0 +1,136 @@
+name: CI
+
+# With a single developer there is no second reviewer, so this gate is the
+# reviewer: nothing reaches main without passing analyze and the tests.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+# Pushing twice to the same branch cancels the older run.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Same as the local machine. Bump this together with the local SDK,
+  # otherwise CI checks against a different one and "works on my machine"
+  # becomes possible again.
+  FLUTTER_VERSION: "3.47.1"
+
+jobs:
+  analyze:
+    name: Analyze & test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Dependencies
+        run: |
+          flutter pub get
+          flutter pub get -C packages/karantin_face_sdk
+
+      - name: Format
+        run: |
+          dart format --output=none --set-exit-if-changed \
+            lib test packages/karantin_face_sdk/lib packages/karantin_face_sdk/test
+
+      # --fatal-infos: info-level lints fail the build too. Once they are
+      # allowed to pile up, nobody reads the list any more.
+      - name: Analyze (app)
+        run: flutter analyze --fatal-infos
+
+      - name: Analyze (karantin_face_sdk)
+        run: flutter analyze --fatal-infos
+        working-directory: packages/karantin_face_sdk
+
+      - name: Test (app)
+        run: flutter test --coverage
+
+      - name: Test (karantin_face_sdk)
+        run: flutter test
+        working-directory: packages/karantin_face_sdk
+
+      - name: Coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: coverage/lcov.info
+          if-no-files-found: ignore
+
+  # analyze only looks at Dart. A broken Gradle plugin, a CocoaPods clash or
+  # missing desugaring shows up only in a real build.
+  build-android:
+    name: Android build
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - run: flutter pub get
+
+      # debug needs no signing key; release signing belongs to the CD workflow.
+      - run: flutter build apk --debug
+
+  build-ios:
+    name: iOS build
+    runs-on: macos-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - run: flutter pub get
+
+      # GoogleService-Info.plist is gitignored (the repository is public) but
+      # the Xcode project lists it as a bundle resource, so the build fails
+      # outright without it. The release workflow restores the real file from a
+      # secret; here a placeholder is enough, because this job only ever
+      # compiles — it never launches the app or talks to Firebase.
+      - name: Placeholder Firebase config
+        run: |
+          cat > ios/Runner/GoogleService-Info.plist <<'PLIST'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>API_KEY</key><string>ci-placeholder</string>
+            <key>GCM_SENDER_ID</key><string>000000000000</string>
+            <key>BUNDLE_ID</key><string>com.nazorat.aat.uz</string>
+            <key>PROJECT_ID</key><string>ci-placeholder</string>
+            <key>GOOGLE_APP_ID</key><string>1:000000000000:ios:0000000000000000</string>
+            <key>IS_ANALYTICS_ENABLED</key><false/>
+            <key>IS_SIGNIN_ENABLED</key><true/>
+          </dict>
+          </plist>
+          PLIST
+          plutil -lint ios/Runner/GoogleService-Info.plist
+
+      # --no-codesign still exercises compilation and pod install. Signing
+      # belongs to the CD workflow.
+      - run: flutter build ios --debug --no-codesign

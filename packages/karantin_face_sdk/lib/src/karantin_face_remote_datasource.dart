@@ -11,7 +11,8 @@ import 'karantin_face_session.dart';
 /// A captured face payload ready to upload: the primary (cropped) image plus up
 /// to four additional "check" frames.
 class KarantinFacePayload {
-  const KarantinFacePayload({required this.faceImage, required this.checkImages});
+  const KarantinFacePayload(
+      {required this.faceImage, required this.checkImages});
 
   final Uint8List faceImage;
   final List<Uint8List> checkImages;
@@ -28,34 +29,33 @@ class KarantinFaceRemoteDataSource {
     Dio? dio,
     Dio? redirectDio,
     CookieJar? cookieJar,
-  }) : _config = config,
-       _dio =
-           dio ??
-           Dio(
-             BaseOptions(
-               baseUrl: config.apiBaseUrl,
-               connectTimeout: const Duration(seconds: 30),
-               receiveTimeout: const Duration(seconds: 30),
-               sendTimeout: const Duration(seconds: 30),
-               headers: {'Accept-Language': 'uz'},
-             ),
-           ),
-       _redirectDio =
-           redirectDio ??
-           Dio(
-             BaseOptions(
-               followRedirects: false,
-               connectTimeout: const Duration(seconds: 30),
-               receiveTimeout: const Duration(seconds: 30),
-               validateStatus: (status) => status != null && status < 400,
-             ),
-           ) {
+  })  : _config = config,
+        _dio = dio ??
+            Dio(
+              BaseOptions(
+                baseUrl: config.apiBaseUrl,
+                connectTimeout: const Duration(seconds: 30),
+                receiveTimeout: const Duration(seconds: 30),
+                sendTimeout: const Duration(seconds: 30),
+                headers: {'Accept-Language': 'uz'},
+              ),
+            ),
+        _redirectDio = redirectDio ??
+            Dio(
+              BaseOptions(
+                followRedirects: false,
+                connectTimeout: const Duration(seconds: 30),
+                receiveTimeout: const Duration(seconds: 30),
+                validateStatus: (status) => status != null && status < 400,
+              ),
+            ) {
     final jar = cookieJar ?? CookieJar();
     _dio.interceptors.add(CookieManager(jar));
     _redirectDio.interceptors.add(CookieManager(jar));
 
     if (config.debugLogging) {
-      _dio.interceptors.add(LogInterceptor(requestBody: true, responseBody: true));
+      _dio.interceptors
+          .add(LogInterceptor(requestBody: true, responseBody: true));
       _redirectDio.interceptors.add(LogInterceptor());
     }
   }
@@ -81,7 +81,8 @@ class KarantinFaceRemoteDataSource {
 
     final location = _locationHeader(response);
     if (location == null) {
-      throw const KarantinFaceException('Karantin ID sessiyasini ochib boʻlmadi.');
+      throw const KarantinFaceException(
+          'Karantin ID sessiyasini ochib boʻlmadi.');
     }
 
     final uri = _resolve(location);
@@ -139,7 +140,10 @@ class KarantinFaceRemoteDataSource {
       payload: payload,
       includeScreens: includeScreens,
       deviceFields: deviceFields,
-      fields: {isPnfl ? 'pinfl' : 'passport_number': identifier, 'token': token},
+      fields: {
+        isPnfl ? 'pinfl' : 'passport_number': identifier,
+        'token': token
+      },
     );
   }
 
@@ -229,7 +233,8 @@ class KarantinFaceRemoteDataSource {
 
     final redirectTo = response.data?['redirect_to'];
     if (redirectTo is! String || redirectTo.isEmpty) {
-      throw const KarantinFaceException('Serverdan yoʻnaltirish manzili kelmadi.');
+      throw const KarantinFaceException(
+          'Serverdan yoʻnaltirish manzili kelmadi.');
     }
     return redirectTo;
   }
@@ -263,13 +268,15 @@ class KarantinFaceRemoteDataSource {
           final code = finalUri.queryParameters['code'];
           if (code != null && code.isNotEmpty) return code;
         }
-        throw const KarantinFaceException('Avtorizatsiya kodini olib boʻlmadi.');
+        throw const KarantinFaceException(
+            'Avtorizatsiya kodini olib boʻlmadi.');
       }
 
       current = _resolve(location, base: current);
     }
 
-    throw const KarantinFaceException('Juda koʻp yoʻnaltirish. Qayta urinib koʻring.');
+    throw const KarantinFaceException(
+        'Juda koʻp yoʻnaltirish. Qayta urinib koʻring.');
   }
 
   String? _locationHeader(Response response) {

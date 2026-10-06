@@ -7,6 +7,7 @@ import '../constants/api_endpoints.dart';
 import '../router/navigation_service.dart';
 import '../storage/secure_storage_service.dart';
 import 'api_exception.dart';
+import 'diagnostics_interceptor.dart';
 import 'dio_debug_logger.dart';
 
 class DioService {
@@ -25,6 +26,9 @@ class DioService {
       ),
     );
     _dio.interceptors.add(_AuthInterceptor(_storageService, _dio));
+    // Diagnostics after auth, so the logged outcome is the final one after a
+    // token refresh rather than each individual attempt.
+    _dio.interceptors.add(DiagnosticsInterceptor());
     attachDebugLogger(_dio);
   }
 

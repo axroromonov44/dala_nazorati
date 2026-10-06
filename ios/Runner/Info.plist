@@ -27,17 +27,17 @@
 		<key>LSRequiresIPhoneOS</key>
 		<true/>
 		<key>NSCameraUsageDescription</key>
-		<string>Monitoring davomida maydon rasmlarini olish uchun kameraga ruxsat kerak</string>
+		<string>Camera access is needed to photograph fields during monitoring.</string>
 		<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-		<string>Ilovamiz sizning joylashuvingizni kuzatib borish uchun foydalanadi</string>
+		<string>Your location is used to track field inspections, including while the app is in the background.</string>
 		<key>NSLocationWhenInUseUsageDescription</key>
-		<string>Ilovamiz sizning joylashuvingizni xaritada ko'rsatish uchun foydalanadi</string>
+		<string>Your location is used to show where you are on the map.</string>
 		<key>NSMicrophoneUsageDescription</key>
-		<string>Maydon videosini yozib olish uchun mikrofondan foydalanish kerak</string>
+		<string>Microphone access is needed to record field videos.</string>
 		<key>NSPhotoLibraryAddUsageDescription</key>
-		<string>Olingan maydon rasmlarini foto kutubxonangizga saqlash uchun ruxsat kerak</string>
+		<string>Photo library access is needed to save field photos you take.</string>
 		<key>NSPhotoLibraryUsageDescription</key>
-		<string>Monitoring uchun galereyadan mavjud rasmlarni tanlash uchun ruxsat kerak</string>
+		<string>Photo library access is needed to attach existing photos to a monitoring record.</string>
 		<key>UIApplicationSceneManifest</key>
 		<dict>
 			<key>UIApplicationSupportsMultipleScenes</key>
@@ -80,5 +80,10 @@
 			<string>UIInterfaceOrientationLandscapeLeft</string>
 			<string>UIInterfaceOrientationLandscapeRight</string>
 		</array>
-	</dict>
+		<!-- FCM: lets the app receive messages while backgrounded. -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+	</array>
+</dict>
 </plist>
