@@ -27,7 +27,7 @@ This file does two jobs:
 | Diagnostics log | ✅ working |
 | Remote Config update policy | ✅ parameters published |
 | Push (FCM) | ✅ working, verified on a real device |
-| CD — Android half | ✅ all 4 secrets set; Play API access verified (HTTP 200 on `edits`) |
+| CD — Android half | ✅ proven end to end — `v1.0.1` shipped 1.0.1+19 to the internal track |
 | CD — iOS half | ⚠️ 1 of 7 secrets set, **needs the Apple credentials** |
 | Release signing | ✅ verified locally — `flutter build appbundle --release` produces a signed 79 MB AAB |
 | Branch protection on `main` | ⛔ deliberately not enabled |
@@ -555,6 +555,9 @@ actually stands, not a plan.
 - Push notifications were tested end to end on a real device.
 - `flutter build appbundle --release` produces a signed bundle, so the signing
   configuration itself is known good.
+- **The Android pipeline has run for real.** Tag `v1.0.1` built and uploaded
+  1.0.1+19; the internal track reports it `completed`. Nothing on that side is
+  theoretical any more.
 
 ### Deliberately skipped
 
@@ -620,22 +623,12 @@ while Android still reaches Play — a red run is not a broken release.
 
 ### Next steps, in order
 
-1. **A first real release to prove the pipeline:**
-   ```bash
-   tool/bump_build.sh 1.0.1
-   git commit -am "chore: release 1.0.1"
-   git tag v1.0.1 && git push origin main v1.0.1
-   ```
-   The iOS job will fail until its secrets exist; the Android job should reach
-   Play's internal track. Play rejects an API upload for a package that has
-   never been published through the Console, but `com.nazorat.aat.uz` already
-   has manually uploaded test bundles, so that gate is behind us.
-2. **The six Apple secrets**, then re-run the release. Expect the signing step
+1. **The six Apple secrets**, then re-run the release. Expect the signing step
    to need adjusting on its first run.
-3. **Wire `onMessageOpened` to navigation.** The handler exists but goes
+2. **Wire `onMessageOpened` to navigation.** The handler exists but goes
    nowhere, because which screen to open depends on what `data` the backend
    sends with a push. Needs a decision first, not code.
-4. **Rotate the keystore passwords** in `android/key.properties`, then update
+3. **Rotate the keystore passwords** in `android/key.properties`, then update
    `ANDROID_KEY_PROPERTIES`. Routine hygiene:
    ```bash
    keytool -storepasswd -keystore android/keystore.jks
@@ -643,7 +636,7 @@ while Android still reaches Play — a red run is not a broken release.
    ```
    This changes only the passwords, not the key, so nothing breaks in Play
    Console.
-5. **Backend conversations** (separate track, nothing here blocks on them):
+4. **Backend conversations** (separate track, nothing here blocks on them):
    - Catalog images total **1.04 GB**. Thumbnails would cut that to roughly
      68 MB (WebP 1280px) or 17 MB (320px). Raise with the
      `datahub.karantin.uz` team.
@@ -651,6 +644,27 @@ while Android still reaches Play — a red run is not a broken release.
      production is needed — today `flutter run` writes to the real database.
    - `page_size` is ignored on `/reference/plants/`, so 184 plants cost 10
      sequential requests.
+
+### The retired bundle id
+
+`com.dala.nazorati.uz` is **dead**. It was the earlier id, it still had a Play
+listing, and the release service account gets `403` on it — which reads like a
+permissions problem and is not one. The live package is `com.nazorat.aat.uz`,
+in `android/app/build.gradle.kts`, `release.yml` and the iOS target alike.
+
+Related: SHA fingerprints come from the signing certificate, never from a
+device or a package name, and under Play App Signing the certificate that
+matters is Google's, not the local upload key. The one way to read the real
+one without waiting for a Console page is to ask an installed build:
+
+```bash
+adb shell pm path com.nazorat.aat.uz          # then pull that base.apk
+apksigner verify --print-certs base.apk
+```
+
+`CN=Android, O=Google Inc.` in the output means Play re-signed it, so those
+digests are the production fingerprints. `CN=Android Debug` means the build
+came from `flutter run` and its fingerprint is worth nothing to Firebase.
 
 ### Known, accepted, not a bug
 
