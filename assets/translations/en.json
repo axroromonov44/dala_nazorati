@@ -216,5 +216,11 @@
   "roleSectionLabel": "Role",
   "sendDiagnostics": "Send diagnostics log",
   "sendDiagnosticsHint": "If something goes wrong, send this file to the developer",
-  "diagnosticsFailed": "Could not send the log"
+  "diagnosticsFailed": "Could not send the log",
+  "updateRequiredTitle": "Update required",
+  "updateRequiredBody": "This version of the app is no longer supported. Install the new version to continue.",
+  "updateAvailableTitle": "New version available",
+  "updateAvailableBody": "A new version of the app is available. We recommend updating.",
+  "updateNow": "Update",
+  "updateLater": "Later"
 }

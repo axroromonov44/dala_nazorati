@@ -216,5 +216,11 @@
   "roleSectionLabel": "Rol",
   "sendDiagnostics": "Diagnostika jurnalini yuborish",
   "sendDiagnosticsHint": "Ilovada muammo bo‘lsa, shu faylni dasturchiga yuboring",
-  "diagnosticsFailed": "Jurnalni yuborib bo‘lmadi"
+  "diagnosticsFailed": "Jurnalni yuborib bo‘lmadi",
+  "updateRequiredTitle": "Yangilanish talab qilinadi",
+  "updateRequiredBody": "Ilovaning bu versiyasi endi qo‘llab-quvvatlanmaydi. Davom etish uchun yangi versiyani o‘rnating.",
+  "updateAvailableTitle": "Yangi versiya chiqdi",
+  "updateAvailableBody": "Ilovaning yangi versiyasi mavjud. Yangilashni tavsiya qilamiz.",
+  "updateNow": "Yangilash",
+  "updateLater": "Keyinroq"
 }
