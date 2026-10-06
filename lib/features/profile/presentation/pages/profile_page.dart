@@ -311,12 +311,16 @@ class _BorderedTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return Container(
+    // Material rather than a decorated Container: a ListTile paints its own
+    // background and ink splash onto the nearest Material ancestor, so a
+    // coloured box in between would swallow the tap ripple (and Flutter
+    // asserts about it in debug).
+    return Material(
       clipBehavior: Clip.antiAlias,
-      decoration: BoxDecoration(
-        color: colorScheme.surface,
+      color: colorScheme.surface,
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: colorScheme.outlineVariant),
+        side: BorderSide(color: colorScheme.outlineVariant),
       ),
       child: child,
     );
