@@ -15,17 +15,31 @@ secrets and the invariants that must not be broken.
 what was deliberately skipped, and the next steps in order. Start there when
 picking the work back up.
 
-In short, a release is:
+In short, a test build is:
 
 ```bash
-tool/bump_build.sh 1.1.0        # always +1 on the build number
+tool/bump_build.sh              # build number only: 1.0.1+19 -> 1.0.1+20
+git commit -am "chore: build 1.0.1+20" && git push origin main
+gh workflow run release.yml
+```
+
+**Bump the build number and nothing else unless a new version name was
+actually asked for.** The build number is what the stores order releases by;
+the version name is what users read. Raising the name for an ordinary test
+build puts a number in the store that stands for no change anyone would
+notice.
+
+A release that *does* carry a new version name goes out by tag instead:
+
+```bash
+tool/bump_build.sh 1.1.0
 git commit -am "chore: release 1.1.0"
 git tag v1.1.0 && git push origin main v1.1.0
 ```
 
-The build number must go up by one on every release — both stores reject an
-upload that does not. CI refuses to build when the tag and the version in
-`pubspec.yaml` disagree.
+CI refuses to build when a `v*` tag and the version in `pubspec.yaml`
+disagree, which is why a build-only release is dispatched rather than tagged —
+its tag would already exist. `docs/DEVOPS.md` has the table.
 
 ## Working rules
 

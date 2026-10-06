@@ -27,7 +27,7 @@ This file does two jobs:
 | Diagnostics log | ✅ working |
 | Remote Config update policy | ✅ parameters published |
 | Push (FCM) | ✅ working, verified on a real device |
-| CD — Android half | ✅ proven end to end — `v1.0.1` shipped 1.0.1+19 to the internal track |
+| CD — Android half | ✅ proven end to end — latest is 1.0.2+20 on the internal track |
 | CD — iOS half | ⚠️ 1 of 7 secrets set — parked for a daytime session |
 | Release signing | ✅ verified locally — `flutter build appbundle --release` produces a signed 79 MB AAB |
 | Branch protection on `main` | ⛔ deliberately not enabled |
@@ -50,23 +50,47 @@ flutter analyze --fatal-infos
 flutter test
 (cd packages/karantin_face_sdk && flutter test)
 
-# 2. Bump the build number. Always +1 — both stores reject an upload whose
-#    build number is not higher than the previous one.
-tool/bump_build.sh           # 1.0.0+18 -> 1.0.0+19   (same version name)
-tool/bump_build.sh 1.1.0     # 1.0.0+18 -> 1.1.0+19   (new version name)
+# 2. Bump the build number, and ONLY the build number unless a new version
+#    name was actually asked for. This is the default; see below.
+tool/bump_build.sh           # 1.0.1+19 -> 1.0.1+20   (build only — the default)
 
-# 3. Commit, tag, push
-git commit -am "chore: release $(grep '^version:' pubspec.yaml | sed 's/version: //')"
-git tag v1.1.0
-git push origin main v1.1.0
+# 3. Commit and push, then start the run by hand
+git commit -am "chore: build $(grep '^version:' pubspec.yaml | sed 's/version: //')"
+git push origin main
+gh workflow run release.yml
 ```
 
-The tag starts `.github/workflows/release.yml`:
-`verify` → (`android` ‖ `ios`) → Play internal testing + TestFlight.
+**The build number is the only thing a test build needs.** Both stores order
+releases by it and reject an upload that does not raise it; the version name is
+what users read, and it changes when the release means something to them, not
+once per upload.
 
-`verify` refuses to continue when the tag does not match the version name in
-`pubspec.yaml`. That catches the likeliest mistake — tagging without bumping —
-before a 40-minute build ends in a store rejection.
+#### Why a build-only release is dispatched, not tagged
+
+`verify` refuses to continue when a `v*` tag does not match the version name in
+`pubspec.yaml` — that catches tagging without bumping, before a 40-minute build
+ends in a store rejection. But it also means a build-only bump has no tag it can
+use: `1.0.1+19 -> 1.0.1+20` still wants `v1.0.1`, which already exists and
+cannot be moved.
+
+So the two paths differ, and the first one is the usual one:
+
+| | build only | new version name |
+|---|---|---|
+| bump | `tool/bump_build.sh` | `tool/bump_build.sh 1.1.0` |
+| start the run | `gh workflow run release.yml` | `git tag v1.1.0 && git push origin main v1.1.0` |
+| tag check | skipped (no `v*` ref) | enforced |
+
+The dispatch path is not a workaround. `release.yml` declares
+`workflow_dispatch` precisely so a build can ship without inventing a version
+number for it, and the tag check is written `if: startsWith(github.ref,
+'refs/tags/v')` so it stays out of the way when there is no tag.
+
+> **This has been got wrong once.** Asked for "+1 on the build", `1.0.1+19`
+> went out as **`1.0.2+20`** — the version name was raised only because the
+> tag path was the one written down here, and `v1.0.1` was taken. Nothing
+> broke, but the store now shows a version number that stands for no change
+> an inspector would notice. Reach for `gh workflow run release.yml`.
 
 ### Choosing the version name
 
@@ -76,7 +100,9 @@ before a 40-minute build ends in a store rejection.
 | new feature | `1.0.1` → `1.1.0` |
 | breaking change or large rewrite | `1.1.0` → `2.0.0` |
 
-The build number is independent and only ever goes up by one.
+The build number is independent and only ever goes up by one. A test build
+that is not one of the rows above does not get a new version name — it gets a
+new build number and a dispatched run.
 
 ### When only Dart changed
 
@@ -555,9 +581,12 @@ actually stands, not a plan.
 - Push notifications were tested end to end on a real device.
 - `flutter build appbundle --release` produces a signed bundle, so the signing
   configuration itself is known good.
-- **The Android pipeline has run for real.** Tag `v1.0.1` built and uploaded
-  1.0.1+19; the internal track reports it `completed`. Nothing on that side is
-  theoretical any more.
+- **The Android pipeline has run for real,** twice. `v1.0.1` shipped
+  1.0.1+19 and `v1.0.2` shipped 1.0.2+20; the internal track reports both
+  `completed`. Nothing on that side is theoretical any more.
+- 1.0.2 should have been 1.0.1+20. The version name was raised only because
+  the tag path was the one documented — see
+  [What "ship to test" means](#what-ship-to-test-means), now corrected.
 
 ### Deliberately skipped
 
