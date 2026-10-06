@@ -44,9 +44,9 @@ void main() {
 
       final here = await store.inCells([for (final c in cells) c.packed]);
 
-      expect(await store.count(), 36);
+      expect(await store.count(), 140);
       expect(here, isNotEmpty);
-      expect(here.length, lessThan(36));
+      expect(here.length, lessThan(140));
     });
 
     test('survives a round trip through the geometry blob', () async {
@@ -87,7 +87,7 @@ void main() {
 
       final removed = await store.deleteMockObjects();
 
-      expect(removed, 36);
+      expect(removed, 140);
       expect(await store.count(), 1);
       expect(await store.countMockObjects(), 0);
     });
@@ -124,7 +124,7 @@ void main() {
       final fields = FieldMockSeeder.around(center);
       final index = FieldSpatialIndex()..rebuild(fields);
 
-      expect(fields, hasLength(36));
+      expect(fields, hasLength(140));
       expect(
         index.query(TileMath.boundsFor(center, 600)).length,
         lessThan(fields.length),

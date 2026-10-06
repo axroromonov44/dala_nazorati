@@ -119,8 +119,17 @@ class _LocationMapState extends State<LocationMap>
   final List<LatLng> _currentPoints = [];
   Timer? _viewportDebounce;
 
-  static const _serverFieldFill = Color(0x33FF8F00);
-  static const _serverFieldBorder = Color(0xFFFF8F00);
+  /// Whether the map should keep itself centred on the inspector.
+  ///
+  /// The position stream emits every couple of seconds, and recentring on each
+  /// one meant a pan was undone before the finger had left the screen. Panning
+  /// now takes the map off the leash; the my-location button puts it back on.
+  bool _followUser = true;
+
+  // The same green a freshly drawn polygon uses: an inspector should not have
+  // to learn that orange and green both mean "field".
+  static const _serverFieldFill = Color(0x3300C853);
+  static const _serverFieldBorder = _drawingGreen;
   static const _fieldRadiusMeters = 1000.0;
   static const _fieldMinZoom = 14;
   static const _fieldMaxZoom = 18;
@@ -239,7 +248,9 @@ class _LocationMapState extends State<LocationMap>
     unawaited(_seedMockFields());
 
     Future.delayed(const Duration(milliseconds: 3500), () {
-      if (!mounted) return;
+      // An inspector who started panning during those seconds has said where
+      // they want to be; the intro is not worth overriding that.
+      if (!mounted || !_followUser) return;
       _flyTo(
         LatLng(widget.location.latitude, widget.location.longitude),
         zoom: _zoomDetail,
@@ -296,7 +307,7 @@ class _LocationMapState extends State<LocationMap>
   @override
   void didUpdateWidget(LocationMap oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.location != widget.location) {
+    if (_followUser && oldWidget.location != widget.location) {
       _flyTo(LatLng(widget.location.latitude, widget.location.longitude));
     }
   }
@@ -366,6 +377,11 @@ class _LocationMapState extends State<LocationMap>
   }
 
   void _onPositionChanged(MapCamera camera, bool hasGesture) {
+    // Only a real gesture counts. Our own _flyTo also lands here, and treating
+    // that as panning would switch following off the moment it was switched on.
+    if (hasGesture && _followUser) {
+      setState(() => _followUser = false);
+    }
     _viewportDebounce?.cancel();
     _viewportDebounce = Timer(const Duration(milliseconds: 250), () {
       if (!mounted) return;
@@ -719,8 +735,13 @@ class _LocationMapState extends State<LocationMap>
                 kVerticalSpace8,
                 _MapButton(
                   heroTag: 'my_location',
-                  icon: Icons.my_location,
-                  onPressed: hTap(() => _flyTo(latLng, zoom: _zoomDetail))!,
+                  icon: _followUser
+                      ? Icons.my_location
+                      : Icons.location_searching,
+                  onPressed: hTap(() {
+                    setState(() => _followUser = true);
+                    _flyTo(latLng, zoom: _zoomDetail);
+                  })!,
                 ),
                 kVerticalSpace8,
                 _MapButton(

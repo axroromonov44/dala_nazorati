@@ -24,13 +24,22 @@ abstract final class FieldMockSeeder {
   /// drop them instead of leaving invented polygons mixed into live data.
   static const idPrefix = 'mock-';
 
-  static const _fieldCount = 36;
+  static const _fieldCount = 140;
 
   /// Rings rather than one disc: panning outward has to keep finding fields
   /// that were never on screen before, which is the whole point of the
   /// viewport query. A single cluster around the inspector would look correct
   /// while testing nothing.
-  static const _ringRadiiMeters = <double>[450, 1200, 2100, 3300];
+  static const _ringRadiiMeters = <double>[
+    400,
+    900,
+    1500,
+    2300,
+    3200,
+    4300,
+    5600,
+    7000,
+  ];
 
   static const _metersPerDegreeLatitude = 111320.0;
 
