@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- For TestFlight and the App Store. CI runs `flutter build ipa` with
+	     this file, so Xcode never has to be opened. -->
+	<key>method</key>
+	<string>app-store</string>
+
+	<!-- Must match DEVELOPMENT_TEAM on the Runner target. -->
+	<key>teamID</key>
+	<string>PTV6284A36</string>
+
+	<!-- Uploads dSYMs so Crashlytics can symbolicate iOS crashes. Without
+	     them a stack trace is just a list of addresses. -->
+	<key>uploadSymbols</key>
+	<true/>
+
+	<key>stripSwiftSymbols</key>
+	<true/>
+</dict>
+</plist>
