@@ -16,12 +16,10 @@ void main() async {
   final binding = WidgetsFlutterBinding.ensureInitialized();
   FlutterNativeSplash.preserve(widgetsBinding: binding);
 
-  // First, so every startup failure after this point is reported.
   await CrashReporting.init();
 
   await EasyLocalization.ensureInitialized();
   await configureDependencies();
-  // configureDependencies opens Hive, which the log writes into.
   await DiagnosticsLog.init();
   binding.addObserver(DiagnosticsLifecycleObserver());
   await TileCacheService.init();
@@ -39,7 +37,5 @@ void main() async {
   );
 
   unawaited(getIt<ShorebirdUpdateService>().checkAndUpdateSilently());
-  // After runApp, so the permission prompt lands on the first rendered
-  // screen rather than on an empty window.
   unawaited(getIt<PushService>().init());
 }
