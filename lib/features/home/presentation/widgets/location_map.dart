@@ -289,7 +289,14 @@ class _LocationMapState extends State<LocationMap>
     );
   }
 
-  void _flyTo(LatLng target, {double zoom = 15.5}) {
+  /// Flies the camera to [target]. Zoom is left exactly where it is unless a
+  /// value is given: following the inspector is a pan, and moving the zoom
+  /// underneath them is not something they asked for.
+  ///
+  /// This used to default to 15.5, which is not even one of [_allowedZooms] —
+  /// so every position update dragged the camera back to it and undid both the
+  /// intro and the inspector's own zoom.
+  void _flyTo(LatLng target, {double? zoom}) {
     if (!_mapReady) return;
     final cam = _mapController.camera;
     _latAnim = Tween<double>(
@@ -300,16 +307,30 @@ class _LocationMapState extends State<LocationMap>
       begin: cam.center.longitude,
       end: target.longitude,
     ).animate(_flyCurve);
-    _zoomAnim = Tween<double>(begin: cam.zoom, end: zoom).animate(_flyCurve);
+    _zoomAnim = Tween<double>(
+      begin: cam.zoom,
+      end: zoom ?? cam.zoom,
+    ).animate(_flyCurve);
     _flyController.forward(from: 0);
   }
 
   @override
   void didUpdateWidget(LocationMap oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (_followUser && oldWidget.location != widget.location) {
-      _flyTo(LatLng(widget.location.latitude, widget.location.longitude));
+    if (!_followUser || !_mapReady) return;
+    if (oldWidget.location == widget.location) return;
+
+    final target = LatLng(widget.location.latitude, widget.location.longitude);
+    // The position stream emits every two seconds whether or not the inspector
+    // moved, and LocationPoint carries a timestamp and an accuracy, so every
+    // emission is a different object. Re-animating for a metre of GPS noise
+    // kept the map twitching under a standing inspector; only a move worth
+    // following is followed.
+    if (_distanceCalc.distance(_mapController.camera.center, target) <
+        _followMinMeters) {
+      return;
     }
+    _flyTo(target);
   }
 
   @override
@@ -393,6 +414,11 @@ class _LocationMapState extends State<LocationMap>
 
   static const _maxRadiusMeters = 300.0;
   static const _distanceCalc = Distance();
+
+  /// Below this the map stays put. GPS set to bestForNavigation wanders by a
+  /// few metres while standing still, and chasing that is what made the
+  /// camera appear to drift on its own.
+  static const _followMinMeters = 15.0;
 
   void _onMapTap(TapPosition tapPos, LatLng point) {
     if (_isDrawing) {

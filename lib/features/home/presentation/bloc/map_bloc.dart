@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../../core/observability/diagnostics_log.dart';
 import '../../domain/entities/location_point.dart';
 import '../../domain/repositories/location_repository.dart';
 import '../../domain/usecases/get_current_location_usecase.dart';
@@ -26,8 +27,18 @@ class MapBloc extends Bloc<MapEvent, MapState> {
   final WatchLocationUseCase _watchLocationUseCase;
   final LocationRepository _locationRepository;
 
+  static const _tag = 'map';
+
   StreamSubscription<LocationPoint>? _locationSubscription;
   StreamSubscription<bool>? _serviceSubscription;
+
+  /// A cold start can report the location service as disabled for a moment
+  /// before the platform settles, and the first permission read can land in
+  /// the same gap. Surfacing that straight away replaced the whole map with an
+  /// error page for an instant on a phone whose location had been on the whole
+  /// time, so the first such answer buys one quiet retry instead.
+  static const _settleDelay = Duration(milliseconds: 1200);
+  bool _settleRetryUsed = false;
 
   Future<void> _onLocationStarted(
     MapEvent event,
@@ -63,6 +74,19 @@ class MapBloc extends Bloc<MapEvent, MapState> {
         onError: (Object e) => add(MapLocationError(e.toString())),
       );
     } on LocationUnavailable catch (e) {
+      // Nothing on screen to fall back on and the platform has not had a
+      // chance to settle: wait and ask once more rather than flashing an error
+      // page. The state stays MapLocationLoading, so the inspector sees the
+      // spinner continue instead of the map being taken away.
+      if (remembered == null && !_settleRetryUsed) {
+        _settleRetryUsed = true;
+        DiagnosticsLog.info(_tag, 'location blocked at startup, retrying once');
+        await Future<void>.delayed(_settleDelay);
+        if (isClosed) return;
+        add(const MapLocationRetried());
+        return;
+      }
+      DiagnosticsLog.warn(_tag, 'location blocked: ${e.reason.name}');
       emit(
         MapLocationBlocked(
           reason: e.reason,
@@ -71,6 +95,7 @@ class MapBloc extends Bloc<MapEvent, MapState> {
         ),
       );
     } catch (e) {
+      DiagnosticsLog.error(_tag, 'location failed', error: e);
       emit(MapLocationFailure(e.toString()));
     }
   }
@@ -82,8 +107,16 @@ class MapBloc extends Bloc<MapEvent, MapState> {
             : MapLocationLoaded(event.location),
       );
 
-  void _onLocationError(MapLocationError event, Emitter<MapState> emit) =>
-      emit(MapLocationFailure(event.message));
+  void _onLocationError(MapLocationError event, Emitter<MapState> emit) {
+    // The position stream fails transiently in the field all the time. Taking
+    // the map down for it would cost the inspector the fields they are reading
+    // over a fault that is usually gone by the next emission, so a position
+    // already on screen is kept and only the log records it.
+    final current = state;
+    DiagnosticsLog.warn(_tag, 'position stream error', error: event.message);
+    if (current is MapLocationLoaded) return;
+    emit(MapLocationFailure(event.message));
+  }
 
   Future<void> _onServiceStatusChanged(
     MapServiceStatusChanged event,
