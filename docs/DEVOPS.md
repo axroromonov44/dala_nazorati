@@ -27,8 +27,8 @@ This file does two jobs:
 | Diagnostics log | ✅ working |
 | Remote Config update policy | ✅ parameters published |
 | Push (FCM) | ✅ working, verified on a real device |
-| CD — Android half | ✅ proven end to end — latest is 1.0.2+20 on the internal track |
-| CD — iOS half | ⚠️ secrets complete; the IPA build is the step still failing |
+| CD — Android half | ✅ proven end to end — latest is 1.0.2+25 on the internal track |
+| CD — iOS half | ✅ proven end to end — 1.0.2+25 reached TestFlight (run 37592011891) |
 | Release signing | ✅ verified locally — `flutter build appbundle --release` produces a signed 79 MB AAB |
 | Branch protection on `main` | ⛔ deliberately not enabled |
 | Shorebird code push | ✅ configured (`shorebird.yaml`) |
@@ -656,10 +656,10 @@ the iOS side, so the first run is where the remaining problems show up.
 
 ### Preparing the Apple credentials
 
-Parked on purpose — picked up in a daytime session, since every step runs
-through Apple's consoles. Everything below is what that session starts from.
+All of this is done — kept as the record of how, since a certificate expires
+in a year and a profile with it. Every step runs through Apple's consoles.
 
-Two things must already exist, or the run builds an IPA and then fails on the
+Two things must exist first, or the run builds an IPA and then fails on the
 last step:
 
 - `com.nazorat.aat.uz` registered under Apple Developer → **Identifiers**
@@ -763,21 +763,20 @@ cd ios && xcodebuild -project Runner.xcodeproj -target Runner \
 `PROVISIONING_PROFILE_SPECIFIER` is the profile's internal `Name`, not its
 file name.
 
+With that in place run 37592011891 went green on all three jobs, putting
+1.0.2+25 on the Play internal track and in TestFlight. That is the first time
+the iOS half completed.
+
 The two halves are independent: the Android job releases on its own, without
 waiting for any of the Apple credentials. Until they exist the iOS job fails
 while Android still reaches Play — a red run is not a broken release.
 
 ### Next steps, in order
 
-1. **Get the iOS release past the IPA build.** Run 37590185220 reached
-   `Build IPA` and failed there; the manual-signing settings that answer it
-   went in afterwards and have not been through a run yet. The upload step
-   beyond it is still unproven, and it needs an App Store Connect app record
-   for `com.nazorat.aat.uz` — worth confirming before blaming the signing.
-2. **Wire `onMessageOpened` to navigation.** The handler exists but goes
+1. **Wire `onMessageOpened` to navigation.** The handler exists but goes
    nowhere, because which screen to open depends on what `data` the backend
    sends with a push. Needs a decision first, not code.
-3. **Rotate the keystore passwords** in `android/key.properties`, then update
+2. **Rotate the keystore passwords** in `android/key.properties`, then update
    `ANDROID_KEY_PROPERTIES`. Routine hygiene:
    ```bash
    keytool -storepasswd -keystore android/keystore.jks
@@ -785,7 +784,7 @@ while Android still reaches Play — a red run is not a broken release.
    ```
    This changes only the passwords, not the key, so nothing breaks in Play
    Console.
-4. **Backend conversations** (separate track, nothing here blocks on them):
+3. **Backend conversations** (separate track, nothing here blocks on them):
    - Catalog images total **1.04 GB**. Thumbnails would cut that to roughly
      68 MB (WebP 1280px) or 17 MB (320px). Raise with the
      `datahub.karantin.uz` team.
