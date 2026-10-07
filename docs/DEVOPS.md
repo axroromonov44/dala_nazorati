@@ -28,7 +28,7 @@ This file does two jobs:
 | Remote Config update policy | ✅ parameters published |
 | Push (FCM) | ✅ working, verified on a real device |
 | CD — Android half | ✅ proven end to end — latest is 1.0.2+20 on the internal track |
-| CD — iOS half | ⚠️ 7 of 7 secrets set — never yet run end to end |
+| CD — iOS half | ⚠️ secrets complete; the IPA build is the step still failing |
 | Release signing | ✅ verified locally — `flutter build appbundle --release` produces a signed 79 MB AAB |
 | Branch protection on `main` | ⛔ deliberately not enabled |
 | Shorebird code push | ✅ configured (`shorebird.yaml`) |
@@ -723,13 +723,45 @@ goes through macOS `security`, the same tool that wrote it.
 
 Re-running needs no new tag — `gh workflow run release.yml` replays it.
 
-**The signing fix is already in.** The Runner target is
-`CODE_SIGN_STYLE = Automatic` while CI installs a profile by hand, and that
-combination ends in `No profiles for 'com.nazorat.aat.uz' were found`. So
-`ios/ExportOptions.plist` now carries `signingStyle = manual` and a
-`provisioningProfiles` dict naming `Nazorat AAT`. This was written blind — the
-release has not run since — so if the export still fails, the next lever is
-`signingCertificate` (`Apple Distribution`) in the same file.
+### Signing: the archive and the export are two steps
+
+`flutter build ipa` archives first and exports second, and **they are signed
+from different places.** `ios/ExportOptions.plist` configures only the export.
+The archive uses the Xcode project, so a correct `ExportOptions.plist` does
+nothing for it — run 37590185220 failed with the certificate and the profile
+both in place:
+
+```
+Error (Xcode): No Accounts: Add a new account in Accounts settings.
+Error (Xcode): No profiles for 'com.nazorat.aat.uz' were found: Xcode couldn't
+  find any iOS App Development provisioning profiles matching ...
+```
+
+Two causes, both in the project. The Runner target set no `CODE_SIGN_STYLE`,
+which means automatic, and automatic signing wants an Apple ID that CI does
+not have. And the project level pins
+`CODE_SIGN_IDENTITY[sdk=iphoneos*] = "iPhone Developer"` — the Flutter
+template's default — which is why it hunted for a *development* profile.
+
+So the Runner target's **Release** configuration now carries:
+
+```
+CODE_SIGN_STYLE = Manual;
+"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = "Apple Distribution";
+PROVISIONING_PROFILE_SPECIFIER = "Nazorat AAT";
+```
+
+Release only. Debug and Profile stay automatic, so `flutter run` on a device
+still signs with whichever Apple ID the developer has. Checking it needs no
+build:
+
+```bash
+cd ios && xcodebuild -project Runner.xcodeproj -target Runner \
+  -configuration Release -showBuildSettings | grep CODE_SIGN
+```
+
+`PROVISIONING_PROFILE_SPECIFIER` is the profile's internal `Name`, not its
+file name.
 
 The two halves are independent: the Android job releases on its own, without
 waiting for any of the Apple credentials. Until they exist the iOS job fails
@@ -737,11 +769,11 @@ while Android still reaches Play — a red run is not a broken release.
 
 ### Next steps, in order
 
-1. **Run the iOS release** — `gh workflow run release.yml`. All seven secrets
-   are set and the signing fix is in, but nothing has been verified against a
-   real run. Two things to confirm in Apple's consoles first, or the run
-   builds an IPA and then fails on upload: `com.nazorat.aat.uz` under
-   **Identifiers**, and an App Store Connect app record for it.
+1. **Get the iOS release past the IPA build.** Run 37590185220 reached
+   `Build IPA` and failed there; the manual-signing settings that answer it
+   went in afterwards and have not been through a run yet. The upload step
+   beyond it is still unproven, and it needs an App Store Connect app record
+   for `com.nazorat.aat.uz` — worth confirming before blaming the signing.
 2. **Wire `onMessageOpened` to navigation.** The handler exists but goes
    nowhere, because which screen to open depends on what `data` the backend
    sends with a push. Needs a decision first, not code.
