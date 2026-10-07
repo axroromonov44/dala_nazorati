@@ -32,6 +32,7 @@ This file does two jobs:
 | Release signing | ✅ verified locally — `flutter build appbundle --release` produces a signed 79 MB AAB |
 | Branch protection on `main` | ⛔ deliberately not enabled |
 | Shorebird code push | ✅ configured (`shorebird.yaml`) |
+| Apple certificate + profile | ⏳ both expire **2027-10-07** — see [expiry](#when-the-apple-credentials-expire) |
 
 The ⚠️ row depends on [Preparing the Apple credentials](#preparing-the-apple-credentials).
 
@@ -415,6 +416,11 @@ No new build is needed to block an old version: change the value in the
 console (or the template file) and devices pick it up on their next launch
 (`minimumFetchInterval` is one hour).
 
+> **`store_url_ios` is still empty,** so the update dialog on iOS shows no
+> button at all. TestFlight has builds but there is no public App Store page
+> to point at yet; fill this in the day the app is approved, or an iOS user
+> told to update has nowhere to go.
+
 > **Do not change:** `resolveUpdateRequirement` returns
 > `UpdateRequirement.none` for anything unparseable. Typing `v1.2.0` instead
 > of `1.2.0` in the console must lock **nobody** out. `test/app_version_test.dart`
@@ -721,7 +727,12 @@ either add `-legacy` or use `/usr/bin/openssl` (LibreSSL). This says nothing
 about the file: CI imports it with `apple-actions/import-codesign-certs`, which
 goes through macOS `security`, the same tool that wrote it.
 
-Re-running needs no new tag — `gh workflow run release.yml` replays it.
+Re-running needs no new tag — `gh workflow run release.yml` replays it — but
+it does need `tool/bump_build.sh` first once a run has reached a store. The
+Android and iOS jobs are independent, so a run that failed on iOS has usually
+already uploaded that build number to Play, and Play rejects it the second
+time. Debugging the iOS half therefore costs a build number per attempt;
+1.0.2+24 and +25 went that way.
 
 ### Signing: the archive and the export are two steps
 
@@ -767,16 +778,47 @@ With that in place run 37592011891 went green on all three jobs, putting
 1.0.2+25 on the Play internal track and in TestFlight. That is the first time
 the iOS half completed.
 
+### When the Apple credentials expire
+
+**2027-10-07.** The distribution certificate and the profile expire the same
+day, a year after they were made. After that every iOS release fails at
+signing; Android keeps going, so the run turns red while Play still gets the
+build.
+
+A profile is bound to a certificate, so the order is fixed: certificate first,
+then a new profile, even if only the profile looks expired. The steps are the
+ones above — the walkthrough is kept for this day, not for history. Then reset
+the three secrets (`IOS_CERTIFICATE_P12`, `IOS_CERTIFICATE_PASSWORD`,
+`IOS_PROVISIONING_PROFILE`); the App Store Connect API key is unaffected,
+since it never expires.
+
+> **Keep the profile's name `Nazorat AAT`,** or two files have to change with
+> it: `ios/ExportOptions.plist` and `PROVISIONING_PROFILE_SPECIFIER` in
+> `ios/Runner.xcodeproj/project.pbxproj`. Beware that `Nazorat AAT` is also
+> the app's display name in `Info.plist` and in three
+> `INFOPLIST_KEY_CFBundleDisplayName` entries — a blind find-and-replace over
+> the name either breaks signing or renames the app on the home screen.
+
+Shorebird patches keep working regardless: a patch ships Dart, not a signed
+binary.
+
 The two halves are independent: the Android job releases on its own, without
 waiting for any of the Apple credentials. Until they exist the iOS job fails
 while Android still reaches Play — a red run is not a broken release.
 
 ### Next steps, in order
 
-1. **Wire `onMessageOpened` to navigation.** The handler exists but goes
+1. **Decide on the uncommitted working tree.** `lib/main.dart` has three
+   comments deleted — the ones explaining why `main()` orders
+   `CrashReporting.init()`, `DiagnosticsLog.init()` and `PushService.init()`
+   the way it does. The code is untouched, so this is a style question, not a
+   bug. `pubspec.lock` and `ios/Podfile.lock` also carry patch bumps
+   (`intl 0.20.2 → 0.20.3`, `matcher 0.12.19 → 0.12.20`) that the local gate
+   passed with but CI has never seen.
+2. **Wire `onMessageOpened` to navigation.** The handler exists but goes
    nowhere, because which screen to open depends on what `data` the backend
    sends with a push. Needs a decision first, not code.
-2. **Rotate the keystore passwords** in `android/key.properties`, then update
+3. **Rotate the keystore passwords** in `android/key.properties`, then update
    `ANDROID_KEY_PROPERTIES`. Routine hygiene:
    ```bash
    keytool -storepasswd -keystore android/keystore.jks
@@ -784,7 +826,7 @@ while Android still reaches Play — a red run is not a broken release.
    ```
    This changes only the passwords, not the key, so nothing breaks in Play
    Console.
-3. **Backend conversations** (separate track, nothing here blocks on them):
+4. **Backend conversations** (separate track, nothing here blocks on them):
    - Catalog images total **1.04 GB**. Thumbnails would cut that to roughly
      68 MB (WebP 1280px) or 17 MB (320px). Raise with the
      `datahub.karantin.uz` team.

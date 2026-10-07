@@ -60,6 +60,13 @@ CocoaPods problems.
 
 ## Things worth knowing about this project
 
+- **The folder and the package disagree.** The Dart package, the GitHub repo
+  and the app are all `nazorat_aat` / `Nazorat AAT` / `com.nazorat.aat.uz`;
+  only the local directory is still `dala_nazorati`, left that way on purpose
+  because tooling keys off its absolute path. This paragraph is the only place
+  in the repository that still spells the old name, so `git grep` for it should
+  return these lines and nothing else.
+
 - **There is no staging backend.** Every build talks to production
   (`dala.efito.uz`, `datahub.karantin.uz`, `id.karantin.uz`). Keep that in
   mind when testing anything that writes data.
