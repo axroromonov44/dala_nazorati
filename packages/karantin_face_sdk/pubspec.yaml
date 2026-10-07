@@ -4,7 +4,7 @@ description: >-
   on-device face detection, capture and the full authorize → verify → code flow.
 version: 0.1.0
 publish_to: 'none'
-homepage: https://github.com/axroromonov44/dala_nazorati
+homepage: https://github.com/axroromonov44/nazorat_aat
 
 environment:
   sdk: ^3.5.0

@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:dala_nazorati/core/download/app_download_controller.dart';
-import 'package:dala_nazorati/features/reference/domain/entities/reference_sync_progress.dart';
+import 'package:nazorat_aat/core/download/app_download_controller.dart';
+import 'package:nazorat_aat/features/reference/domain/entities/reference_sync_progress.dart';
 
 /// The progress bar used to count steps, so it jumped to 63% within a second
 /// and then sat there for the whole image download — which is the bulk of the

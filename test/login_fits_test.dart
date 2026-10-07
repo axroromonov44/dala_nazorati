@@ -4,15 +4,15 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:dala_nazorati/core/theme/app_theme.dart';
-import 'package:dala_nazorati/features/auth/domain/entities/user.dart';
-import 'package:dala_nazorati/features/auth/domain/repositories/auth_repository.dart';
-import 'package:dala_nazorati/features/auth/domain/usecases/gov_login_usecase.dart';
-import 'package:dala_nazorati/features/auth/domain/usecases/karantin_login_usecase.dart';
-import 'package:dala_nazorati/features/auth/domain/usecases/login_usecase.dart';
-import 'package:dala_nazorati/features/auth/presentation/bloc/auth_bloc.dart';
-import 'package:dala_nazorati/features/auth/presentation/widgets/login_form.dart';
-import 'package:dala_nazorati/features/auth/presentation/widgets/login_metrics.dart';
+import 'package:nazorat_aat/core/theme/app_theme.dart';
+import 'package:nazorat_aat/features/auth/domain/entities/user.dart';
+import 'package:nazorat_aat/features/auth/domain/repositories/auth_repository.dart';
+import 'package:nazorat_aat/features/auth/domain/usecases/gov_login_usecase.dart';
+import 'package:nazorat_aat/features/auth/domain/usecases/karantin_login_usecase.dart';
+import 'package:nazorat_aat/features/auth/domain/usecases/login_usecase.dart';
+import 'package:nazorat_aat/features/auth/presentation/bloc/auth_bloc.dart';
+import 'package:nazorat_aat/features/auth/presentation/widgets/login_form.dart';
+import 'package:nazorat_aat/features/auth/presentation/widgets/login_metrics.dart';
 
 /// The login screen used to scroll on short Android phones. This measures the
 /// real form and adds the header the page puts above it — both sized from the

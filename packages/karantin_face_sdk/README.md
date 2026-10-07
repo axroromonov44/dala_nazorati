@@ -25,7 +25,7 @@ dependencies:
     path: packages/karantin_face_sdk
     # yoki git orqali:
     # git:
-    #   url: https://github.com/axroromonov44/dala_nazorati.git
+    #   url: https://github.com/axroromonov44/nazorat_aat.git
     #   path: packages/karantin_face_sdk
 ```
 

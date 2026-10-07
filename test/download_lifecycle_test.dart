@@ -1,4 +1,4 @@
-import 'package:dala_nazorati/core/download/download_lifecycle.dart';
+import 'package:nazorat_aat/core/download/download_lifecycle.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 

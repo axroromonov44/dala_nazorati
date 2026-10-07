@@ -6,7 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
 
-import 'package:dala_nazorati/features/reference/data/reference_image_cache.dart';
+import 'package:nazorat_aat/features/reference/data/reference_image_cache.dart';
 
 /// The cache names files after the URL. Those names must survive app restarts
 /// and Dart SDK upgrades, and files written by the previous `String.hashCode`

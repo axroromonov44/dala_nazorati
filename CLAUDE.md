@@ -1,4 +1,4 @@
-# Nazorat AAT — dala_nazorati
+# Nazorat AAT
 
 An offline-first Flutter app for quarantine, veterinary and sanitary
 inspectors. Inspectors work in the field where the connection is weak or

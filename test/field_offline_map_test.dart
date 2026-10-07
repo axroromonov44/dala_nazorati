@@ -1,8 +1,8 @@
-import 'package:dala_nazorati/core/map/tile_math.dart';
-import 'package:dala_nazorati/core/storage/map_object_store.dart';
-import 'package:dala_nazorati/features/fields/data/field_mock_seeder.dart';
-import 'package:dala_nazorati/features/fields/data/field_object_mapper.dart';
-import 'package:dala_nazorati/features/fields/data/field_spatial_index.dart';
+import 'package:nazorat_aat/core/map/tile_math.dart';
+import 'package:nazorat_aat/core/storage/map_object_store.dart';
+import 'package:nazorat_aat/features/fields/data/field_mock_seeder.dart';
+import 'package:nazorat_aat/features/fields/data/field_object_mapper.dart';
+import 'package:nazorat_aat/features/fields/data/field_spatial_index.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';

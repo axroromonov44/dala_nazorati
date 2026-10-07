@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:dala_nazorati/core/update/app_version.dart';
+import 'package:nazorat_aat/core/update/app_version.dart';
 
 /// Version comparison drives the forced update, so a bug here can lock the
 /// whole user base out of the app. The edge cases are covered in detail.

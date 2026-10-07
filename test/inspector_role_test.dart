@@ -1,9 +1,9 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:dala_nazorati/features/auth/domain/entities/inspector_role.dart';
-import 'package:dala_nazorati/features/auth/domain/entities/user.dart';
-import 'package:dala_nazorati/features/auth/presentation/widgets/role_badge.dart';
+import 'package:nazorat_aat/features/auth/domain/entities/inspector_role.dart';
+import 'package:nazorat_aat/features/auth/domain/entities/user.dart';
+import 'package:nazorat_aat/features/auth/presentation/widgets/role_badge.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
