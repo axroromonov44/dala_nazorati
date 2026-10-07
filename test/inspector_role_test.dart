@@ -129,5 +129,49 @@ void main() {
         );
       }
     });
+
+    // The rule is that a new key goes into all three files. Listing the keys
+    // to check meant that only the ones somebody remembered were checked, so
+    // compare the whole sets instead: uz is the fallback locale and therefore
+    // the one that defines what must exist.
+    test('the three files hold exactly the same keys', () {
+      Set<String> keysOf(String lang) =>
+          (jsonDecode(File('assets/translations/$lang.json').readAsStringSync())
+                  as Map<String, dynamic>)
+              .keys
+              .toSet();
+
+      final uz = keysOf('uz');
+      for (final lang in ['ru', 'en']) {
+        final other = keysOf(lang);
+        expect(
+          uz.difference(other),
+          isEmpty,
+          reason: 'missing from $lang.json',
+        );
+        expect(
+          other.difference(uz),
+          isEmpty,
+          reason: 'in $lang.json but not in uz.json',
+        );
+      }
+    });
+
+    test('no translation is left blank', () {
+      for (final lang in ['uz', 'ru', 'en']) {
+        final json =
+            jsonDecode(
+                  File('assets/translations/$lang.json').readAsStringSync(),
+                )
+                as Map<String, dynamic>;
+        for (final entry in json.entries) {
+          expect(
+            entry.value,
+            isA<String>().having((s) => s.trim().isNotEmpty, 'filled', isTrue),
+            reason: '${entry.key} is blank in $lang.json',
+          );
+        }
+      }
+    });
   });
 }

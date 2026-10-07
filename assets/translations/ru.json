@@ -231,5 +231,8 @@
   "locationPermissionBlockedAction": "Настройки",
   "locationApproximateTitle": "Местоположение приблизительное",
   "locationApproximateBody": "Включите «Точное местоположение» для точности",
-  "locationStaleBadge": "Последнее известное местоположение"
+  "locationStaleBadge": "Последнее известное местоположение",
+  "draftRestored": "Сохранённый черновик восстановлен",
+  "draftClear": "Очистить",
+  "draftCleared": "Черновик удалён"
 }

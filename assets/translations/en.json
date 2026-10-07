@@ -231,5 +231,8 @@
   "locationPermissionBlockedAction": "Settings",
   "locationApproximateTitle": "Location is approximate",
   "locationApproximateBody": "Enable precise location for accuracy",
-  "locationStaleBadge": "Last known location"
+  "locationStaleBadge": "Last known location",
+  "draftRestored": "Saved draft restored",
+  "draftClear": "Clear",
+  "draftCleared": "Draft cleared"
 }

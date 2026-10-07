@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
@@ -13,6 +14,8 @@ import '../../../../core/utils/responsive.dart';
 import '../../../reference/data/reference_image_cache.dart';
 import '../../../reference/domain/entities/plant.dart';
 import '../../../reference/presentation/bloc/reference_cubit.dart';
+import '../../data/models/monitoring_draft.dart';
+import '../../data/monitoring_draft_store.dart';
 
 class MonitoringPage extends StatelessWidget {
   const MonitoringPage({super.key, required this.points});
@@ -36,7 +39,7 @@ class _MonitoringView extends StatefulWidget {
 }
 
 class _MonitoringViewState extends State<_MonitoringView>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   late final TabController _tabController;
 
   final _nameCtrl = TextEditingController();
@@ -49,14 +52,135 @@ class _MonitoringViewState extends State<_MonitoringView>
   String? _cropType;
   String? _irrigationType;
   String? _areaError;
-  final List<XFile> _images = [];
+  final List<String> _imagePaths = [];
   final _picker = ImagePicker();
+
+  late final String _draftKey;
+
+  /// Writes are debounced: saving on every keystroke would hit the disk once
+  /// per letter for no gain, since nothing reads the draft until the form is
+  /// opened again.
+  static const _saveDelay = Duration(milliseconds: 700);
+  Timer? _saveTimer;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
     _areaCtrl.addListener(_validateArea);
+    _draftKey = monitoringDraftKey(widget.points);
+    _restoreDraft();
+    for (final controller in [_nameCtrl, _areaCtrl, _varietyCtrl, _notesCtrl]) {
+      controller.addListener(_scheduleSave);
+    }
+    // The form is long enough that the app is likely to be sent to the
+    // background in the middle of it — to take a call, to check a document.
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  /// Fills the form from disk before the first frame, so there is no flash of
+  /// empty fields.
+  void _restoreDraft() {
+    final draft = MonitoringDraftStore.read(_draftKey)?.withExistingImages();
+    if (draft == null || draft.isEmpty) return;
+
+    _nameCtrl.text = draft.name;
+    _areaCtrl.text = draft.area;
+    _varietyCtrl.text = draft.variety;
+    _notesCtrl.text = draft.notes;
+    _ownershipType = draft.ownershipType;
+    _fieldStatus = draft.fieldStatus;
+    _cropType = draft.cropType;
+    _irrigationType = draft.irrigationType;
+    _imagePaths.addAll(draft.imagePaths);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _announceRestore();
+    });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) unawaited(_saveNow());
+  }
+
+  MonitoringDraft _currentDraft() => MonitoringDraft(
+    name: _nameCtrl.text,
+    area: _areaCtrl.text,
+    variety: _varietyCtrl.text,
+    notes: _notesCtrl.text,
+    ownershipType: _ownershipType,
+    fieldStatus: _fieldStatus,
+    cropType: _cropType,
+    irrigationType: _irrigationType,
+    imagePaths: List.unmodifiable(_imagePaths),
+    savedAt: DateTime.now(),
+  );
+
+  void _scheduleSave() {
+    _saveTimer?.cancel();
+    _saveTimer = Timer(_saveDelay, () => unawaited(_saveNow()));
+  }
+
+  Future<void> _saveNow() async {
+    _saveTimer?.cancel();
+    await MonitoringDraftStore.write(_draftKey, _currentDraft());
+  }
+
+  /// A dropdown or a photo is one deliberate act, not a stream of keystrokes,
+  /// so it is worth writing at once.
+  void _saveAtOnce() => unawaited(_saveNow());
+
+  void _onFieldChanged(VoidCallback change) {
+    setState(change);
+    _saveAtOnce();
+  }
+
+  void _announceRestore() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('draftRestored'.tr()),
+        backgroundColor: kGreen,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 6),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        action: SnackBarAction(
+          label: 'draftClear'.tr(),
+          textColor: Colors.white,
+          onPressed: _discardDraft,
+        ),
+      ),
+    );
+  }
+
+  /// Offered with the restore notice, for the case the draft belongs to work
+  /// the inspector has since abandoned. Without it the only way to get an
+  /// empty form back would be to clear every field by hand.
+  void _discardDraft() {
+    hapticLight();
+    final paths = List<String>.from(_imagePaths);
+    setState(() {
+      _nameCtrl.clear();
+      _areaCtrl.clear();
+      _varietyCtrl.clear();
+      _notesCtrl.clear();
+      _ownershipType = null;
+      _fieldStatus = null;
+      _cropType = null;
+      _irrigationType = null;
+      _imagePaths.clear();
+    });
+    unawaited(MonitoringDraftStore.delete(_draftKey));
+    for (final path in paths) {
+      unawaited(MonitoringDraftStore.deletePhoto(path));
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('draftCleared'.tr()),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+    );
   }
 
   void _validateArea() {
@@ -67,8 +191,15 @@ class _MonitoringViewState extends State<_MonitoringView>
 
   @override
   void dispose() {
+    // Before the controllers are disposed, or there is nothing left to read.
+    // Not awaited, because dispose cannot wait — Hive keeps the write queued.
+    unawaited(_saveNow());
+    WidgetsBinding.instance.removeObserver(this);
     _tabController.dispose();
     _areaCtrl.removeListener(_validateArea);
+    for (final controller in [_nameCtrl, _areaCtrl, _varietyCtrl, _notesCtrl]) {
+      controller.removeListener(_scheduleSave);
+    }
     _nameCtrl.dispose();
     _areaCtrl.dispose();
     _varietyCtrl.dispose();
@@ -83,12 +214,21 @@ class _MonitoringViewState extends State<_MonitoringView>
       imageQuality: 85,
       preferredCameraDevice: CameraDevice.rear,
     );
-    if (photo != null) setState(() => _images.add(photo));
+    if (photo == null) return;
+    // Copied out of the temporary directory first: the draft keeps a path,
+    // and the camera's path is one the system may reclaim.
+    final path = await MonitoringDraftStore.persistPhoto(photo);
+    if (!mounted) return;
+    setState(() => _imagePaths.add(path));
+    _saveAtOnce();
   }
 
   void _removeImage(int index) {
     hapticLight();
-    setState(() => _images.removeAt(index));
+    final path = _imagePaths[index];
+    setState(() => _imagePaths.removeAt(index));
+    unawaited(MonitoringDraftStore.deletePhoto(path));
+    _saveAtOnce();
   }
 
   void _onSubmit() {
@@ -121,6 +261,11 @@ class _MonitoringViewState extends State<_MonitoringView>
       return;
     }
     hapticMedium();
+    // The form is finished, so the draft has done its job. Note that
+    // submission itself is still a stub: nothing is sent or stored, which
+    // means this currently throws the answers away. Whoever wires the real
+    // submission must hand the draft over before this line, not after.
+    unawaited(MonitoringDraftStore.delete(_draftKey));
     Navigator.pop(context);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -169,8 +314,10 @@ class _MonitoringViewState extends State<_MonitoringView>
                   fieldStatus: _fieldStatus,
                   isDark: isDark,
                   colorScheme: colorScheme,
-                  onOwnershipChanged: (v) => setState(() => _ownershipType = v),
-                  onStatusChanged: (v) => setState(() => _fieldStatus = v),
+                  onOwnershipChanged: (v) =>
+                      _onFieldChanged(() => _ownershipType = v),
+                  onStatusChanged: (v) =>
+                      _onFieldChanged(() => _fieldStatus = v),
                 ),
                 _CropTab(
                   varietyCtrl: _varietyCtrl,
@@ -179,12 +326,13 @@ class _MonitoringViewState extends State<_MonitoringView>
                   irrigationType: _irrigationType,
                   isDark: isDark,
                   colorScheme: colorScheme,
-                  onCropTypeChanged: (v) => setState(() => _cropType = v),
+                  onCropTypeChanged: (v) =>
+                      _onFieldChanged(() => _cropType = v),
                   onIrrigationChanged: (v) =>
-                      setState(() => _irrigationType = v),
+                      _onFieldChanged(() => _irrigationType = v),
                 ),
                 _MediaTab(
-                  images: _images,
+                  images: _imagePaths,
                   isDark: isDark,
                   colorScheme: colorScheme,
                   onAdd: _pickFromCamera,
@@ -1018,7 +1166,7 @@ class _MediaTab extends StatelessWidget {
     required this.onRemove,
   });
 
-  final List<XFile> images;
+  final List<String> images;
   final bool isDark;
   final ColorScheme colorScheme;
   final VoidCallback onAdd;
@@ -1088,7 +1236,7 @@ class _MediaTab extends StatelessWidget {
                     ClipRRect(
                       borderRadius: BorderRadius.circular(14),
                       child: Image.file(
-                        File(images[i].path),
+                        File(images[i]),
                         width: w,
                         height: w,
                         fit: BoxFit.cover,

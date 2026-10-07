@@ -25,4 +25,8 @@ class StorageKeys {
   static const String fieldsIndexSyncCursor = 'fields_index_sync_cursor';
 
   static const String referenceDataBox = 'reference_data_box';
+
+  /// Monitoring forms the inspector has not finished yet, keyed by the
+  /// polygon they describe. Session data, so [SessionCleaner] wipes it.
+  static const String monitoringDraftBox = 'monitoring_draft_box';
 }

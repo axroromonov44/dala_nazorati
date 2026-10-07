@@ -2,6 +2,7 @@ import '../../features/auth/domain/repositories/auth_repository.dart';
 import '../../features/auth/presentation/bloc/profile_cubit.dart';
 import '../../features/fields/data/field_media_cache.dart';
 import '../../features/fields/domain/repositories/field_repository.dart';
+import '../../features/home/data/monitoring_draft_store.dart';
 import '../../features/reference/data/reference_image_cache.dart';
 import '../constants/storage_keys.dart';
 import '../di/injection.dart';
@@ -38,6 +39,11 @@ abstract final class SessionCleaner {
     await FieldMediaCache.clear();
     await ReferenceImageCache.clear();
     await TileCacheService.clearCache(notify: false);
+
+    // Unfinished monitoring forms, with the photos taken for them. A draft is
+    // one inspector's field notes and has no business reappearing for the
+    // next person to hold the phone.
+    await MonitoringDraftStore.clear();
 
     await hive.offlineQueueBox.clear();
     await hive.referenceDataBox.clear();

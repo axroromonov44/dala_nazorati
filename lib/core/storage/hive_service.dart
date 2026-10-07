@@ -13,6 +13,8 @@ class HiveService {
 
   late Box<dynamic> referenceDataBox;
 
+  late Box<dynamic> monitoringDraftBox;
+
   static Future<HiveService> create() async {
     await Hive.initFlutter();
     final service = HiveService();
@@ -24,6 +26,9 @@ class HiveService {
       StorageKeys.fieldPhotoMetaBox,
     );
     service.referenceDataBox = await Hive.openBox(StorageKeys.referenceDataBox);
+    service.monitoringDraftBox = await Hive.openBox(
+      StorageKeys.monitoringDraftBox,
+    );
     return service;
   }
 }
