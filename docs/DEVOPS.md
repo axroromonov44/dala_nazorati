@@ -28,7 +28,7 @@ This file does two jobs:
 | Remote Config update policy | ✅ parameters published |
 | Push (FCM) | ✅ working, verified on a real device |
 | CD — Android half | ✅ proven end to end — latest is 1.0.2+20 on the internal track |
-| CD — iOS half | ⚠️ 1 of 7 secrets set — parked for a daytime session |
+| CD — iOS half | ⚠️ 7 of 7 secrets set — never yet run end to end |
 | Release signing | ✅ verified locally — `flutter build appbundle --release` produces a signed 79 MB AAB |
 | Branch protection on `main` | ⛔ deliberately not enabled |
 | Shorebird code push | ✅ configured (`shorebird.yaml`) |
@@ -596,7 +596,8 @@ oversight — do not "fix" it without being asked.
 
 ### CD secrets
 
-Already set — the whole Android half:
+Already set — the whole Android half, the App Store Connect API key and the
+distribution certificate:
 
 ```
 ANDROID_KEYSTORE_BASE64
@@ -604,7 +605,21 @@ ANDROID_KEY_PROPERTIES
 ANDROID_GOOGLE_SERVICES_JSON
 GOOGLE_PLAY_SERVICE_ACCOUNT
 IOS_GOOGLE_SERVICE_INFO_PLIST
+APPSTORE_KEY_ID
+APPSTORE_ISSUER_ID
+APPSTORE_PRIVATE_KEY
+IOS_CERTIFICATE_P12
+IOS_CERTIFICATE_PASSWORD
+IOS_PROVISIONING_PROFILE
 ```
+
+The ASC key is `L2B3479S8C`. Do not confuse it with `WDL4G34DNC`, the APNs key
+in Firebase: both are `AuthKey_<id>.p8` files holding an EC private key, so
+only the console they came from tells them apart — an ASC key comes from
+App Store Connect → Users and Access → Integrations → Keys, never from
+Apple Developer → Keys. `release.yml` writes the secret to
+`AuthKey_$KEY_ID.p8`, so `APPSTORE_KEY_ID` must be the id of the key the
+`.p8` actually belongs to.
 
 `GOOGLE_PLAY_SERVICE_ACCOUNT` is the `play-release-ci@nazorat-aat` service
 account, created in the `nazorat-aat` Google Cloud project — a Firebase project
@@ -630,17 +645,14 @@ curl -X POST -H "Authorization: Bearer $(gcloud auth print-access-token \
   https://androidpublisher.googleapis.com/androidpublisher/v3/applications/com.nazorat.aat.uz/edits
 ```
 
-Still needed — each lives in an external console, so it has to be fetched by
-hand:
+Nothing is missing any more. The release has still never run end to end on
+the iOS side, so the first run is where the remaining problems show up.
 
-| secret | where |
-|---|---|
-| `IOS_CERTIFICATE_P12` | Keychain Access → export the distribution certificate |
-| `IOS_CERTIFICATE_PASSWORD` | chosen during that export |
-| `IOS_PROVISIONING_PROFILE` | Apple Developer → Profiles |
-| `APPSTORE_KEY_ID` | App Store Connect → Users → Integrations → Keys |
-| `APPSTORE_ISSUER_ID` | same page |
-| `APPSTORE_PRIVATE_KEY` | the `.p8`, downloadable only once |
+> `gh secret set X < ~/Downloads/file` fails with `Operation not permitted`
+> when it runs from an agent or a tool: macOS guards `~/Downloads` and
+> `~/Desktop` per application, and moving the file between those two changes
+> nothing. `~/Documents` is not guarded, so moving the file there is the
+> simplest fix; otherwise run it from Terminal.app, which asks once.
 
 ### Preparing the Apple credentials
 
@@ -653,40 +665,71 @@ last step:
 - `com.nazorat.aat.uz` registered under Apple Developer → **Identifiers**
 - an App Store Connect app record for that same bundle id
 
-**The certificate** (`IOS_CERTIFICATE_P12`, `IOS_CERTIFICATE_PASSWORD`).
-Keychain Access → Certificate Assistant → *Request a Certificate from a
+**The certificate** — ✅ done:
+`Apple Distribution: Shokhrukh Shodiev (PTV6284A36)`, valid until 2027-10-07.
+How it was obtained: Keychain Access → Certificate Assistant → *Request a Certificate from a
 Certificate Authority* → save the CSR. Apple Developer → Certificates → **+** →
 **Apple Distribution** → upload the CSR → download the `.cer` → double-click to
 install. Keychain Access → **My Certificates** → right-click the
 `Apple Distribution:` entry → **Export** as `.p12`, choosing a password.
 
-**The profile** (`IOS_PROVISIONING_PROFILE`). Apple Developer → **Profiles** →
-**+** → **App Store** → App ID `com.nazorat.aat.uz` → that certificate →
-download the `.mobileprovision`.
+**The profile** — ✅ done: `Nazorat AAT`, UUID
+`8d8aeb14-c271-47eb-9eb1-b42d5615e774`, valid until 2027-10-07. How it was
+obtained: Apple Developer → **Profiles** → **+** → **App Store** (Apple now
+labels it *App Store Connect*) → App ID `com.nazorat.aat.uz` → that
+certificate → download the `.mobileprovision`.
 
-**The API key** (`APPSTORE_KEY_ID`, `APPSTORE_ISSUER_ID`,
-`APPSTORE_PRIVATE_KEY`). App Store Connect → Users and Access → Integrations →
-**Keys** → **+**, access role **App Manager** — a lesser role cannot upload
-builds. The `.p8` downloads once; both IDs are on that page.
+A profile is worth checking before trusting it, since every way of getting it
+wrong fails the same way later:
 
 ```bash
-base64 -i ~/Downloads/dist.p12          | gh secret set IOS_CERTIFICATE_P12
-base64 -i ~/Downloads/app.mobileprovision | gh secret set IOS_PROVISIONING_PROFILE
-gh secret set APPSTORE_PRIVATE_KEY < ~/Downloads/AuthKey_XXXXXX.p8
+security cms -D -i Nazorat_AAT.mobileprovision > /tmp/p.plist
+/usr/libexec/PlistBuddy -c 'Print :Name' /tmp/p.plist
+/usr/libexec/PlistBuddy -c 'Print :Entitlements:application-identifier' /tmp/p.plist
+/usr/libexec/PlistBuddy -c 'Print :ProvisionedDevices' /tmp/p.plist
 ```
 
-Note the asymmetry: the `.p12` and the profile go in **base64**, the `.p8` goes
-in as **plain text**, because the workflow writes it straight to a file. Base64
-there builds fine and fails at upload with nothing that points at the cause.
+`Name` is what `ExportOptions.plist` needs and it is not the file name — here
+`Nazorat AAT` against `Nazorat_AAT.mobileprovision`. A `ProvisionedDevices`
+array means an Ad Hoc profile, which cannot reach TestFlight. The certificate
+embedded in the profile must be the same one the `.p12` holds; comparing SHA-1
+fingerprints proves it:
+
+```bash
+python3 -c "import plistlib,hashlib;print(hashlib.sha1(plistlib.load(open('/tmp/p.plist','rb'))['DeveloperCertificates'][0]).hexdigest().upper())"
+security find-identity -v -p codesigning | grep Distribution
+```
+
+**The API key** — ✅ done (`L2B3479S8C`). It came from App Store Connect →
+Users and Access → Integrations → **Keys**, access role **App Manager**; a
+lesser role cannot upload builds. The `.p8` downloads once; both IDs are on
+that page.
+
+```bash
+base64 -i ~/Downloads/dist.p12            | gh secret set IOS_CERTIFICATE_P12
+base64 -i ~/Downloads/app.mobileprovision | gh secret set IOS_PROVISIONING_PROFILE
+```
+
+Note the asymmetry: the `.p12` and the profile go in **base64**, while the
+`.p8` went in as **plain text**, because the workflow writes it straight to a
+file. Base64 there builds fine and fails at upload with nothing that points at
+the cause.
+
+Verifying the `.p12` locally with Homebrew's OpenSSL 3 fails on
+`RC2-40-CBC : unsupported` — Apple exports with a cipher OpenSSL 3 retired, so
+either add `-legacy` or use `/usr/bin/openssl` (LibreSSL). This says nothing
+about the file: CI imports it with `apple-actions/import-codesign-certs`, which
+goes through macOS `security`, the same tool that wrote it.
 
 Re-running needs no new tag — `gh workflow run release.yml` replays it.
 
-**Expect the first run to fail on signing.** The Runner target is
-`CODE_SIGN_STYLE = Automatic` while CI installs a profile by hand; that
-combination usually ends in `No profiles for 'com.nazorat.aat.uz' were found`.
-The fix is `signingStyle` and a `provisioningProfiles` dict in
-`ios/ExportOptions.plist`, which cannot be written before the profile exists
-and carries a name.
+**The signing fix is already in.** The Runner target is
+`CODE_SIGN_STYLE = Automatic` while CI installs a profile by hand, and that
+combination ends in `No profiles for 'com.nazorat.aat.uz' were found`. So
+`ios/ExportOptions.plist` now carries `signingStyle = manual` and a
+`provisioningProfiles` dict naming `Nazorat AAT`. This was written blind — the
+release has not run since — so if the export still fails, the next lever is
+`signingCertificate` (`Apple Distribution`) in the same file.
 
 The two halves are independent: the Android job releases on its own, without
 waiting for any of the Apple credentials. Until they exist the iOS job fails
@@ -694,8 +737,11 @@ while Android still reaches Play — a red run is not a broken release.
 
 ### Next steps, in order
 
-1. **The six Apple secrets** — see [Preparing the Apple credentials](#preparing-the-apple-credentials),
-   then re-run the release. Expect the signing step to need adjusting first.
+1. **Run the iOS release** — `gh workflow run release.yml`. All seven secrets
+   are set and the signing fix is in, but nothing has been verified against a
+   real run. Two things to confirm in Apple's consoles first, or the run
+   builds an IPA and then fails on upload: `com.nazorat.aat.uz` under
+   **Identifiers**, and an App Store Connect app record for it.
 2. **Wire `onMessageOpened` to navigation.** The handler exists but goes
    nowhere, because which screen to open depends on what `data` the backend
    sends with a push. Needs a decision first, not code.

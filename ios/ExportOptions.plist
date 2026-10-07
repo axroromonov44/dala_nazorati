@@ -11,6 +11,19 @@
 	<key>teamID</key>
 	<string>PTV6284A36</string>
 
+	<!-- CI installs the profile itself, so the export must not look one up:
+	     the Runner target is CODE_SIGN_STYLE = Automatic, and under automatic
+	     signing xcodebuild fails with "No profiles for 'com.nazorat.aat.uz'
+	     were found" even though the profile is already on disk. The name is
+	     the one inside the profile, not its file name. -->
+	<key>signingStyle</key>
+	<string>manual</string>
+	<key>provisioningProfiles</key>
+	<dict>
+		<key>com.nazorat.aat.uz</key>
+		<string>Nazorat AAT</string>
+	</dict>
+
 	<!-- Uploads dSYMs so Crashlytics can symbolicate iOS crashes. Without
 	     them a stack trace is just a list of addresses. -->
 	<key>uploadSymbols</key>
