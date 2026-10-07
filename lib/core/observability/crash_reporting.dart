@@ -73,6 +73,17 @@ class CrashReporting {
     );
   }
 
+  /// A value attached to every later report, unlike [log], which is a
+  /// one-off line.
+  ///
+  /// This is how a crash is told apart from the same crash on a different
+  /// Shorebird patch: the stack traces are identical, the patch number is
+  /// not.
+  static Future<void> setCustomKey(String key, Object value) async {
+    if (!_active) return;
+    await FirebaseCrashlytics.instance.setCustomKey(key, value);
+  }
+
   /// Ties reports to one inspector, so a "it does not work for me" call can
   /// be matched against the logs.
   ///

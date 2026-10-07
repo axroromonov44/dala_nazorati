@@ -116,6 +116,30 @@ shorebird patch --platforms=android,ios
 A patch **cannot** carry changes to native code, plugins, `pubspec.yaml` or
 assets. Those need a full release.
 
+### Knowing which patch a device is on
+
+`lib/core/update/shorebird_update_service.dart` downloads patches without ever
+telling the inspector, which is right — a patch applies on the next launch and
+there is nothing to decide — but it means a silent failure would otherwise be
+invisible. So the service reports itself:
+
+- **Crashlytics custom key `shorebird_patch`** — the running patch number, or
+  `0` for the release as the stores shipped it, or `unknown` when the number
+  could not be read. Two crashes with identical stack traces are usually the
+  same bug on different patches, and this is the only thing that tells them
+  apart. Filter on it before concluding a patch fixed anything.
+- **The diagnostics log**, under the `shorebird` tag, for every step: the
+  running patch, whether one was available, and why a download did not happen.
+
+The failure reasons are deliberately split. A download that fails because the
+inspector is standing in a field with no signal is logged as a warning and
+goes no further; only a patch that downloaded and then refused to install
+reaches Crashlytics as a non-fatal. Treating both as defects would bury the
+one that is.
+
+`UpdateStatus.restartRequired` is not an error either — it means a patch is
+already waiting and the app has to be reopened. Nothing can hurry that.
+
 ### Rolling back
 
 Halt the internal-track release in Play Console; expire the build in

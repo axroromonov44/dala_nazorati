@@ -64,7 +64,7 @@ dependencies:
   # Code generation annotations
   json_annotation: ^4.9.0
 
-  shorebird_code_push: ^2.0.6
+  shorebird_code_push: ^2.0.7
 
   cupertino_icons: ^1.0.8
   flutter_map_cache: ^1.5.2
